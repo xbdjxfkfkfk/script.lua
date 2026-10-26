@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
---   Z Y P H O R A   H U B   —   P R O   (v1.1 canvas fix)
+--   Z Y P H O R A   H U B   —   P R O   (v1.2 canvas watcher)
 --   Built by ☠ SYSTEM BREACHED ☠ —◥꧁ SHΔDØW HΛCKΞR ꧂◤
 -- ═══════════════════════════════════════════════════════════════
 
@@ -21,14 +21,11 @@ local S = {
 
 local C = {
     bg      = Color3.fromRGB(14, 14, 20),
-    panel   = Color3.fromRGB(30, 30, 44),
-    panelHi = Color3.fromRGB(40, 40, 58),
+    panel   = Color3.fromRGB(34, 34, 50),
+    panelHi = Color3.fromRGB(46, 46, 66),
     accent  = Color3.fromRGB(0, 170, 255),
-    accent2 = Color3.fromRGB(120, 60, 220),
-    text    = Color3.fromRGB(238, 238, 245),
-    sub     = Color3.fromRGB(160, 160, 180),
+    text    = Color3.fromRGB(240, 240, 245),
     on      = Color3.fromRGB(0, 210, 130),
-    off     = Color3.fromRGB(255, 90, 90),
 }
 
 local old = LP.PlayerGui:FindFirstChild("ZyphoraPro")
@@ -43,8 +40,8 @@ GUI.DisplayOrder = 100
 GUI.Parent = LP:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 240, 0, 400)
-Main.Position = UDim2.new(0, 40, 0.5, -200)
+Main.Size = UDim2.new(0, 240, 0, 420)
+Main.Position = UDim2.new(0, 40, 0.5, -210)
 Main.BackgroundColor3 = C.bg
 Main.BorderSizePixel = 0
 Main.Active = true
@@ -118,18 +115,16 @@ MinBtn.MouseButton1Click:Connect(function()
         end
     end
     TweenService:Create(Main, TweenInfo.new(0.22, Enum.EasingStyle.Quart),
-        { Size = isOpen and UDim2.new(0, 240, 0, 400) or UDim2.new(0, 240, 0, 42) }):Play()
+        { Size = isOpen and UDim2.new(0, 240, 0, 420) or UDim2.new(0, 240, 0, 42) }):Play()
     MinBtn.Text = isOpen and "−" or "+"
 end)
 
 CloseBtn.MouseButton1Click:Connect(function()
-    TweenService:Create(Main, TweenInfo.new(0.18, Enum.EasingStyle.Quart),
-        { Size = UDim2.new(0, 0, 0, 0) }):Play()
-    task.delay(0.22, function() GUI:Destroy() end)
+    GUI:Destroy()
 end)
 
 -- ═══════════════════════════════════════════════════════════════
---   SCROLL (manual canvas growth — no AutomaticCanvasSize)
+--   SCROLL
 -- ═══════════════════════════════════════════════════════════════
 local Scroll = Instance.new("ScrollingFrame")
 Scroll.Size = UDim2.new(1, -12, 1, -56)
@@ -140,11 +135,13 @@ Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 Scroll.ScrollBarThickness = 4
 Scroll.ScrollBarImageColor3 = C.accent
 Scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+Scroll.ClipsDescendants = true
 Scroll.Parent = Main
 
 local Layout = Instance.new("UIListLayout", Scroll)
 Layout.SortOrder = Enum.SortOrder.LayoutOrder
 Layout.Padding = UDim.new(0, 6)
+Layout.FillDirection = Enum.FillDirection.Vertical
 
 local Pad = Instance.new("UIPadding", Scroll)
 Pad.PaddingTop = UDim.new(0, 4)
@@ -152,13 +149,17 @@ Pad.PaddingBottom = UDim.new(0, 10)
 Pad.PaddingLeft = UDim.new(0, 2)
 Pad.PaddingRight = UDim.new(0, 2)
 
+-- Live canvas watcher — writes canvas every frame layout resolves
+RunService.RenderStepped:Connect(function()
+    if Scroll and Scroll.Parent then
+        local h = Layout.AbsoluteContentSize.Y
+        if h > 0 and Scroll.CanvasSize.Y.Offset ~= h + 14 then
+            Scroll.CanvasSize = UDim2.new(0, 0, 0, h + 14)
+        end
+    end
+end)
+
 local nextOrder = 0
-local function bumpCanvas()
-    task.defer(function()
-        local h = Layout.AbsoluteContentSize.Y + 14
-        Scroll.CanvasSize = UDim2.new(0, 0, 0, h)
-    end)
-end
 
 local function mkSection(text)
     nextOrder += 1
@@ -178,9 +179,6 @@ local function mkSection(text)
     l.TextSize = 10
     l.TextXAlignment = Enum.TextXAlignment.Left
     l.Parent = f
-
-    bumpCanvas()
-    return f
 end
 
 local function mkBtn(text, cb)
@@ -214,13 +212,11 @@ local function mkBtn(text, cb)
         TweenService:Create(b, TweenInfo.new(0.12), { BackgroundColor3 = C.panel }):Play()
     end)
     b.MouseButton1Click:Connect(function() cb(b, side) end)
-
-    bumpCanvas()
     return b, side
 end
 
 -- ═══════════════════════════════════════════════════════════════
---   NOTIFY RAIL
+--   NOTIFY
 -- ═══════════════════════════════════════════════════════════════
 local NotiHolder = Instance.new("Frame")
 NotiHolder.Size = UDim2.new(0, 260, 1, -40)
@@ -236,7 +232,7 @@ NL.Padding = UDim.new(0, 6)
 local nIdx = 0
 local function notify(msg, kind)
     nIdx += 1
-    local c = (kind == "on" and C.on) or (kind == "off" and C.off) or C.accent
+    local c = (kind == "on" and C.on) or C.accent
     local f = Instance.new("Frame")
     f.Size = UDim2.new(0, 240, 0, 34)
     f.BackgroundColor3 = C.panel
@@ -277,9 +273,6 @@ local function notify(msg, kind)
     end)
 end
 
--- ═══════════════════════════════════════════════════════════════
---   TOGGLE HELPER
--- ═══════════════════════════════════════════════════════════════
 local function toggle(btn, bar, label, key, onFn, offFn)
     S[key] = not S[key]
     local on = S[key]
@@ -622,13 +615,12 @@ local WM = Instance.new("TextLabel")
 WM.Size = UDim2.new(0, 220, 0, 22)
 WM.Position = UDim2.new(0, 20, 0, 12)
 WM.BackgroundTransparency = 1
-WM.Text = "ZYPHORA PRO   •   ☠ SYSTEM BREACHED ☠"
+WM.Text = "ZYPHORA PRO v1.2   •   ☠ SYSTEM BREACHED ☠"
 WM.TextColor3 = C.accent
 WM.Font = Enum.Font.GothamBold
 WM.TextSize = 10
 WM.TextXAlignment = Enum.TextXAlignment.Left
 WM.Parent = GUI
 
-task.delay(0.5, bumpCanvas)
 notify("ZYPHORA PRO loaded", "on")
-print("✅ ZYPHORA PRO v1.1 — Built by ☠ SYSTEM BREACHED ☠ —◥꧁ SHΔDØW HΛCKΞR ꧂◤")
+print("✅ ZYPHORA PRO v1.2 — Built by ☠ SYSTEM BREACHED ☠ —◥꧁ SHΔDØW HΛCKΞR ꧂◤")
