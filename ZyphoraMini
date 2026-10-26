@@ -1,4 +1,4 @@
--- Lx NEXUS PRO v43 | single-file Luau client utility
+-- Lx NEXUS PRO v44 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
 local Players=game:GetService('Players')
 local RunService=game:GetService('RunService')
@@ -12,12 +12,12 @@ if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
 local env=_G
 if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
 if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
-for _,name in ipairs({'Lx_NexusV43','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV43','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+for _,name in ipairs({'Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
  local old=PG:FindFirstChild(name)
  if old then old:Destroy() end
 end
 local alive=true;local conns={};local markers={};local lightSaved={};local atmoSaved={};local originalSpeed=nil;local speedHum=nil
-local S={Radar=false,RadarRange=1500,Aim=false,AimRange=800,AimSmooth=.14,FOV=160,Speed=false,Walk=32,CarSpeed=false,CarTarget=200,CarDirection=1,CarFly=false,FlySpeed=100,Fog=false,Fullbright=false,Merchant=false,Filter='الكل'}
+local S={Radar=false,RadarRange=1500,Aim=false,AimRange=800,AimSmooth=.14,FOV=160,Speed=false,Walk=32,CarSpeed=false,CarTarget=200,CarDirection=1,CarFly=false,FlySpeed=100,Fog=false,Fullbright=false,Merchant=false,ResourceESP=false,RareAlert=true,Filter='الكل'}
 local function conn(signal,fn) local c=signal:Connect(fn);conns[#conns+1]=c;return c end
 local function inst(typ,props,parent) local x=Instance.new(typ);for k,v in pairs(props or {}) do x[k]=v end;x.Parent=parent;return x end
 local function round(x,r) inst('UICorner',{CornerRadius=UDim.new(0,r or 9)},x) end
@@ -26,8 +26,8 @@ local function hum() return LP.Character and LP.Character:FindFirstChildOfClass(
 local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(9,11,20),card=Color3.fromRGB(25,28,43),muted=Color3.fromRGB(150,160,186),white=Color3.fromRGB(248,249,255),purple=Color3.fromRGB(153,101,255),green=Color3.fromRGB(68,211,136)}
-for _,oldName in ipairs({'Lx_NexusV43','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV43','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local gui=inst('ScreenGui',{Name='Lx_NexusV43',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+for _,oldName in ipairs({'Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
+local gui=inst('ScreenGui',{Name='Lx_NexusV44',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 inst('UIStroke',{Color=Color3.fromRGB(70,51,108),Thickness=1.4,Transparency=.12},main)
 local scale=inst('UIScale',{Scale=1},main)
@@ -275,7 +275,7 @@ toggle(merchant,'كشف التجار','Merchant')
 local merchantInfo=label(merchant,'أقرب تاجر: غير مكتشف','المسافة والاتجاه حسب النماذج المحمّلة')
 local merchantText=merchantInfo:FindFirstChildOfClass('TextLabel')
 local selectedMerchant=nil
-local function findMerchant()
+findMerchant=function()
  local r=root();if not r then return nil end
  local best,d=nil,math.huge
  for _,obj in ipairs(WS:GetDescendants()) do
@@ -289,6 +289,28 @@ local function findMerchant()
  return best,d
 end
 action(merchant,'تحديد اتجاه أقرب تاجر',function() local p,d=findMerchant();if not p then msg('التاجر غير محمّل أو غير معروف');return end;selectedMerchant=p;local cam=WS.CurrentCamera;if cam then cam.CFrame=CFrame.lookAt(cam.CFrame.Position,p.Position) end;msg('اتجاه التاجر | '..math.floor(d)..' وحدة') end)
+local loot=tab('النوادر والبيع')
+toggle(loot,'ESP النوادر: الياقوت والتبر وغيرها','ResourceESP',function(on)if not on then clearResourceMarkers() end end)
+toggle(loot,'تنبيه ظهور ضب نادر على الشاشة','RareAlert',function(on)if not on then rareBanner.Visible=false end end)
+label(loot,'كشف النوادر','يكشف العناصر المحمّلة ذات الأسماء المعروفة فقط؛ لا يختلق أماكن أو أسماء')
+action(loot,'الذهاب لأقرب مورد نادر (مع السيارة)',function()
+ local r=root();if not r then return end
+ local best,d=nil,math.huge
+ for _,obj in ipairs(WS:GetDescendants()) do
+  if validResource(obj) then local p=resourcePart(obj);if p then local dis=(p.Position-r.Position).Magnitude;if dis<d then best=p;d=dis end end end
+ end
+ goToPointWithCar(best)
+end)
+action(loot,'الذهاب إلى نقطة البيع',function()
+ local p=nearestNamed(saleWords)
+ if p then goToPointWithCar(p) else msg('نقطة البيع غير معروفة أو غير محمّلة') end
+end)
+action(loot,'الذهاب إلى تاجر الخلا',function()
+ local p=findMerchant()
+ if p then goToPointWithCar(p) else msg('التاجر غير مكتشف') end
+end)
+label(loot,'الخبرة والبيع','الانتقال لا يبيع الضب ولا يمنح XP؛ يجب إتمام البيع داخل نظام الماب')
+
 local aim=tab('التصويب')
 toggle(aim,'التصويب المساعد على الضبان فقط','Aim')
 number(aim,'أقصى مسافة للتصويب','AimRange',100,2000,100)
@@ -316,6 +338,134 @@ local function moveTo(pos)
  r.CFrame=CFrame.new(pos+Vector3.new(0,4,0))
  task.delay(.8,function() if not alive or not r.Parent then return end;if (r.Position-pos).Magnitude>25 then msg('السيرفر أعاد موقعك؛ الانتقال غير مسموح') else msg('الانتقال ثابت محلياً') end end)
 end
+-- Rare resources, sale-point navigation, and rare-spawn notifications.
+-- Detection uses only objects replicated by the current game; names are heuristics.
+local resourceWords={'ياقوت','ruby','تبر','gold nugget','goldnugget','gold ore','gem','جوهرة','emerald','زمرد','diamond','ألماس','الماس','sapphire','ياقوت أزرق','rare ore','خام نادر'}
+local saleWords={'بيع','sell','sale','buyer','المشتري','نقطة البيع','sellpoint','sell zone','sellzone'}
+local function nameMatches(obj,words)
+ local n=string.lower(obj.Name)
+ for _,w in ipairs(words) do if string.find(n,w,1,true) then return true end end
+ return false
+end
+local function resourcePart(obj)
+ if obj:IsA('BasePart') then return obj end
+ if obj:IsA('Model') then return part(obj) end
+ return nil
+end
+local function validResource(obj)
+ if not (obj:IsA('Model') or obj:IsA('BasePart')) or not obj:IsDescendantOf(WS) then return false end
+ if playerAncestor(obj) or blockedAncestor(obj) or lizard(obj) then return false end
+ if not nameMatches(obj,resourceWords) then return false end
+ -- Prefer a single model over every individual part inside it.
+ local par=obj.Parent
+ while par and par~=WS do
+  if (par:IsA('Model') or par:IsA('BasePart')) and nameMatches(par,resourceWords) then return false end
+  par=par.Parent
+ end
+ return resourcePart(obj)~=nil
+end
+local function nearestNamed(words)
+ local r=root();if not r then return nil,nil end
+ local best,d=nil,math.huge
+ for _,obj in ipairs(WS:GetDescendants()) do
+  if (obj:IsA('Model') or obj:IsA('BasePart')) and nameMatches(obj,words) and not playerAncestor(obj) and not blockedAncestor(obj) then
+   local p=resourcePart(obj)
+   if p and (p.Position-r.Position).Magnitude<d then best=p;d=(p.Position-r.Position).Magnitude end
+  end
+ end
+ return best,d
+end
+local function occupiedVehicle()
+ local h=hum();local seat=h and h.SeatPart
+ if not seat or not seat:IsA('BasePart') then return nil,nil end
+ local model=seat:FindFirstAncestorOfClass('Model')
+ if not model or not model:IsDescendantOf(WS) then return nil,nil end
+ return model,seat
+end
+local function goToPointWithCar(target)
+ if not target then msg('الهدف غير محمّل في الماب');return end
+ local car,seat=occupiedVehicle()
+ if not car then moveTo(target.Position);msg('انتقال اللاعب فقط: أنت لست في سيارة');return end
+ local offset=Vector3.new(0,7,0)
+ local before=car:GetPivot()
+ local ok,err=pcall(function()car:PivotTo(CFrame.new(target.Position+offset)*before.Rotation)end)
+ if not ok then msg('تعذر نقل السيارة: '..tostring(err):sub(1,48));return end
+ task.delay(.8,function()
+  if not alive or not car.Parent or not target.Parent then return end
+  if (car:GetPivot().Position-target.Position).Magnitude>30 then msg('السيرفر رفض نقل السيارة أو أعاد موقعها')
+  else msg('تم نقل السيارة محلياً؛ تحقق من ثبات الموقع') end
+ end)
+end
+local findMerchant
+local resourceMarkers={}
+local merchantMarker=nil
+local knownRare={}
+local rareBanner=inst('Frame',{Size=UDim2.fromOffset(340,65),Position=UDim2.new(.5,-170,0,20),BackgroundColor3=Color3.fromRGB(36,22,55),Visible=false,BorderSizePixel=0},gui)
+round(rareBanner,12)
+inst('UIStroke',{Color=C.purple,Thickness=1.5},rareBanner)
+local rareBannerText=inst('TextLabel',{Size=UDim2.new(1,-16,1,-8),Position=UDim2.fromOffset(8,4),BackgroundTransparency=1,TextColor3=C.white,TextSize=14,Font=Enum.Font.GothamBold,TextWrapped=true},rareBanner)
+local bannerUntil=0
+local function billboardFor(target,text,color)
+ local b=inst('BillboardGui',{Adornee=target,Size=UDim2.fromOffset(210,46),StudsOffsetWorldSpace=Vector3.new(0,3,0),AlwaysOnTop=true,MaxDistance=3000},gui)
+ local t=inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text=text,TextColor3=color,TextStrokeTransparency=.18,Font=Enum.Font.GothamBold,TextSize=13,TextWrapped=true},b)
+ return b,t
+end
+local function clearResourceMarkers()
+ for _,b in pairs(resourceMarkers) do b:Destroy() end
+ table.clear(resourceMarkers)
+end
+local function refreshExtrasESP()
+ local r=root()
+ if S.ResourceESP and r then
+  local count=0
+  for _,obj in ipairs(WS:GetDescendants()) do
+   if validResource(obj) then
+    count+=1
+    if count>120 then break end
+    local p=resourcePart(obj)
+    local d=(p.Position-r.Position).Magnitude
+    if d<=3000 then
+     if not resourceMarkers[obj] then resourceMarkers[obj]=billboardFor(p,'',Color3.fromRGB(255,209,95)) end
+     local b=resourceMarkers[obj];b.Adornee=p
+     local t=b:FindFirstChildOfClass('TextLabel');if t then t.Text='◆ '..obj.Name..'\n'..math.floor(d)..' وحدة' end
+    end
+   end
+  end
+ end
+ for obj,b in pairs(resourceMarkers) do
+  local p=resourcePart(obj)
+  if not S.ResourceESP or not validResource(obj) or not p or not r or (p.Position-r.Position).Magnitude>3000 then
+   b:Destroy();resourceMarkers[obj]=nil
+  end
+ end
+ local trader,d=findMerchant()
+ if S.Merchant and trader and r then
+  if not merchantMarker then merchantMarker=billboardFor(trader,'',Color3.fromRGB(110,245,174)) end
+  merchantMarker.Adornee=trader
+  local t=merchantMarker:FindFirstChildOfClass('TextLabel');if t then t.Text='تاجر الخلا\n'..math.floor(d)..' وحدة' end
+ elseif merchantMarker then merchantMarker:Destroy();merchantMarker=nil end
+end
+local function checkRareSpawn()
+ local now=os.clock()
+ if rareBanner.Visible and now>=bannerUntil then rareBanner.Visible=false end
+ local seen={}
+ local r=root()
+ for _,e in ipairs(cache) do
+  if e.model.Parent and living(e.model) and lizard(e.model) then
+   local rank=rarity(e.model)
+   if rank=='نادر' or rank=='فاخر' or rank=='أسطوري' or rank=='خرافي' then
+    seen[e.model]=true
+    if not knownRare[e.model] and S.RareAlert and r then
+     local d=math.floor((e.part.Position-r.Position).Magnitude)
+     rareBannerText.Text='ضب '..rank..' ظهر!\n'..e.model.Name..' • '..d..' وحدة'
+     rareBanner.Visible=true;bannerUntil=now+5
+    end
+   end
+  end
+ end
+ knownRare=seen
+end
+
 local function refreshCars()
  for _,x in ipairs(carList:GetChildren()) do if x:IsA('TextButton') then x:Destroy() end end
  local count=0
@@ -569,9 +719,9 @@ end
 
 local function cleanup()
  if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.CarFly=false;S.Speed=false;S.Fog=false;S.Fullbright=false
- stopCarFly();clearVehicleBoost();clearMarkers();applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
+ stopCarFly();clearVehicleBoost();clearMarkers();clearResourceMarkers();if merchantMarker then merchantMarker:Destroy() end;applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
  for _,c in ipairs(conns) do c:Disconnect() end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV43')end)
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV44')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
  gui:Destroy()
 end
@@ -586,7 +736,9 @@ conn(RunService.Heartbeat,function(dt)
  updateVehicleBoost(dt)
  if timer>=1 then
   timer=0
-  if S.Radar or S.Aim then refreshCache() end
+  if S.Radar or S.Aim or S.RareAlert then refreshCache() end
+  if S.RareAlert then checkRareSpawn() elseif rareBanner.Visible then rareBanner.Visible=false end
+  refreshExtrasESP()
   if S.Radar then
    local r=root()
    for _,e in ipairs(cache) do
@@ -615,7 +767,7 @@ conn(RunService.Heartbeat,function(dt)
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
-local aimBinding='Lx_NexusAimV43'
+local aimBinding='Lx_NexusAimV44'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
  local cam=WS.CurrentCamera
@@ -646,5 +798,5 @@ RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,functi
   cam.CFrame=cam.CFrame:Lerp(desired,math.clamp(alpha,0,1))
  end
 end)
-msg('Lx NEXUS v43 جاهز | افحص تشخيص السيارة في قسم السيارات')
-print('[Lx NEXUS PRO] v43 loaded')
+msg('Lx NEXUS v44 جاهز | النوادر والتاجر ونقاط البيع')
+print('[Lx NEXUS PRO] v44 loaded')
