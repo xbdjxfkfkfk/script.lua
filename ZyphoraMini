@@ -1,4 +1,4 @@
--- Lx NEXUS PRO v40 | single-file Luau client utility
+-- Lx NEXUS PRO v41 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
 local Players=game:GetService('Players')
 local RunService=game:GetService('RunService')
@@ -12,12 +12,12 @@ if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
 local env=_G
 if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
 if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
-for _,name in ipairs({'Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV40','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+for _,name in ipairs({'Lx_NexusV41','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV41','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
  local old=PG:FindFirstChild(name)
  if old then old:Destroy() end
 end
 local alive=true;local conns={};local markers={};local lightSaved={};local atmoSaved={};local originalSpeed=nil;local speedHum=nil
-local S={Radar=false,RadarRange=1500,Aim=false,AimRange=800,AimSmooth=.14,FOV=160,Speed=false,Walk=32,CarSpeed=false,CarTarget=200,Fog=false,Fullbright=false,Merchant=false,Filter='الكل'}
+local S={Radar=false,RadarRange=1500,Aim=false,AimRange=800,AimSmooth=.14,FOV=160,Speed=false,Walk=32,CarSpeed=false,CarTarget=200,CarDirection=1,Fog=false,Fullbright=false,Merchant=false,Filter='الكل'}
 local function conn(signal,fn) local c=signal:Connect(fn);conns[#conns+1]=c;return c end
 local function inst(typ,props,parent) local x=Instance.new(typ);for k,v in pairs(props or {}) do x[k]=v end;x.Parent=parent;return x end
 local function round(x,r) inst('UICorner',{CornerRadius=UDim.new(0,r or 9)},x) end
@@ -26,8 +26,8 @@ local function hum() return LP.Character and LP.Character:FindFirstChildOfClass(
 local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(9,11,20),card=Color3.fromRGB(25,28,43),muted=Color3.fromRGB(150,160,186),white=Color3.fromRGB(248,249,255),purple=Color3.fromRGB(153,101,255),green=Color3.fromRGB(68,211,136)}
-for _,oldName in ipairs({'Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV40','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local gui=inst('ScreenGui',{Name='Lx_NexusV40',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+for _,oldName in ipairs({'Lx_NexusV41','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV41','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
+local gui=inst('ScreenGui',{Name='Lx_NexusV41',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 inst('UIStroke',{Color=Color3.fromRGB(70,51,108),Thickness=1.4,Transparency=.12},main)
 local scale=inst('UIScale',{Scale=1},main)
@@ -298,7 +298,12 @@ label(aim,'دائرة FOV مرئية على الشاشة','الاستهداف ل
 local vehicle=tab('السيارات')
 toggle(vehicle,'مساعد سرعة السيارة','CarSpeed')
 number(vehicle,'السرعة المستهدفة (وحدة/ثانية)','CarTarget',20,400,20)
-label(vehicle,'معلومة مهمة','يضبط MaxSpeed للمقاعد القياسية ويحاول مساعد التسارع. تحكم السيرفر قد يمنع النتيجة؛ راقب التشخيص.')
+local directionButton=action(vehicle,'اتجاه الدفع: أمام السيارة',function()
+ S.CarDirection=-S.CarDirection
+ directionButton.Text=S.CarDirection==1 and 'اتجاه الدفع: أمام السيارة' or 'اتجاه الدفع: عكس اتجاه المقعد'
+ msg('تم تغيير اتجاه دفع السيارة؛ جرّب القيادة للأمام')
+end)
+label(vehicle,'معلومة مهمة','اضغط W أثناء القيادة. إن كان اتجاه الدفع عكسيًا بدّله من الزر. السيرفر قد يمنع تغيير السرعة.')
 local vehicleDiagnostic=label(vehicle,'التشخيص: لم يبدأ','مقعد السائق والسرعة الفعلية؛ قد يمنع السيرفر التعديل')
 local vehicleDiagnosticText=vehicleDiagnostic:FindFirstChildOfClass('TextLabel')
 local carList=inst('Frame',{Size=UDim2.new(1,-2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},vehicle)
@@ -461,7 +466,7 @@ local function updateVehicleBoost(dt)
  pcall(function() seat.MaxSpeed=math.max(savedMaxSpeed or 0,target) end)
  -- Keep torque conservative to avoid destabilizing vehicles and trailers.
  pcall(function() seat.Torque=math.max(savedTorque or 0,math.min(20000,target*45)) end)
- local forward=seat.CFrame.LookVector
+ local forward=seat.CFrame.LookVector*S.CarDirection
  local flat=Vector3.new(forward.X,0,forward.Z)
  if flat.Magnitude<.01 then
   vehicleState='اتجاه المقعد غير صالح';boostForce.Force=Vector3.zero;return
@@ -473,8 +478,8 @@ local function updateVehicleBoost(dt)
  local pressingW=UIS:IsKeyDown(Enum.KeyCode.W) or UIS:IsKeyDown(Enum.KeyCode.Up)
  local accelerating=(throttle>.05 or pressingW)
  local ownerText='غير معروف'
- local okOwner,owner=pcall(function()return rootPart:GetNetworkOwner()end)
- if okOwner and owner then ownerText=owner.Name elseif not okOwner then ownerText='غير متاح للعميل' end
+ -- GetNetworkOwner is server-only and cannot reliably identify authority here.
+ ownerText='لا يمكن التحقق محليًا'
  if not accelerating then
   vehicleState=string.format('المقعد معروف | W غير مرصود | السرعة %.1f | الهدف %.0f',speed,S.CarTarget)
   boostForce.Force=Vector3.zero;vehicleSpeedStuckFor=0;lastVehicleSpeed=speed;return
@@ -485,7 +490,7 @@ local function updateVehicleBoost(dt)
  lastVehicleSpeed=speed
  vehicleState=string.format('قيادة: %s | %.1f / %.0f | MaxSpeed %.0f | الشبكة: %s',pressingW and 'W' or 'Throttle',speed,S.CarTarget,seat.MaxSpeed,ownerText)
  if vehicleSpeedStuckFor>3 then
-  vehicleState='لم تستجب السيارة: قد يكون المتحكم مخصصًا أو السيرفر يفرض السرعة | '..string.format('%.1f',speed)
+  vehicleState='لا يوجد تسارع ملحوظ | السرعة '..string.format('%.1f',speed)..' | جرّب عكس اتجاه الدفع، أو قد يكون التحكم من السيرفر'
  end
  local errorSpeed=math.max(0,S.CarTarget-speed)
  if errorSpeed<.5 then boostForce.Force=Vector3.zero;return end
@@ -501,7 +506,7 @@ local function cleanup()
  if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.Speed=false;S.Fog=false;S.Fullbright=false
  clearVehicleBoost();clearMarkers();applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
  for _,c in ipairs(conns) do c:Disconnect() end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV40')end)
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV41')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
  gui:Destroy()
 end
@@ -544,7 +549,7 @@ conn(RunService.Heartbeat,function(dt)
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
-local aimBinding='Lx_NexusAimV40'
+local aimBinding='Lx_NexusAimV41'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
  local cam=WS.CurrentCamera
