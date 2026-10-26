@@ -1,962 +1,182 @@
--- ═══════════════════════════════════════════════════════════════
---   Z Y P H O R A   P R O   v 2
---   Built by ☠ SYSTEM BREACHED ☠ —◥꧁ SHΔDØW HΛCKΞR ꧂◤
--- ═══════════════════════════════════════════════════════════════
-
-local Players      = game:GetService("Players")
-local RunService   = game:GetService("RunService")
-local UIS          = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local Lighting     = game:GetService("Lighting")
-local VUser        = game:GetService("VirtualUser")
-
-local LP    = Players.LocalPlayer
-local Mouse = LP:GetMouse()
-
--- ── State ───────────────────────────────────────────────────────
-local S = {
-    ESP          = false,
-    CarFly       = false,
-    CharFly      = false,
-    SuperFly     = false,
-    Speed        = false,
-    Noclip       = false,
-    GodMode      = false,
-    Invisible    = false,
-    Fullbright   = false,
-    AntiAFK      = false,
-    CarFlySpeed  = 120,
-    CharFlySpeed = 80,
-    SuperFlySpeed= 220,
-    SpeedValue   = 80,
-    FlySmooth    = 0.15,
-}
-
-local C = {
-    bg      = Color3.fromRGB(11, 11, 17),
-    panel   = Color3.fromRGB(22, 22, 32),
-    panel2  = Color3.fromRGB(30, 30, 44),
-    accent  = Color3.fromRGB(0, 170, 255),
-    text    = Color3.fromRGB(238, 238, 245),
-    sub     = Color3.fromRGB(150, 150, 170),
-    on      = Color3.fromRGB(0, 210, 130),
-    off     = Color3.fromRGB(255, 90, 90),
-}
-
--- ── Wipe old ────────────────────────────────────────────────────
-for _, n in ipairs({"ZyphoraPro","ZyphoraMiniPro","ZyphoraMini","ZyphoraHubMiniPro"}) do
-    local g = LP.PlayerGui:FindFirstChild(n)
-    if g then g:Destroy() end
-end
-
--- ═══════════════════════════════════════════════════════════════
---   GUI ROOT
--- ═══════════════════════════════════════════════════════════════
-local GUI = Instance.new("ScreenGui")
-GUI.Name = "ZyphoraPro"
-GUI.ResetOnSpawn = false
-GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-GUI.IgnoreGuiInset = true
-GUI.Parent = LP:WaitForChild("PlayerGui")
-
-local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 260, 0, 460)
-Main.Position = UDim2.new(0, 40, 0.5, -230)
-Main.BackgroundColor3 = C.bg
-Main.BorderSizePixel = 0
-Main.Active = true
-Main.Draggable = true
-Main.ClipsDescendants = true
-Main.Parent = GUI
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
-
-local MS = Instance.new("UIStroke", Main)
-MS.Thickness = 1.6
-MS.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-MS.Color = C.accent
-MS.Transparency = 0.15
-
--- ── Title bar ───────────────────────────────────────────────────
-local Title = Instance.new("Frame")
-Title.Size = UDim2.new(1, 0, 0, 44)
-Title.BackgroundColor3 = C.panel
-Title.BorderSizePixel = 0
-Title.ZIndex = 2
-Title.Parent = Main
-Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 14)
-
-local TAccent = Instance.new("Frame")
-TAccent.Size = UDim2.new(1, 0, 0, 3)
-TAccent.Position = UDim2.new(0, 0, 1, -3)
-TAccent.BackgroundColor3 = C.accent
-TAccent.BorderSizePixel = 0
-TAccent.ZIndex = 3
-TAccent.Parent = Title
-Instance.new("UICorner", TAccent).CornerRadius = UDim.new(0, 2)
-
-local TLbl = Instance.new("TextLabel")
-TLbl.Size = UDim2.new(1, -80, 1, 0)
-TLbl.Position = UDim2.new(0, 14, 0, 0)
-TLbl.BackgroundTransparency = 1
-TLbl.Text = "⚡ ZYPHORA PRO v2"
-TLbl.TextColor3 = C.text
-TLbl.Font = Enum.Font.GothamBold
-TLbl.TextSize = 14
-TLbl.TextXAlignment = Enum.TextXAlignment.Left
-TLbl.ZIndex = 3
-TLbl.Parent = Title
-
-local MinBtn = Instance.new("TextButton")
-MinBtn.Size = UDim2.new(0, 28, 0, 28)
-MinBtn.Position = UDim2.new(1, -68, 0, 8)
-MinBtn.BackgroundColor3 = C.panel2
-MinBtn.Text = "−"
-MinBtn.TextColor3 = C.text
-MinBtn.Font = Enum.Font.GothamBold
-MinBtn.TextSize = 16
-MinBtn.AutoButtonColor = false
-MinBtn.ZIndex = 3
-MinBtn.Parent = Title
-Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 8)
-
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 28, 0, 28)
-CloseBtn.Position = UDim2.new(1, -34, 0, 8)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(60, 25, 35)
-CloseBtn.Text = "×"
-CloseBtn.TextColor3 = C.text
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 18
-CloseBtn.AutoButtonColor = false
-CloseBtn.ZIndex = 3
-CloseBtn.Parent = Title
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
-
-local isOpen = true
-MinBtn.MouseButton1Click:Connect(function()
-    isOpen = not isOpen
-    for _, c in ipairs(Main:GetChildren()) do
-        if c ~= Title and c ~= MS then c.Visible = isOpen end
-    end
-    TweenService:Create(Main, TweenInfo.new(0.25, Enum.EasingStyle.Quart),
-        { Size = isOpen and UDim2.new(0, 260, 0, 460) or UDim2.new(0, 260, 0, 44) }):Play()
-    MinBtn.Text = isOpen and "−" or "+"
-end)
-
-CloseBtn.MouseButton1Click:Connect(function()
-    TweenService:Create(Main, TweenInfo.new(0.2, Enum.EasingStyle.Quart),
-        { Size = UDim2.new(0, 0, 0, 0) }):Play()
-    task.delay(0.25, function() GUI:Destroy() end)
-end)
-
--- ── Scroll ──────────────────────────────────────────────────────
-local Scroll = Instance.new("ScrollingFrame")
-Scroll.Size = UDim2.new(1, -12, 1, -58)
-Scroll.Position = UDim2.new(0, 6, 0, 52)
-Scroll.BackgroundTransparency = 1
-Scroll.BorderSizePixel = 0
-Scroll.CanvasSize = UDim2.new(0, 0, 0, 2000)
-Scroll.ScrollBarThickness = 4
-Scroll.ScrollBarImageColor3 = C.accent
-Scroll.ZIndex = 2
-Scroll.Parent = Main
-
-local Layout = Instance.new("UIListLayout", Scroll)
-Layout.SortOrder = Enum.SortOrder.LayoutIndex
-Layout.Padding = UDim.new(0, 6)
-
-local Pad = Instance.new("UIPadding", Scroll)
-Pad.PaddingTop = UDim.new(0, 4)
-Pad.PaddingBottom = UDim.new(0, 20)
-Pad.PaddingLeft = UDim.new(0, 2)
-Pad.PaddingRight = UDim.new(0, 2)
-
--- ═══════════════════════════════════════════════════════════════
---   BUILDERS
--- ═══════════════════════════════════════════════════════════════
-local order = 0
-
-local function mkSection(text)
-    order += 1
-    local f = Instance.new("Frame")
-    f.Size = UDim2.new(1, -6, 0, 22)
-    f.BackgroundTransparency = 1
-    f.LayoutOrder = order
-    f.Parent = Scroll
-    local l = Instance.new("TextLabel")
-    l.Size = UDim2.new(1, 0, 1, 0)
-    l.Position = UDim2.new(0, 6, 0, 0)
-    l.BackgroundTransparency = 1
-    l.Text = string.upper(text)
-    l.TextColor3 = C.sub
-    l.Font = Enum.Font.GothamBold
-    l.TextSize = 10
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.Parent = f
-    return f
-end
-
-local function mkBtn(text, cb)
-    order += 1
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, -6, 0, 36)
-    b.BackgroundColor3 = C.panel
-    b.BorderSizePixel = 0
-    b.Text = text
-    b.TextColor3 = C.text
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 12
-    b.AutoButtonColor = false
-    b.LayoutOrder = order
-    b.Parent = Scroll
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
-
-    local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(0, 3, 1, -8)
-    bar.Position = UDim2.new(0, 0, 0, 4)
-    bar.BackgroundColor3 = C.accent
-    bar.BorderSizePixel = 0
-    bar.Parent = b
-    Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 2)
-
-    b.MouseEnter:Connect(function()
-        TweenService:Create(b, TweenInfo.new(0.15),
-            { BackgroundColor3 = C.panel2 }):Play()
-    end)
-    b.MouseLeave:Connect(function()
-        TweenService:Create(b, TweenInfo.new(0.15),
-            { BackgroundColor3 = C.panel }):Play()
-    end)
-    b.MouseButton1Click:Connect(function() cb(b, bar) end)
-    return b, bar
-end
-
-local function mkSlider(label, initVal, minV, maxV, step, onChanged)
-    order += 1
-    local f = Instance.new("Frame")
-    f.Size = UDim2.new(1, -6, 0, 34)
-    f.BackgroundColor3 = C.panel
-    f.BorderSizePixel = 0
-    f.LayoutOrder = order
-    f.Parent = Scroll
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
-
-    local name = Instance.new("TextLabel")
-    name.Size = UDim2.new(1, -110, 1, 0)
-    name.Position = UDim2.new(0, 12, 0, 0)
-    name.BackgroundTransparency = 1
-    name.Text = label
-    name.TextColor3 = C.sub
-    name.Font = Enum.Font.GothamMedium
-    name.TextSize = 11
-    name.TextXAlignment = Enum.TextXAlignment.Left
-    name.Parent = f
-
-    local val = Instance.new("TextLabel")
-    val.Size = UDim2.new(0, 46, 1, 0)
-    val.Position = UDim2.new(1, -104, 0, 0)
-    val.BackgroundTransparency = 1
-    val.Text = tostring(initVal)
-    val.TextColor3 = C.accent
-    val.Font = Enum.Font.GothamBold
-    val.TextSize = 11
-    val.Parent = f
-
-    local m = Instance.new("TextButton")
-    m.Size = UDim2.new(0, 26, 0, 26)
-    m.Position = UDim2.new(1, -54, 0, 4)
-    m.BackgroundColor3 = C.panel2
-    m.Text = "−"
-    m.TextColor3 = C.text
-    m.Font = Enum.Font.GothamBold
-    m.TextSize = 14
-    m.AutoButtonColor = false
-    m.Parent = f
-    Instance.new("UICorner", m).CornerRadius = UDim.new(0, 6)
-
-    local p = Instance.new("TextButton")
-    p.Size = UDim2.new(0, 26, 0, 26)
-    p.Position = UDim2.new(1, -26, 0, 4)
-    p.BackgroundColor3 = C.panel2
-    p.Text = "+"
-    p.TextColor3 = C.text
-    p.Font = Enum.Font.GothamBold
-    p.TextSize = 14
-    p.AutoButtonColor = false
-    p.Parent = f
-    Instance.new("UICorner", p).CornerRadius = UDim.new(0, 6)
-
-    local current = initVal
-    local function set(v)
-        current = math.clamp(v, minV, maxV)
-        val.Text = tostring(current)
-        if onChanged then onChanged(current) end
-    end
-    m.MouseButton1Click:Connect(function() set(current - step) end)
-    p.MouseButton1Click:Connect(function() set(current + step) end)
-    return f, function() return current end
-end
-
--- ═══════════════════════════════════════════════════════════════
---   NOTIFY RAIL
--- ═══════════════════════════════════════════════════════════════
-local NotiHolder = Instance.new("Frame")
-NotiHolder.Size = UDim2.new(0, 260, 1, -40)
-NotiHolder.Position = UDim2.new(1, -280, 0, 20)
-NotiHolder.BackgroundTransparency = 1
-NotiHolder.Parent = GUI
-
-local NL = Instance.new("UIListLayout", NotiHolder)
-NL.SortOrder = Enum.SortOrder.LayoutIndex
-NL.HorizontalAlignment = Enum.HorizontalAlignment.Right
-NL.Padding = UDim.new(0, 6)
-
-local function notify(msg, kind)
-    local c = (kind == "on" and C.on) or (kind == "off" and C.off) or C.accent
-    local f = Instance.new("Frame")
-    f.Size = UDim2.new(0, 240, 0, 34)
-    f.BackgroundColor3 = C.panel
-    f.BorderSizePixel = 0
-    f.Parent = NotiHolder
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
-
-    local s = Instance.new("UIStroke", f)
-    s.Color = c
-    s.Thickness = 1.2
-    s.Transparency = 0.2
-
-    local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(0, 3, 1, -10)
-    bar.Position = UDim2.new(0, 4, 0, 5)
-    bar.BackgroundColor3 = c
-    bar.BorderSizePixel = 0
-    bar.Parent = f
-    Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 2)
-
-    local l = Instance.new("TextLabel")
-    l.Size = UDim2.new(1, -20, 1, 0)
-    l.Position = UDim2.new(0, 12, 0, 0)
-    l.BackgroundTransparency = 1
-    l.Text = msg
-    l.TextColor3 = C.text
-    l.Font = Enum.Font.GothamMedium
-    l.TextSize = 11
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.Parent = f
-
-    f.Position = UDim2.new(0, 260, 0, 0)
-    TweenService:Create(f, TweenInfo.new(0.25, Enum.EasingStyle.Quart),
-        { Position = UDim2.new(0, 0, 0, 0) }):Play()
-    task.delay(2.6, function()
-        TweenService:Create(f, TweenInfo.new(0.3, Enum.EasingStyle.Quart),
-            { Position = UDim2.new(0, 260, 0, 0) }):Play()
-        task.delay(0.32, function() f:Destroy() end)
-    end)
-end
-
--- ═══════════════════════════════════════════════════════════════
---   HELPERS
--- ═══════════════════════════════════════════════════════════════
-local function getRoot()
-    local c = LP.Character
-    return c and c:FindFirstChild("HumanoidRootPart")
-end
-
-local function getHum()
-    local c = LP.Character
-    return c and c:FindFirstChildOfClass("Humanoid")
-end
-
-local function getCurrentVehicleModel()
-    local hum = getHum()
-    local seat = hum and hum.SeatPart
-    if not seat then return nil end
-    return seat:FindFirstAncestorOfClass("Model")
-end
-
-local function getNearbyVehicles(radius)
-    radius = radius or 400
-    local root = getRoot()
-    if not root then return {} end
-    local out = {}
-    for _, v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("VehicleSeat") or v:IsA("Seat") then
-            local model = v:FindFirstAncestorOfClass("Model")
-            if model and not out[model] then
-                local pivot = model:GetPivot()
-                if (pivot.Position - root.Position).Magnitude <= radius then
-                    out[model] = true
+bestDistance = distance
+                    closest = target
                 end
             end
         end
     end
-    local list = {}
-    for m in pairs(out) do table.insert(list, m) end
-    return list
-end
 
--- ═══════════════════════════════════════════════════════════════
---   FEATURES — VISUALS
--- ═══════════════════════════════════════════════════════════════
-mkSection("Visuals")
-
-local EspConn
-local function stripEsp(char)
-    if char then
-        local h = char:FindFirstChild("ZyHighlight")
-        if h then h:Destroy() end
-    end
-end
-
-local function applyEsp(char)
-    if not char or not S.ESP or char:FindFirstChild("ZyHighlight") then return end
-    local h = Instance.new("Highlight")
-    h.Name = "ZyHighlight"
-    h.FillColor = C.accent
-    h.FillTransparency = 0.5
-    h.OutlineColor = Color3.fromRGB(255, 255, 255)
-    h.Adornee = char
-    h.Parent = char
-end
-
-local function wireEsp(p)
-    if p == LP then return end
-    applyEsp(p.Character)
-    p.CharacterAdded:Connect(function(c)
-        task.wait(0.2)
-        applyEsp(c)
-    end)
-end
-
-mkBtn("👁  ESP", function(b, bar)
-    S.ESP = not S.ESP
-    b.Text = "👁  ESP: " .. (S.ESP and "ON" or "OFF")
-    bar.BackgroundColor3 = S.ESP and C.on or C.accent
-    b.TextColor3 = S.ESP and C.on or C.text
-    if S.ESP then
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LP then applyEsp(p.Character) end
-        end
-        for _, p in ipairs(Players:GetPlayers()) do wireEsp(p) end
-        EspConn = Players.PlayerAdded:Connect(wireEsp)
-        notify("ESP ON", "on")
+    if closest then
+        r.CFrame = closest.CFrame * CFrame.new(0, 0, 4)
+        notify("TELEPORTED")
     else
-        if EspConn then EspConn:Disconnect(); EspConn = nil end
-        for _, p in ipairs(Players:GetPlayers()) do stripEsp(p.Character) end
-        notify("ESP OFF", "off")
+        notify("NO TARGET FOUND")
     end
 end)
 
-local origBright, origAmb
-mkBtn("💡  Fullbright", function(b, bar)
-    S.Fullbright = not S.Fullbright
-    if S.Fullbright then
-        origBright = Lighting.Brightness
-        origAmb = Lighting.Ambient
-        Lighting.Brightness = 3
-        Lighting.Ambient = Color3.fromRGB(200, 200, 200)
-        Lighting.OutdoorAmbient = Color3.fromRGB(200, 200, 200)
-        b.Text = "💡  Fullbright: ON"
-        bar.BackgroundColor3 = C.on
-        b.TextColor3 = C.on
-        notify("Fullbright ON", "on")
-    else
-        Lighting.Brightness = origBright or 2
-        Lighting.Ambient = origAmb or Color3.fromRGB(70, 70, 70)
-        Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
-        b.Text = "💡  Fullbright: OFF"
-        bar.BackgroundColor3 = C.accent
-        b.TextColor3 = C.text
-        notify("Fullbright OFF", "off")
-    end
-end)
+section("Utilities")
 
--- ═══════════════════════════════════════════════════════════════
---   FEATURES — CHARACTER
--- ═══════════════════════════════════════════════════════════════
-mkSection("Character")
-
-mkBtn("👻  Invisible", function(b, bar)
-    S.Invisible = not S.Invisible
-    b.Text = "👻  Invisible: " .. (S.Invisible and "ON" or "OFF")
-    bar.BackgroundColor3 = S.Invisible and C.on or C.accent
-    b.TextColor3 = S.Invisible and C.on or C.text
-    local c = LP.Character
-    if c then
-        for _, v in ipairs(c:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.LocalTransparencyModifier = S.Invisible and 1 or 0
-                v.Transparency = S.Invisible and 1 or 0
-            elseif v:IsA("Decal") then
-                v.Transparency = S.Invisible and 1 or 0
-            end
-        end
-    end
-    notify("Invisible " .. (S.Invisible and "ON" or "OFF"), S.Invisible and "on" or "off")
-end)
-
-mkBtn("🛡  God Mode", function(b, bar)
-    S.GodMode = not S.GodMode
-    b.Text = "🛡  God Mode: " .. (S.GodMode and "ON" or "OFF")
-    bar.BackgroundColor3 = S.GodMode and C.on or C.accent
-    b.TextColor3 = S.GodMode and C.on or C.text
-    local h = getHum()
+button("Reset Character", function()
+    local h = humanoid()
     if h then
-        h.MaxHealth = S.GodMode and math.huge or 100
-        h.Health = S.GodMode and math.huge or 100
+        h.Health = 0
     end
-    notify("God Mode " .. (S.GodMode and "ON" or "OFF"), S.GodMode and "on" or "off")
 end)
 
-local function applySpeed()
-    local h = getHum()
-    if h then h.WalkSpeed = S.Speed and S.SpeedValue or 16 end
+-- Movement updates
+connect(RunService.Stepped, function()
+    if not running or not State.Noclip then return end
+
+    local c = character()
+    if not c then return end
+
+    for _, part in ipairs(c:GetDescendants()) do
+        if part:IsA("BasePart") then
+            if originalCollision[part] == nil then
+                originalCollision[part] = part.CanCollide
+            end
+            part.CanCollide = false
+        end
+    end
+end)
+
+connect(RunService.Heartbeat, function()
+    if not running or not State.Fly then return end
+    if not flyVelocity or not flyVelocity.Parent then
+        stopFly()
+        return
+    end
+
+    local h = humanoid()
+    if not h then return end
+
+    local direction = h.MoveDirection
+    local vertical = 0
+
+    if UIS:IsKeyDown(Enum.KeyCode.Space)
+        or UIS:IsKeyDown(Enum.KeyCode.E) then
+        vertical += 1
+    end
+
+    if UIS:IsKeyDown(Enum.KeyCode.LeftControl)
+        or UIS:IsKeyDown(Enum.KeyCode.Q) then
+        vertical -= 1
+    end
+
+    local movement = direction * 65
+        + Vector3.new(0, vertical * 65, 0)
+
+    flyVelocity.VectorVelocity = movement
+end)
+
+connect(Player.CharacterAdded, function()
+    stopFly()
+    restoreCollision()
+    originalSpeed = nil
+
+    if State.Speed then
+        task.defer(function()
+            local c = Player.Character
+            if c then
+                c:WaitForChild("Humanoid", 10)
+                if running and State.Speed then
+                    setSpeed(true)
+                end
+            end
+        end)
+    end
+end)
+
+-- Draggable header
+local dragging = false
+local dragStart
+local startPosition
+
+connect(Header.InputBegan, function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPosition = Main.Position
+    end
+end)
+
+connect(UIS.InputChanged, function(input)
+    if not dragging then return end
+
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - dragStart
+
+        Main.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+connect(UIS.InputEnded, function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- Minimize
+local minimized = false
+
+connect(Minimize.MouseButton1Click, function()
+    minimized = not minimized
+    Scroll.Visible = not minimized
+    Footer.Visible = not minimized
+
+    Minimize.Text = minimized and "+" or "−"
+
+    TweenService:Create(
+        Main,
+        TweenInfo.new(0.2, Enum.EasingStyle.Quad),
+        {
+            Size = minimized
+                and UDim2.fromOffset(300, 58)
+                or UDim2.fromOffset(300, 440)
+        }
+    ):Play()
+end)
+
+-- Complete cleanup
+local function shutdown()
+    if not running then return end
+
+    stopFly()
+    restoreCollision()
+    setESP(false)
+
+    if State.Speed then
+        setSpeed(false)
+    end
+
+    if State.Fullbright then
+        setFullbright(false)
+    end
+
+    running = false
+
+    for _, connection in ipairs(connections) do
+        connection:Disconnect()
+    end
+    table.clear(connections)
+
+    GUI:Destroy()
 end
 
-mkBtn("⚡  Speed", function(b, bar)
-    S.Speed = not S.Speed
-    b.Text = "⚡  Speed: " .. (S.Speed and "ON" or "OFF")
-    bar.BackgroundColor3 = S.Speed and C.on or C.accent
-    b.TextColor3 = S.Speed and C.on or C.text
-    applySpeed()
-    notify("Speed " .. (S.Speed and "ON" or "OFF"), S.Speed and "on" or "off")
-end)
+connect(Close.MouseButton1Click, shutdown)
 
-mkSlider("Speed value", S.SpeedValue, 16, 300, 10, function(v)
-    S.SpeedValue = v
-    if S.Speed then applySpeed() end
-end)
-
-mkBtn("🚪  Noclip", function(b, bar)
-    S.Noclip = not S.Noclip
-    b.Text = "🚪  Noclip: " .. (S.Noclip and "ON" or "OFF")
-    bar.BackgroundColor3 = S.Noclip and C.on or C.accent
-    b.TextColor3 = S.Noclip and C.on or C.text
-    if not S.Noclip then
-        local c = LP.Character
-        if c then
-            for _, v in ipairs(c:GetDescendants()) do
-                if v:IsA("BasePart") then
-                    pcall(function() v.CanCollide = true end)
-                end
-            end
-        end
-    end
-    notify("Noclip " .. (S.Noclip and "ON" or "OFF"), S.Noclip and "on" or "off")
-end)
-
--- ═══════════════════════════════════════════════════════════════
---   FEATURES — FLIGHT
--- ═══════════════════════════════════════════════════════════════
-mkSection("Flight")
-
-local function buildFlyThread(getBv, speedFn)
-    return task.spawn(function()
-        local target = Vector3.zero
-        while (S.CharFly or S.SuperFly) and getBv() do
-            local cam = workspace.CurrentCamera
-            local dir = Vector3.zero
-            if UIS:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.yAxis end
-            if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.yAxis end
-            if UIS:IsKeyDown(Enum.KeyCode.Q) then dir += cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.E) then dir -= cam.CFrame.RightVector end
-
-            local targetV = dir.Magnitude > 0 and dir.Unit * speedFn() or Vector3.zero
-            target = target:Lerp(targetV, math.clamp(S.FlySmooth, 0.05, 1))
-            local bv = getBv()
-            if bv then bv.Velocity = target end
-            task.wait()
-        end
-    end)
-end
-
-local charFlyBv, charFlyThread
-mkBtn("🕊  Char Fly (manual)", function(b, bar)
-    S.CharFly = not S.CharFly
-    if S.CharFly and S.SuperFly then
-        S.SuperFly = false
-        notify("SuperFly disabled (one at a time)", "off")
-    end
-    b.Text = "🕊  Char Fly: " .. (S.CharFly and "ON" or "OFF")
-    bar.BackgroundColor3 = S.CharFly and C.on or C.accent
-    b.TextColor3 = S.CharFly and C.on or C.text
-
-    if not S.CharFly then
-        if charFlyThread then task.cancel(charFlyThread); charFlyThread = nil end
-        if charFlyBv then charFlyBv:Destroy(); charFlyBv = nil end
-        notify("Char Fly OFF", "off")
-        return
-    end
-    local root = getRoot()
-    if not root then
-        notify("No character", "off")
-        S.CharFly = false
-        return
-    end
-    charFlyBv = Instance.new("BodyVelocity")
-    charFlyBv.Name = "ZyCharFlyBv"
-    charFlyBv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-    charFlyBv.Velocity = Vector3.zero
-    charFlyBv.Parent = root
-    charFlyThread = buildFlyThread(function() return charFlyBv end,
-        function() return S.CharFlySpeed end)
-    notify("Char Fly ON", "on")
-end)
-
-mkSlider("Char fly speed", S.CharFlySpeed, 20, 500, 20, function(v) S.CharFlySpeed = v end)
-mkSlider("Fly smoothing", S.FlySmooth, 0.05, 1, 0.05, function(v) S.FlySmooth = v end)
-
-local superFlyBv, superFlyThread
-mkBtn("🚀  Super Fly", function(b, bar)
-    S.SuperFly = not S.SuperFly
-    if S.SuperFly and S.CharFly then
-        S.CharFly = false
-        if charFlyThread then task.cancel(charFlyThread); charFlyThread = nil end
-        if charFlyBv then charFlyBv:Destroy(); charFlyBv = nil end
-        notify("Char Fly disabled (one at a time)", "off")
-    end
-    b.Text = "🚀  Super Fly: " .. (S.SuperFly and "ON" or "OFF")
-    bar.BackgroundColor3 = S.SuperFly and C.on or C.accent
-    b.TextColor3 = S.SuperFly and C.on or C.text
-
-    if not S.SuperFly then
-        if superFlyThread then task.cancel(superFlyThread); superFlyThread = nil end
-        if superFlyBv then superFlyBv:Destroy(); superFlyBv = nil end
-        notify("Super Fly OFF", "off")
-        return
-    end
-    local root = getRoot()
-    if not root then
-        notify("No character", "off")
-        S.SuperFly = false
-        return
-    end
-    superFlyBv = Instance.new("BodyVelocity")
-    superFlyBv.Name = "ZySuperFlyBv"
-    superFlyBv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-    superFlyBv.Velocity = Vector3.zero
-    superFlyBv.Parent = root
-    superFlyThread = buildFlyThread(function() return superFlyBv end,
-        function() return S.SuperFlySpeed end)
-    notify("Super Fly ON", "on")
-end)
-
-mkSlider("Super fly speed", S.SuperFlySpeed, 40, 800, 20, function(v) S.SuperFlySpeed = v end)
-
--- ═══════════════════════════════════════════════════════════════
---   FEATURES — VEHICLE
--- ═══════════════════════════════════════════════════════════════
-mkSection("Vehicle")
-
-local carFlyBv, carFlyThread
-mkBtn("🚗  Car Fly (manual)", function(b, bar)
-    S.CarFly = not S.CarFly
-    b.Text = "🚗  Car Fly: " .. (S.CarFly and "ON" or "OFF")
-    bar.BackgroundColor3 = S.CarFly and C.on or C.accent
-    b.TextColor3 = S.CarFly and C.on or C.text
-
-    if not S.CarFly then
-        if carFlyThread then task.cancel(carFlyThread); carFlyThread = nil end
-        if carFlyBv then carFlyBv:Destroy(); carFlyBv = nil end
-        notify("Car Fly OFF", "off")
-        return
-    end
-
-    local model = getCurrentVehicleModel()
-    if not model then
-        notify("Not seated in a vehicle", "off")
-        S.CarFly = false
-        b.Text = "🚗  Car Fly: OFF"
-        bar.BackgroundColor3 = C.accent
-        return
-    end
-    local root = model:FindFirstChildWhichIsA("BasePart", true)
-    if not root then
-        notify("No vehicle body", "off")
-        S.CarFly = false
-        return
-    end
-
-    carFlyBv = Instance.new("BodyVelocity")
-    carFlyBv.Name = "ZyCarFlyBv"
-    carFlyBv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-    carFlyBv.Velocity = Vector3.zero
-    carFlyBv.Parent = root
-
-    carFlyThread = task.spawn(function()
-        local target = Vector3.zero
-        while S.CarFly and carFlyBv and carFlyBv.Parent do
-            local cam = workspace.CurrentCamera
-            local dir = Vector3.zero
-            if UIS:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.yAxis end
-            if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.yAxis end
-            if UIS:IsKeyDown(Enum.KeyCode.Q) then dir += cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.E) then dir -= cam.CFrame.RightVector end
-
-            local targetV = dir.Magnitude > 0 and dir.Unit * S.CarFlySpeed or Vector3.zero
-            target = target:Lerp(targetV, math.clamp(S.FlySmooth, 0.05, 1))
-            pcall(function() carFlyBv.Velocity = target end)
-            task.wait()
-        end
-    end)
-    notify("Car Fly ON — WASD + Space/Ctrl", "on")
-end)
-
-mkSlider("Car fly speed", S.CarFlySpeed, 20, 600, 20, function(v) S.CarFlySpeed = v end)
-
-local freezeBv
-mkBtn("🧊  Freeze Vehicle", function()
-    local model = getCurrentVehicleModel()
-    if not model then notify("Not seated in a vehicle", "off"); return end
-    if freezeBv then freezeBv:Destroy(); freezeBv = nil end
-    local root = model:FindFirstChildWhichIsA("BasePart", true)
-    if not root then return end
-    freezeBv = Instance.new("BodyVelocity")
-    freezeBv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-    freezeBv.Velocity = Vector3.zero
-    freezeBv.Parent = root
-    notify("Vehicle frozen", "on")
-    task.delay(5, function()
-        if freezeBv then freezeBv:Destroy(); freezeBv = nil end
-    end)
-end)
-
-mkBtn("♻  Respawn Current Vehicle", function()
-    local model = getCurrentVehicleModel()
-    if not model then notify("Not seated in a vehicle", "off"); return end
-    local hum = getHum()
-    if hum then hum.Sit = false end
-    task.wait(0.15)
-    local seat = model:FindFirstChildWhichIsA("VehicleSeat", true)
-             or model:FindFirstChildWhichIsA("Seat", true)
-    if seat and hum then
-        pcall(function() hum.Sit = true; seat:Sit(hum) end)
-        notify("Reseated in vehicle", "on")
-    else
-        notify("No seat found", "off")
+connect(GUI.Destroying, function()
+    if running then
+        shutdown()
     end
 end)
 
-mkBtn("♻  Respawn All Nearby Vehicles", function()
-    local list = getNearbyVehicles(400)
-    if #list == 0 then notify("No nearby vehicles", "off"); return end
-    local hum = getHum()
-    if not hum then return end
-    hum.Sit = false
-    task.wait(0.15)
-    local done = 0
-    for _, model in ipairs(list) do
-        local seat = model:FindFirstChildWhichIsA("VehicleSeat", true)
-                  or model:FindFirstChildWhichIsA("Seat", true)
-        if seat then
-            pcall(function() hum.Sit = true; seat:Sit(hum) end)
-            task.wait(0.08)
-            hum.Sit = false
-            task.wait(0.08)
-            done += 1
-        end
-    end
-    notify("Respawned " .. done .. " vehicle(s)", "on")
-end)
-
-mkBtn("📡  Recall All Nearby Vehicles", function()
-    local list = getNearbyVehicles(400)
-    if #list == 0 then notify("No nearby vehicles", "off"); return end
-    local root = getRoot()
-    if not root then return end
-    local done = 0
-    for _, model in ipairs(list) do
-        local base = model:FindFirstChildWhichIsA("BasePart", true)
-        if base then
-            pcall(function()
-                model:PivotTo(CFrame.new(root.Position + Vector3.new(0, 6, 0)))
-            end)
-            done += 1
-        end
-    end
-    notify("Recalled " .. done .. " vehicle(s)", "on")
-end)
-
-mkBtn("🔧  Upright Vehicle", function()
-    local model = getCurrentVehicleModel()
-    if not model then notify("Not seated in a vehicle", "off"); return end
-    local base = model:FindFirstChildWhichIsA("BasePart", true)
-    if base then
-        local p = base.Position
-        pcall(function()
-            model:PivotTo(CFrame.new(p) * CFrame.Angles(0, math.rad(base.Orientation.Y), 0))
-        end)
-        notify("Vehicle uprighted", "on")
-    end
-end)
-
--- ═══════════════════════════════════════════════════════════════
---   FEATURES — TELEPORT
--- ═══════════════════════════════════════════════════════════════
-mkSection("Teleport")
-
-mkBtn("📍  Click TP", function()
-    local root = getRoot()
-    if root then
-        pcall(function()
-            root.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0))
-        end)
-        notify("Teleported to mouse", "on")
-    end
-end)
-
-mkBtn("⛺  Camp TP", function()
-    local root = getRoot()
-    if root then
-        pcall(function() root.CFrame = CFrame.new(0, 50, 0) end)
-        notify("Camp TP", "on")
-    end
-end)
-
-mkBtn("🏃  Strong Escape Lift (+500)", function()
-    local root = getRoot()
-    if root then
-        pcall(function() root.CFrame = root.CFrame + Vector3.new(0, 500, 0) end)
-        notify("Strong lift applied", "on")
-    end
-end)
-
-mkBtn("🎯  TP to Nearest Player", function()
-    local root = getRoot()
-    if not root then return end
-    local best, bestD = nil, math.huge
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LP and p.Character then
-            local r = p.Character:FindFirstChild("HumanoidRootPart")
-            if r then
-                local d = (r.Position - root.Position).Magnitude
-                if d < bestD then bestD = d; best = r end
-            end
-        end
-    end
-    if best then
-        pcall(function() root.CFrame = best.CFrame * CFrame.new(0, 0, 3) end)
-        notify("TP to nearest player", "on")
-    else
-        notify("No players", "off")
-    end
-end)
-
-local waypoint = nil
-mkBtn("💾  Save Waypoint", function()
-    local root = getRoot()
-    if root then waypoint = root.CFrame; notify("Waypoint saved", "on") end
-end)
-
-mkBtn("⤵  Load Waypoint", function()
-    if not waypoint then notify("No waypoint", "off"); return end
-    local root = getRoot()
-    if root then
-        pcall(function() root.CFrame = waypoint end)
-        notify("Waypoint loaded", "on")
-    end
-end)
-
--- ═══════════════════════════════════════════════════════════════
---   FEATURES — UTILITY
--- ═══════════════════════════════════════════════════════════════
-mkSection("Utility")
-
-mkBtn("💎  Collect Rare Items", function()
-    local root = getRoot()
-    if not root then return end
-    task.spawn(function()
-        for _, o in ipairs(workspace:GetDescendants()) do
-            if o:IsA("BasePart") then
-                local n = o.Name:lower()
-                if n:find("rare") or n:find("gem") or n:find("coin") then
-                    pcall(function()
-                        firetouchinterest(root, o, 0)
-                        task.wait(0.04)
-                        firetouchinterest(root, o, 1)
-                    end)
-                end
-            end
-        end
-    end)
-    notify("Collecting rares…", "on")
-end)
-
-local afkConn
-mkBtn("💤  Anti-AFK", function(b, bar)
-    S.AntiAFK = not S.AntiAFK
-    b.Text = "💤  Anti-AFK: " .. (S.AntiAFK and "ON" or "OFF")
-    bar.BackgroundColor3 = S.AntiAFK and C.on or C.accent
-    b.TextColor3 = S.AntiAFK and C.on or C.text
-    if S.AntiAFK then
-        afkConn = LP.Idled:Connect(function()
-            VUser:CaptureController()
-            VUser:ClickButton2(Vector2.new())
-        end)
-        notify("Anti-AFK ON", "on")
-    else
-        if afkConn then afkConn:Disconnect(); afkConn = nil end
-        notify("Anti-AFK OFF", "off")
-    end
-end)
-
-mkBtn("♻  Reset Character", function()
-    local h = getHum()
-    if h then h.Health = 0; notify("Character reset", "on") end
-end)
-
--- ═══════════════════════════════════════════════════════════════
---   LOOPS & RESPAWN
--- ═══════════════════════════════════════════════════════════════
-RunService.Stepped:Connect(function()
-    if S.Noclip then
-        local c = LP.Character
-        if c then
-            for _, v in ipairs(c:GetDescendants()) do
-                if v:IsA("BasePart") then
-                    pcall(function() v.CanCollide = false end)
-                end
-            end
-        end
-    end
-end)
-
-LP.CharacterAdded:Connect(function()
-    task.wait(0.6)
-    applySpeed()
-    if S.ESP then
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LP then applyEsp(p.Character) end
-        end
-    end
-    if S.GodMode then
-        local h = getHum()
-        if h then h.MaxHealth = math.huge; h.Health = math.huge end
-    end
-end)
-
--- ═══════════════════════════════════════════════════════════════
---   WATERMARK
--- ═══════════════════════════════════════════════════════════════
-local WM = Instance.new("TextLabel")
-WM.Size = UDim2.new(0, 240, 0, 22)
-WM.Position = UDim2.new(0, 20, 0, 10)
-WM.BackgroundTransparency = 1
-WM.Text = "ZYPHORA PRO v2 • ☠ SYSTEM BREACHED ☠"
-WM.TextColor3 = C.accent
-WM.Font = Enum.Font.GothamBold
-WM.TextSize = 10
-WM.TextXAlignment = Enum.TextXAlignment.Left
-WM.ZIndex = 10
-WM.Parent = Main
-
-notify("ZYPHORA PRO v2 loaded", "on")
-print("✅ ZYPHORA PRO v2 — Built by ☠ SYSTEM BREACHED ☠ —◥꧁ SHΔDØW HΛCKΞR ꧂◤")
+notify("ZYPHORA PRO READY")
+print("[ZYPHORA] PRO v2.
