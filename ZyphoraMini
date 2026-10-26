@@ -391,3 +391,36 @@ on(close.MouseButton1Click,cleanup)
 on(gui.Destroying,cleanup)
 status('ZYPHORA PRO v21 READY')
 print('[ZYPHORA] v21 loaded')
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local old = playerGui:FindFirstChild("ZyphoraTest")
+if old then old:Destroy() end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "ZyphoraTest"
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 999
+gui.Parent = playerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.fromOffset(320, 130)
+frame.Position = UDim2.new(0.5, -160, 0.5, -65)
+frame.BackgroundColor3 = Color3.fromRGB(15, 20, 30)
+frame.Parent = gui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = frame
+
+local label = Instance.new("TextLabel")
+label.Size = UDim2.fromScale(1, 1)
+label.BackgroundTransparency = 1
+label.Text = "ZYPHORA TEST - GUI WORKING"
+label.TextColor3 = Color3.fromRGB(0, 220, 255)
+label.Font = Enum.Font.GothamBold
+label.TextSize = 17
+label.Parent = frame
+
+print("ZYPHORA GUI TEST SUCCESS")
