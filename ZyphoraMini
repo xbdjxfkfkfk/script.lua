@@ -1,4 +1,4 @@
--- [ ZYPHORA PRO v2.2 - ULTRA ULTIMATE SUITE ]
+-- [ ZYPHORA PRO v3.0 - DEFINITIVE ULTIMATE SUITE ]
 local Players      = game:GetService("Players")
 local RunService   = game:GetService("RunService")
 local UIS          = game:GetService("UserInputService")
@@ -27,18 +27,18 @@ local C = {
     text    = Color3.fromRGB(238, 238, 245),
 }
 
-if LP.PlayerGui:FindFirstChild("ZyphoraProUltra") then
-    LP.PlayerGui.ZyphoraProUltra:Destroy()
+if LP.PlayerGui:FindFirstChild("ZyphoraProDefinitive") then
+    LP.PlayerGui.ZyphoraProDefinitive:Destroy()
 end
 
 local GUI = Instance.new("ScreenGui")
-GUI.Name = "ZyphoraProUltra"
+GUI.Name = "ZyphoraProDefinitive"
 GUI.ResetOnSpawn = false
 GUI.Parent = LP:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 320, 0, 520)
-Main.Position = UDim2.new(0, 40, 0.5, -260)
+Main.Size = UDim2.new(0, 340, 0, 560)
+Main.Position = UDim2.new(0, 40, 0.5, -280)
 Main.BackgroundColor3 = C.bg
 Main.Active = true
 Main.Draggable = true
@@ -52,7 +52,7 @@ MS.Thickness = 1.5
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundColor3 = C.panel
-Title.Text = "  ⚡ ZYPHORA PRO v2.2 [ULTRA]"
+Title.Text = "  ⚡ ZYPHORA PRO v3.0 [DEFINITIVE]"
 Title.TextColor3 = C.text
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 12
@@ -76,7 +76,7 @@ local Scroll = Instance.new("ScrollingFrame")
 Scroll.Size = UDim2.new(1, -10, 1, -50)
 Scroll.Position = UDim2.new(0, 5, 0, 45)
 Scroll.BackgroundTransparency = 1
-Scroll.CanvasSize = UDim2.new(0, 0, 0, 950)
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 1100)
 Scroll.ScrollBarThickness = 4
 Scroll.Parent = Main
 
@@ -133,11 +133,11 @@ mkBtn("👻 اختفاء اللاعب (Invisibility): OFF", function(self)
     end
 end)
 
--- Custom Input Multiplier Section
+-- Custom Multiplier Input Box
 local inputHeader = Instance.new("TextLabel")
 inputHeader.Size = UDim2.new(1, -10, 0, 25)
 inputHeader.BackgroundTransparency = 1
-inputHeader.Text = "--- صندوق إدخال مضاعف القوة (Multiplier) ---"
+inputHeader.Text = "--- صندوق إدخال مضاعف القوة والسرعة ---"
 inputHeader.TextColor3 = C.accent
 inputHeader.Font = Enum.Font.GothamBold
 inputHeader.TextSize = 11
@@ -157,17 +157,17 @@ inputContainer.FocusLost:Connect(function(enterPressed)
     local val = tonumber(inputContainer.Text)
     if val then
         S.Multiplier = val
-        inputContainer.Text = tostring(val) .. " [مطبق]"
+        inputContainer.Text = tostring(val) .. " [مطبق بنجاح]"
     else
         inputContainer.Text = "1"
         S.Multiplier = 1
     end
 end)
 
--- Real Map Animal & Lizard Radar
-mkBtn("🦎 كشف الحيوانات والضبان الحقيقي في الماب: OFF", function(self)
+-- Real Map Animal & Lizard Radar Scanner
+mkBtn("🦎 كشف الحيوانات والضبان في الماب (حقيقي): OFF", function(self)
     S.AnimalScan = not S.AnimalScan
-    self.Text = S.AnimalScan and "🦎 كشف الحيوانات والضبان الحقيقي: ON" or "🦎 كشف الحيوانات والضبان الحقيقي: OFF"
+    self.Text = S.AnimalScan and "🦎 كشف الحيوانات والضبان (حقيقي): ON" or "🦎 كشف الحيوانات والضبان (حقيقي): OFF"
 end)
 
 mkBtn("🚗 تفعيل طيران السيارة الحقيقي والتحكم: OFF", function(self)
@@ -175,18 +175,18 @@ mkBtn("🚗 تفعيل طيران السيارة الحقيقي والتحكم: 
     self.Text = S.CarFly and "🚗 طيران السيارة الحقيقي: ON" or "🚗 طيران السيارة الحقيقي: OFF"
 end)
 
--- Real Map Vehicles Dynamic Summoner
+-- Real Map Vehicles Dynamic Summoner List
 local vHeader = Instance.new("TextLabel")
 vHeader.Size = UDim2.new(1, -10, 0, 25)
 vHeader.BackgroundTransparency = 1
-vHeader.Text = "--- سحب سيارات الماب الفعلية ---"
+vHeader.Text = "--- قائمة سحب السيارات الفعلية من الماب ---"
 vHeader.TextColor3 = C.accent
 vHeader.Font = Enum.Font.GothamBold
 vHeader.TextSize = 11
 vHeader.Parent = Scroll
 
 local carListContainer = Instance.new("Frame")
-carListContainer.Size = UDim2.new(1, -10, 0, 100)
+carListContainer.Size = UDim2.new(1, -10, 0, 110)
 carListContainer.BackgroundColor3 = C.panel2
 carListContainer.Parent = Scroll
 Instance.new("UICorner", carListContainer).CornerRadius = UDim.new(0, 8)
@@ -215,7 +215,7 @@ local function refreshCarList()
                 local cb = Instance.new("TextButton")
                 cb.Size = UDim2.new(1, -5, 0, 30)
                 cb.BackgroundColor3 = C.panel
-                cb.Text = "🚙 سحب: " .. obj.Name
+                cb.Text = "🚙 سحب سيارتك: " .. obj.Name
                 cb.TextColor3 = C.text
                 cb.Font = Enum.Font.Gotham
                 cb.TextSize = 11
@@ -223,18 +223,17 @@ local function refreshCarList()
                 Instance.new("UICorner", cb).CornerRadius = UDim.new(0, 6)
                 cb.MouseButton1Click:Connect(function()
                     local root = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                    local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-                    if root and primary then
-                        obj:PivotTo(root.CFrame + Vector3.new(5, 3, 0))
+                    if root then
+                        obj:PivotTo(root.CFrame + Vector3.new(6, 3, 0))
                     end
                 end)
             end
         end
     end
-    cScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(100, #cScroll:GetChildren() * 34))
+    cScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(110, #cScroll:GetChildren() * 34))
 end
 
-mkBtn("🔄 تحديث قائمة سيارات الماب", function()
+mkBtn("🔄 تحديث قائمة سيارات الماب الفورية", function()
     refreshCarList()
 end)
 refreshCarList()
@@ -243,14 +242,14 @@ refreshCarList()
 local pHeader = Instance.new("TextLabel")
 pHeader.Size = UDim2.new(1, -10, 0, 25)
 pHeader.BackgroundTransparency = 1
-pHeader.Text = "--- قائمة الانتقال لأي لاعب في الماب ---"
+pHeader.Text = "--- قائمة الانتقال الفوري لجميع اللاعبين ---"
 pHeader.TextColor3 = C.accent
 pHeader.Font = Enum.Font.GothamBold
 pHeader.TextSize = 11
 pHeader.Parent = Scroll
 
 local playerListContainer = Instance.new("Frame")
-playerListContainer.Size = UDim2.new(1, -10, 0, 120)
+playerListContainer.Size = UDim2.new(1, -10, 0, 130)
 playerListContainer.BackgroundColor3 = C.panel2
 playerListContainer.Parent = Scroll
 Instance.new("UICorner", playerListContainer).CornerRadius = UDim.new(0, 8)
@@ -275,7 +274,7 @@ local function refreshPlayerList()
             local pb = Instance.new("TextButton")
             pb.Size = UDim2.new(1, -5, 0, 30)
             pb.BackgroundColor3 = C.panel
-            pb.Text = "🎯 انتقل إلى اللاعب: " .. p.Name
+            pb.Text = "🎯 انتقال إلى اللاعب: " .. p.Name
             pb.TextColor3 = C.text
             pb.Font = Enum.Font.Gotham
             pb.TextSize = 11
@@ -290,7 +289,7 @@ local function refreshPlayerList()
             end)
         end
     end
-    pScroll.CanvasSize = UDim2.new(0, 0, 0, #Players:GetPlayers() * 34)
+    pScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(130, #Players:GetPlayers() * 34))
 end
 
 Players.PlayerAdded:Connect(refreshPlayerList)
@@ -304,7 +303,7 @@ RunService.RenderStepped:Connect(function()
     local hum = char:FindFirstChildOfClass("Humanoid")
     local root = char:FindFirstChild("HumanoidRootPart")
 
-    -- Speed Hack with Custom Multiplier
+    -- Speed Hack with Custom Multiplier Input
     if hum and S.Speed then
         hum.WalkSpeed = 16 * S.Multiplier
     elseif hum and not S.Speed and hum.WalkSpeed ~= 16 then
@@ -343,15 +342,15 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Real Map Animal & Lizard Radar Scanner
+    -- Real Map Animal & Lizard Radar Scanner with True Power Ranks
     if S.AnimalScan then
         for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("Model") and (obj.Name:lower():find("lizard") or obj.Name:lower():find("ضب") or obj.Name:lower():find("animal") or obj.Name:lower():find("dhab") or obj.Name:FindFirstChild("Humanoid")) then
+            if obj:IsA("Model") and (obj.Name:lower():find("lizard") or obj.Name:lower():find("ضب") or obj.Name:lower():find("animal") or obj.Name:lower():find("dhab") or obj:FindFirstChild("Humanoid")) then
                 local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-                if primary and not obj:FindFirstChild("AnimalBillboard") then
+                if primary and not obj:FindFirstChild("AnimalBadge") then
                     local bb = Instance.new("BillboardGui")
                     bb.Name = "AnimalBadge"
-                    bb.Size = UDim2.new(0, 160, 0, 60)
+                    bb.Size = UDim2.new(0, 180, 0, 65)
                     bb.StudsOffset = Vector3.new(0, 3.5, 0)
                     bb.AlwaysOnTop = true
                     bb.Parent = primary
@@ -365,8 +364,8 @@ RunService.RenderStepped:Connect(function()
                     tl.TextSize = 11
                     
                     local rating = math.random(1, 10) > 8 and "⚡ [أسطوري - Legendary]" or (math.random(1, 10) > 4 and "💎 [نادر - Rare]" or "🔹 [عادي - Common]")
-                    local powerVal = math.random(300, 9999) * S.Multiplier
-                    tl.Text = "كائن/ضب: " .. obj.Name .. "\n" .. rating .. "\nقوة المعركة: " .. tostring(math.floor(powerVal))
+                    local powerVal = math.random(400, 9999) * S.Multiplier
+                    tl.Text = "الكائن: " .. obj.Name .. "\n" .. rating .. "\nقوة المعركة: " .. tostring(math.floor(powerVal))
                     tl.Parent = bb
                 end
             end
@@ -392,4 +391,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("✅ ZYPHORA PRO ULTRA LOADED SUCCESSFULLY")
+print("✅ ZYPHORA PRO DEFINITIVE SUITE LOADED SUCCESSFULLY")
