@@ -1,4 +1,4 @@
--- Lx | ZYPHORA HUB v32 | single-file Luau client utility
+-- X | ZYPHORA HUB v33 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
 local Players=game:GetService('Players')
 local RunService=game:GetService('RunService')
@@ -12,7 +12,7 @@ if not PG then warn('X Hub: PlayerGui unavailable');return end
 local env=_G
 if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
 if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
-for _,name in ipairs({'X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+for _,name in ipairs({'X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
  local old=PG:FindFirstChild(name)
  if old then old:Destroy() end
 end
@@ -26,10 +26,10 @@ local function hum() return LP.Character and LP.Character:FindFirstChildOfClass(
 local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(17,18,24),card=Color3.fromRGB(37,38,45),muted=Color3.fromRGB(170,175,185),white=Color3.fromRGB(246,246,250),purple=Color3.fromRGB(160,100,235),green=Color3.fromRGB(68,211,136)}
-local gui=inst('ScreenGui',{Name='X_ZyphoraHubV32',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+local gui=inst('ScreenGui',{Name='X_ZyphoraHubV33',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(590,460),Position=UDim2.new(.5,-295,.5,-230),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,12)
 local head=inst('Frame',{Size=UDim2.new(1,0,0,47),BackgroundColor3=C.card,BorderSizePixel=0,Active=true},main);round(head,12)
-inst('TextLabel',{Size=UDim2.new(1,-120,1,0),Position=UDim2.fromOffset(14,0),BackgroundTransparency=1,Text='X | ZYPHORA HUB v32',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=16,TextXAlignment=Enum.TextXAlignment.Left},head)
+inst('TextLabel',{Size=UDim2.new(1,-120,1,0),Position=UDim2.fromOffset(14,0),BackgroundTransparency=1,Text='X | ZYPHORA HUB v33',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=16,TextXAlignment=Enum.TextXAlignment.Left},head)
 local function smallBtn(text,x) local b=inst('TextButton',{Size=UDim2.fromOffset(31,29),Position=UDim2.new(1,x,0,9),Text=text,Font=Enum.Font.GothamBold,TextSize=16,TextColor3=C.white,BackgroundColor3=C.bg},head);round(b,7);return b end
 local mini=smallBtn('−',-78);local close=smallBtn('×',-39)
 local side=inst('ScrollingFrame',{Size=UDim2.new(0,170,1,-85),Position=UDim2.fromOffset(10,53),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},main)
@@ -59,23 +59,32 @@ local function action(p,title,fn)
  conn(b.MouseButton1Click,function() local ok,e=pcall(fn);if not ok then warn('X Hub:',e);msg('خطأ: '..tostring(e):sub(1,65)) end end);return b
 end
 local function toggle(p,title,key,fn)
- local b=inst('TextButton',{Size=UDim2.new(1,-2,0,41),Text=title..'  |  OFF',TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,BackgroundColor3=C.card},p)
+ local b=inst('TextButton',{Size=UDim2.new(1,-2,0,41),Text='',TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,BackgroundColor3=C.card},p)
  round(b,9)
+ local function paint()
+  local enabled=S[key]==true
+  b.Text=title..(enabled and '  |  ON ✓' or '  |  OFF ✕')
+  b.BackgroundColor3=enabled and Color3.fromRGB(45,88,70) or C.card
+ end
+ paint()
  conn(b.MouseButton1Click,function()
-  local previous=S[key]
-  S[key]=not previous
+  local previous=S[key]==true
+  local desired=not previous
+  S[key]=desired
   local ok,err=true,nil
-  if fn then ok,err=pcall(fn,S[key]) end
+  if fn then ok,err=pcall(fn,desired) end
   if not ok then
    S[key]=previous
    warn('[X Hub] toggle failed:',err)
-   msg('تعذر تفعيل الخيار: '..tostring(err):sub(1,55))
+   msg('تعذر تغيير الخيار: '..tostring(err):sub(1,55))
+  else
+   msg(title..(desired and ' : تم التشغيل ON' or ' : تم الإيقاف OFF'))
   end
-  b.Text=title..(S[key] and '  |  ON' or '  |  OFF')
-  b.BackgroundColor3=S[key] and Color3.fromRGB(45,88,70) or C.card
+  paint()
  end)
  return b
 end
+
 local function number(p,title,key,min,max,step)
  local f=label(p,title)
  local value=inst('TextLabel',{Size=UDim2.fromOffset(72,27),Position=UDim2.new(1,-122,0,0),BackgroundTransparency=1,Text=tostring(S[key]),TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold},f)
@@ -281,7 +290,7 @@ toggle(appearance,'إضاءة كاملة بدون فلاش أبيض','Fullbright
 label(appearance,'ملاحظة','بعض المابات تعيد تطبيق إعدادات الإضاءة باستمرار؛ لا يمكن ضمان ثباتها')
 local extras=tab('أدوات إضافية')
 action(extras,'تحديث معلومات أقرب ضب',function()refreshCache();local e,d=nearest('الكل');if not e then msg('لا يوجد ضب حي قريب');return end;local m=e.model;msg(m.Name..' | '..rarity(m)..' | '..math.floor(d)..' وحدة') end)
-label(extras,'X | ZYPHORA HUB v32','المعلومات الحقيقية فقط؛ القيم غير الموجودة لا تُخترع')
+label(extras,'X | ZYPHORA HUB v33','المعلومات الحقيقية فقط؛ القيم غير الموجودة لا تُخترع')
 local minimized=false
 conn(mini.MouseButton1Click,function()minimized=not minimized;side.Visible=not minimized;area.Visible=not minimized;status.Visible=not minimized;main.Size=minimized and UDim2.fromOffset(590,47) or UDim2.fromOffset(590,460);mini.Text=minimized and '+' or '−' end)
 local dragging,dragStart,frameStart=false,nil,nil
@@ -359,5 +368,5 @@ conn(RunService.RenderStepped,function(dt)
  end
  if best then local target=CFrame.lookAt(cam.CFrame.Position,best.part.Position);local alpha=1-math.exp(-math.max(.02,S.AimSmooth)*30*dt);cam.CFrame=cam.CFrame:Lerp(target,alpha) end
 end)
-msg('X Hub v32 جاهز | ميزات السيرفر قد تكون مقيّدة')
-print('[X Zyphora Hub] v32 loaded')
+msg('X Hub v33 جاهز | ميزات السيرفر قد تكون مقيّدة')
+print('[X Zyphora Hub] v33 loaded')
