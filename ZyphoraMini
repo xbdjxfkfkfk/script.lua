@@ -1,4 +1,4 @@
--- X | ZYPHORA HUB v27 | Single-file Roblox Luau client UI
+-- X | ZYPHORA HUB v29 | Single-file Roblox Luau client UI
 -- Features depend on objects replicated to this client. No server bypass is implied.
 local Players=game:GetService('Players')
 local RS=game:GetService('RunService')
@@ -12,7 +12,7 @@ local pg=LP:WaitForChild('PlayerGui',10)
 if not pg then warn('ZYPHORA: PlayerGui unavailable'); return end
 if _G.ZyphoraXStop then pcall(_G.ZyphoraXStop) end
 if _G.ZyphoraV25Stop then pcall(_G.ZyphoraV25Stop) end
-local active=true; local cons={}; local markers={}; local state={radar=false,aim=false,fog=false,light=false,afk=false,filter='الكل',range=1000,aimSmooth=0.12,aimRange=1000,carFly=false,flySpeed=100,carSpeed=false,carBoost=70,playerSpeed=false,walkSpeed=24}
+local active=true; local cons={}; local markers={}; local state={radar=false,aim=false,fog=false,light=false,afk=false,filter='الكل',range=1000,aimSmooth=0.12,aimRange=1000,aimFov=150,rareTracker=false,carFly=false,flySpeed=100,carSpeed=false,carBoost=70,playerSpeed=false,walkSpeed=24}
 local palette={bg=Color3.fromRGB(13,14,18),panel=Color3.fromRGB(30,31,36),card=Color3.fromRGB(41,42,48),text=Color3.fromRGB(246,246,248),sub=Color3.fromRGB(177,180,190),accent=Color3.fromRGB(159,104,235),on=Color3.fromRGB(36,200,112)}
 local function con(s,f) local c=s:Connect(f); cons[#cons+1]=c; return c end
 local function new(k,p,par) local o=Instance.new(k); for a,b in pairs(p or {}) do o[a]=b end; o.Parent=par; return o end
@@ -26,8 +26,19 @@ local main=new('Frame',{Size=UDim2.fromOffset(610,450),Position=UDim2.new(.5,-30
 new('UIStroke',{Color=Color3.fromRGB(68,65,78),Thickness=1},main)
 local scale=new('UIScale',{Scale=1},main)
 local function resize() local cam=camera(); if cam then local v=cam.ViewportSize; scale.Scale=math.clamp(math.min(v.X/650,v.Y/490),.55,1) end end; resize()
-local title=new('TextLabel',{Size=UDim2.new(1,-40,0,48),BackgroundTransparency=1,Text='  ◈ X | ZYPHORA HUB  v28',TextColor3=palette.text,Font=Enum.Font.GothamBold,TextSize=17,TextXAlignment=Enum.TextXAlignment.Left},main)
+local title=new('TextLabel',{Size=UDim2.new(1,-40,0,48),BackgroundTransparency=1,Text='  ◈ X | ZYPHORA HUB  v29',TextColor3=palette.text,Font=Enum.Font.GothamBold,TextSize=17,TextXAlignment=Enum.TextXAlignment.Left},main)
 local close=new('TextButton',{Size=UDim2.fromOffset(32,30),Position=UDim2.new(1,-37,0,9),Text='×',TextSize=22,TextColor3=palette.text,BackgroundColor3=palette.panel},main); rounded(close,8)
+local minimize=new('TextButton',{Size=UDim2.fromOffset(32,30),Position=UDim2.new(1,-75,0,9),Text='−',TextSize=20,TextColor3=palette.text,BackgroundColor3=palette.panel},main); rounded(minimize,8)
+local minimized=false
+local function setMinimized(value)
+ minimized=value
+ main.Size=value and UDim2.fromOffset(610,49) or UDim2.fromOffset(610,450)
+ minimize.Text=value and '+' or '−'
+ for _,item in ipairs(main:GetChildren()) do
+  if item:IsA('ScrollingFrame') or (item:IsA('Frame') and item~=main) then item.Visible=not value end
+ end
+end
+con(minimize.MouseButton1Click,function() setMinimized(not minimized) end)
 local sidebar=new('ScrollingFrame',{Position=UDim2.fromOffset(9,53),Size=UDim2.fromOffset(175,387),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},main)
 new('UIListLayout',{Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder},sidebar)
 local content=new('Frame',{Position=UDim2.fromOffset(195,53),Size=UDim2.fromOffset(405,350),BackgroundColor3=palette.panel,BorderSizePixel=0},main); rounded(content,11)
@@ -217,6 +228,7 @@ local pAim=page('⊕ التصويب')
 toggle(pAim,'التصويب على الضبان فقط','يتجاهل شخصيات اللاعبين','aim',function(on) if on then scan() end end)
 number(pAim,'نعومة حركة الكاميرا','aimSmooth',.02,.5,.02)
 number(pAim,'أقصى مسافة للتصويب','aimRange',100,3000,100)
+number(pAim,'حجم دائرة FOV','aimFov',30,400,10)
 local pSpeed=page('⚡ سرعة اللاعب')
 local originalSpeed=nil; local speedHum=nil
 local function setPlayerSpeed(on)
@@ -268,12 +280,12 @@ local function applyFog(on)
  end end
 end
 local function applyLight(on)
- Lighting.Brightness=on and 5 or original.Brightness
- Lighting.ClockTime=on and 12 or original.ClockTime
+ Lighting.Brightness=on and 2.2 or original.Brightness
+ Lighting.ClockTime=on and 13 or original.ClockTime
  Lighting.GlobalShadows=on and false or original.GlobalShadows
- Lighting.Ambient=on and Color3.new(1,1,1) or original.Ambient
- Lighting.OutdoorAmbient=on and Color3.new(1,1,1) or original.OutdoorAmbient
- Lighting.ExposureCompensation=on and 1.5 or original.ExposureCompensation
+ Lighting.Ambient=on and Color3.fromRGB(150,150,160) or original.Ambient
+ Lighting.OutdoorAmbient=on and Color3.fromRGB(165,165,175) or original.OutdoorAmbient
+ Lighting.ExposureCompensation=on and 0 or original.ExposureCompensation
 end
 toggle(pLook,'إزالة الضباب','يشمل Fog و Atmosphere الموجودين','fog',applyFog)
 toggle(pLook,'إضاءة كاملة','رفع الإضاءة والسطوع وإيقاف الظلال محلياً','light',applyLight)
@@ -283,6 +295,8 @@ action(pExtra,'إعادة الاتصال','طلب إعادة الدخول إلى
  msg('محاولة إعادة الدخول...'); local ok,err=pcall(function() TeleportService:Teleport(game.PlaceId,LP) end); if not ok then msg('تعذرت إعادة الدخول: '..tostring(err)) end
 end)
 local pMove=page('◎ الانتقال')
+toggle(pMove,'متابعة الضبان الأسطورية والخرافية','يعرض الهدف النادر المتاح؛ لا يمنح مستويات تلقائياً','rareTracker',function(on) if on then scan() end end)
+
 action(pMove,'الانتقال لأقرب ضب','محاولة واحدة دون تكرار أو تعليق',function()
  scan(); local e=nearest(); local me=root(); if not e or belongsToPlayer(e.m) or not me then msg('لا يوجد ضب متاح'); return end
  local dest=e.p.Position + Vector3.new(0,3,6)
@@ -311,7 +325,7 @@ action(pMove,'العودة للديرة','فقط إذا كان مكان الدي
 end)
 -- Information and diagnostics live in Extra Tools, not a separate decorative tab.
 local pInfo=pExtra
-local small=new('TextLabel',{Size=UDim2.new(1,-2,0,140),BackgroundColor3=palette.card,TextColor3=palette.text,TextSize=12,TextWrapped=true,Font=Enum.Font.Gotham,Text='X | Zyphora Hub v28\nالرادار والتصويب للحيوانات المطابقة فقط.\nالندرات مبنية على قيم يتيحها الماب.\nالتلفيل التلقائي يتطلب نظام الماب ولا يمكن تعميمه.\nسحب سيارات الآخرين وبيانات الشراء لا يمكن ضمانهما محلياً.'},pInfo); rounded(small,9)
+local small=new('TextLabel',{Size=UDim2.new(1,-2,0,140),BackgroundColor3=palette.card,TextColor3=palette.text,TextSize=12,TextWrapped=true,Font=Enum.Font.Gotham,Text='X | Zyphora Hub v29\nالرادار والتصويب للحيوانات المطابقة فقط.\nالندرات مبنية على قيم يتيحها الماب.\nالتلفيل التلقائي يتطلب نظام الماب ولا يمكن تعميمه.\nسحب سيارات الآخرين وبيانات الشراء لا يمكن ضمانهما محلياً.'},pInfo); rounded(small,9)
 local sidePanel=new('Frame',{Size=UDim2.fromOffset(215,120),Position=UDim2.new(1,-228,0,10),BackgroundColor3=palette.bg,BackgroundTransparency=.13,Visible=false},gui); rounded(sidePanel,10)
 local sideText=new('TextLabel',{Size=UDim2.new(1,-14,1,-10),Position=UDim2.fromOffset(7,5),BackgroundTransparency=1,TextColor3=palette.text,TextSize=12,Font=Enum.Font.GothamBold,TextWrapped=true,Text='رادار الضبان النادرة'},sidePanel)
 local accum=0; local camAccum=0
@@ -334,21 +348,42 @@ con(RS.Heartbeat,function(dt)
  end
  if accum>=.5 then
   accum=0
-  if state.radar or state.aim then
+  if state.radar or state.aim or state.rareTracker then
    if os.clock()-lastScan>4 then scan(); lastScan=os.clock() end
   end
   if state.radar then updateMarkers() else if next(markers) then clearMarkers() end end
-  sidePanel.Visible=state.radar
-  if state.radar then local e,d=nearest(state.range); if e and not belongsToPlayer(e.m) then local r=rarity(e.m); sideText.Text='🦎 أقرب ضب\n'..e.m.Name..'\nالندرة: '..r..'\nالمسافة: '..string.format('%.0f',d)..' وحدة' else sideText.Text='🦎 رادار الضبان\nلا يوجد ضب مطابق في المدى' end end
+  sidePanel.Visible=state.radar or state.rareTracker
+  if state.radar or state.rareTracker then local e,d=nearest(state.range); if e and not belongsToPlayer(e.m) then local r=rarity(e.m); sideText.Text='🦎 أقرب ضب\n'..e.m.Name..'\nالندرة: '..r..'\nالمسافة: '..string.format('%.0f',d)..' وحدة' else sideText.Text='🦎 رادار الضبان\nلا يوجد ضب مطابق في المدى' end end
   resize()
   if state.playerSpeed then setPlayerSpeed(true) end
   if state.fog then applyFog(true) end
   if state.light then applyLight(true) end
  end
- if state.aim and camAccum>=.03 then
-  camAccum=0; local e=nearest(state.aimRange); local cam=camera()
-  if e and cam and not belongsToPlayer(e.m) then local goal=CFrame.lookAt(cam.CFrame.Position,e.p.Position); cam.CFrame=cam.CFrame:Lerp(goal,math.clamp(state.aimSmooth,0,1)) end
+ 
+end)
+-- Render-step aim smoothing avoids camera jitter caused by Heartbeat updates.
+local aimCached=nil
+local aimRefresh=0
+con(RS.RenderStepped,function(dt)
+ if not active or not state.aim then return end
+ aimRefresh+=dt
+ if aimRefresh>=.2 then
+  aimRefresh=0
+  aimCached=nearest(state.aimRange)
  end
+ local e=aimCached
+ local cam=camera()
+ if not e or not cam or not e.p or not e.p.Parent or belongsToPlayer(e.m) then return end
+ local direction=e.p.Position-cam.CFrame.Position
+ if direction.Magnitude<.01 or direction.Magnitude>state.aimRange then return end
+ local projected,onScreen=cam:WorldToViewportPoint(e.p.Position)
+ if not onScreen then return end
+ local center=cam.ViewportSize/2
+ local offset=(Vector2.new(projected.X,projected.Y)-center).Magnitude
+ if offset>state.aimFov then return end
+ local goal=CFrame.lookAt(cam.CFrame.Position,e.p.Position)
+ local alpha=1-math.pow(1-math.clamp(state.aimSmooth,.01,.9),dt*60)
+ cam.CFrame=cam.CFrame:Lerp(goal,alpha)
 end)
 local afkVirtual=nil
 pcall(function() afkVirtual=game:GetService('VirtualUser') end)
@@ -369,4 +404,4 @@ end
 _G.ZyphoraXStop=stop
 con(close.MouseButton1Click,stop)
 con(gui.Destroying,stop)
-print('X | ZYPHORA HUB v28 loaded')
+print('X | ZYPHORA HUB v29 loaded')
