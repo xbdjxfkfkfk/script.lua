@@ -1,4 +1,4 @@
--- ZYPHORA PRO v19 | Single-file Roblox Luau client script
+-- ZYPHORA PRO v20 | Single-file Roblox Luau client script
 -- Client effects depend on replication and game permissions.
 local Players=game:GetService('Players')
 local RunService=game:GetService('RunService')
@@ -8,11 +8,11 @@ local LP=Players.LocalPlayer
 if not LP then return end
 local env=_G
 if type(getgenv)=='function' then local ok,v=pcall(getgenv); if ok and type(v)=='table' then env=v end end
-if type(env.ZyphoraV19Cleanup)=='function' then pcall(env.ZyphoraV19Cleanup) end
+if type(env.ZyphoraV20Cleanup)=='function' then pcall(env.ZyphoraV20Cleanup) end
 local parent=LP:WaitForChild('PlayerGui',12)
 if not parent then return end
 if type(gethui)=='function' then local ok,v=pcall(gethui); if ok and typeof(v)=='Instance' then parent=v end end
-local old=parent:FindFirstChild('ZyphoraProV19'); if old then old:Destroy() end
+local old=parent:FindFirstChild('ZyphoraProV20'); if old then old:Destroy() end
 local alive=true
 local connections={}
 local esp={}
@@ -27,14 +27,14 @@ local function new(class,props,parentObj) local o=Instance.new(class); for k,v i
 local function corner(o,r) new('UICorner',{CornerRadius=UDim.new(0,r or 8)},o) end
 local function root() local ch=LP.Character; return ch and ch:FindFirstChild('HumanoidRootPart') end
 local function hum() local ch=LP.Character; return ch and ch:FindFirstChildOfClass('Humanoid') end
-local gui=new('ScreenGui',{Name='ZyphoraProV19',ResetOnSpawn=false,DisplayOrder=110,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},parent)
+local gui=new('ScreenGui',{Name='ZyphoraProV20',ResetOnSpawn=false,DisplayOrder=110,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},parent)
 local main=new('Frame',{Size=UDim2.fromOffset(540,470),Position=UDim2.new(.5,-270,.5,-235),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true,ClipsDescendants=true},gui);corner(main,12)
 new('UIStroke',{Color=C.cyan,Thickness=1.3},main)
 local scale=new('UIScale',{Scale=1},main)
 local function resize() local cam=WS.CurrentCamera;if cam then scale.Scale=math.clamp(math.min(cam.ViewportSize.X/575,cam.ViewportSize.Y/510),.5,1) end end
 resize()
 local header=new('Frame',{Size=UDim2.new(1,0,0,48),BackgroundColor3=C.panel,BorderSizePixel=0,Active=true},main)
-new('TextLabel',{Size=UDim2.new(1,-100,1,0),Position=UDim2.fromOffset(14,0),BackgroundTransparency=1,Text='⚡ ZYPHORA PRO  v19',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=16,TextXAlignment=Enum.TextXAlignment.Left},header)
+new('TextLabel',{Size=UDim2.new(1,-100,1,0),Position=UDim2.fromOffset(14,0),BackgroundTransparency=1,Text='⚡ ZYPHORA PRO  v20',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=16,TextXAlignment=Enum.TextXAlignment.Left},header)
 local minimize=new('TextButton',{Size=UDim2.fromOffset(30,30),Position=UDim2.new(1,-77,0,9),BackgroundColor3=C.panel2,Text='−',TextColor3=C.white,TextSize=18},header);corner(minimize)
 local close=new('TextButton',{Size=UDim2.fromOffset(30,30),Position=UDim2.new(1,-40,0,9),BackgroundColor3=C.red,Text='×',TextColor3=C.white,TextSize=18},header);corner(close)
 local tabsBar=new('Frame',{Size=UDim2.new(1,-16,0,36),Position=UDim2.fromOffset(8,55),BackgroundTransparency=1},main)
@@ -73,45 +73,68 @@ local function speedEditor(page,title,key,minv,maxv,step)
  on(box.FocusLost,function()set(tonumber(box.Text))end)
 end
 -- Model metadata is game-specific. Never invent rarity/power.
-local keywords={'ضب','lizard','dhab','reptile','lhib'}
-local function isLizard(m)
- if not m:IsA('Model') or Players:GetPlayerFromCharacter(m) then return false end
- local n=string.lower(m.Name)
- for _,word in ipairs(keywords) do if n:find(word,1,true) then return true end end
- return m:GetAttribute('Rarity')~=nil and (n:find('pet',1,true)~=nil or n:find('animal',1,true)~=nil)
-end
-local function part(m) return m.PrimaryPart or m:FindFirstChildWhichIsA('BasePart',true) end
+-- Metadata is specific to each experience; read replicated attributes/values only.
+local keywords={'ضب','lizard','dhab','reptile','lhib','uromastyx'}
 local function stat(m,names)
+ for _,container in ipairs({m,m:FindFirstChild('Config'),m:FindFirstChild('Stats'),m:FindFirstChild('Data')}) do
+  if container then
+   for _,n in ipairs(names) do
+    local a=container:GetAttribute(n)
+    if a~=nil then return a end
+    local v=container:FindFirstChild(n)
+    if v and (v:IsA('StringValue') or v:IsA('NumberValue') or v:IsA('IntValue')) then return v.Value end
+   end
+  end
+ end
  for _,n in ipairs(names) do
-  local a=m:GetAttribute(n);if a~=nil then return a end
   local v=m:FindFirstChild(n,true)
   if v and (v:IsA('StringValue') or v:IsA('NumberValue') or v:IsA('IntValue')) then return v.Value end
  end
  return nil
 end
 local function info(m)
- return {rarity=stat(m,{'Rarity','Tier','Grade','الندرة'}),power=stat(m,{'Power','Strength','قوة'}),size=stat(m,{'Size','Scale','حجم'}),kind=stat(m,{'Type','Species','نوع'})}
+ return {rarity=stat(m,{'Rarity','Tier','Grade','Rank','الندرة'}),power=stat(m,{'Power','Strength','Damage','قوة'}),size=stat(m,{'Size','Scale','Weight','حجم','وزن'}),kind=stat(m,{'Type','Species','Kind','نوع'})}
 end
+local function isLizard(m)
+ if not m:IsA('Model') or Players:GetPlayerFromCharacter(m) then return false end
+ local n=string.lower(m.Name)
+ for _,word in ipairs(keywords) do if n:find(word,1,true) then return true end end
+ local kind=stat(m,{'Type','Species','Kind','نوع'})
+ if kind then
+  local k=string.lower(tostring(kind))
+  for _,word in ipairs(keywords) do if k:find(word,1,true) then return true end end
+ end
+ return false
+end
+local function part(m) return m.PrimaryPart or m:FindFirstChildWhichIsA('BasePart',true) end
 local function rarityColor(value)
- local s=string.lower(tostring(value or ''))
- if s:find('mythic',1,true) or s:find('خرافي',1,true) then return Color3.fromRGB(255,58,221) end
- if s:find('legendary',1,true) or s:find('gold',1,true) or s:find('ذهبي',1,true) then return Color3.fromRGB(255,199,43) end
- if s:find('epic',1,true) or s:find('بنفسجي',1,true) then return Color3.fromRGB(169,100,255) end
- if s:find('uncommon',1,true) or s:find('أخضر',1,true) then return Color3.fromRGB(54,224,120) end
- if s:find('rare',1,true) or s:find('أزرق',1,true) then return Color3.fromRGB(48,161,255) end
- return Color3.fromRGB(221,224,230)
+ local t=string.lower(tostring(value or ''))
+ if t:find('خرافي',1,true) or t:find('mythic',1,true) or t:find('divine',1,true) or t:find('red',1,true) or t:find('أحمر',1,true) then return Color3.fromRGB(255,62,72) end
+ if t:find('ذهبي',1,true) or t:find('gold',1,true) or t:find('legendary',1,true) then return Color3.fromRGB(255,200,45) end
+ if t:find('بنفسجي',1,true) or t:find('purple',1,true) or t:find('epic',1,true) then return Color3.fromRGB(171,94,255) end
+ if t:find('أزرق',1,true) or t:find('blue',1,true) or t=='rare' then return Color3.fromRGB(53,165,255) end
+ if t:find('أخضر',1,true) or t:find('green',1,true) or t=='uncommon' then return Color3.fromRGB(51,223,123) end
+ return Color3.fromRGB(235,237,244)
 end
 local lizards={}
 local function scanLizards()
  table.clear(lizards)
- for _,obj in ipairs(WS:GetDescendants()) do if isLizard(obj) then local p=part(obj);if p then lizards[#lizards+1]={model=obj,root=p} end end end
+ for _,obj in ipairs(WS:GetDescendants()) do
+  if isLizard(obj) then
+   local p=part(obj)
+   if p then lizards[#lizards+1]={model=obj,root=p} end
+  end
+ end
 end
 local function targetLizard(query)
  local me=root();if not me then return nil end
  local chosen,best=nil,math.huge;query=string.lower(query or '')
- for _,e in ipairs(lizards) do if e.model.Parent and e.root.Parent and (query=='' or string.lower(e.model.Name):find(query,1,true)) then
-  local d=(e.root.Position-me.Position).Magnitude;if d<best then best=d;chosen=e end
- end end
+ for _,e in ipairs(lizards) do
+  if e.model.Parent and e.root.Parent and (query=='' or string.lower(e.model.Name):find(query,1,true)) then
+   local d=(e.root.Position-me.Position).Magnitude
+   if d<best then best=d;chosen=e end
+  end
+ end
  return chosen
 end
 local function clearRadar() for _,v in pairs(markers) do if v.gui then v.gui:Destroy() end end;table.clear(markers) end
@@ -187,28 +210,29 @@ local playerList=new('Frame',{Size=UDim2.new(1,-4,0,0),AutomaticSize=Enum.Automa
 new('UIListLayout',{Padding=UDim.new(0,5)},playerList)
 local function playersRefresh()
  for _,c in ipairs(playerList:GetChildren()) do if c:IsA('TextButton') then c:Destroy() end end
- for _,p in ipairs(Players:GetPlayers()) do if p~=LP then btn(playerList,p.DisplayName,function()local r=root();local t=p.Character and p.Character:FindFirstChild('HumanoidRootPart');if r and t then r.CFrame=t.CFrame*CFrame.new(0,0,5);status('انتقال: '..p.Name) else status('اللاعب غير متاح') end end) end end
+ for _,p in ipairs(Players:GetPlayers()) do if p~=LP then btn(playerList,p.DisplayName,function()local r=root();local t=p.Character and p.Character:FindFirstChild('HumanoidRootPart');if r and t then local ch=LP.Character;local ok,err=pcall(function() if ch then ch:PivotTo(t.CFrame*CFrame.new(0,4,5)) end end);status(ok and ('طلب انتقال: '..p.Name) or ('تعذر الانتقال: '..tostring(err))) else status('اللاعب غير متاح') end end) end end
 end
 btn(teleportPage,'تحديث اللاعبين',playersRefresh);playersRefresh()
 btn(lizardPage,'رادار فوق رأس الضبان',function()S.Radar=not S.Radar;if S.Radar then scanLizards();refreshRadar()else clearRadar()end end,'Radar')
+local infoPanel=new('TextLabel',{Size=UDim2.new(1,-4,0,115),BackgroundColor3=C.panel2,Text='معلومات الضب ستظهر هنا بعد الضغط على عرض المعلومات',TextColor3=C.white,TextSize=12,Font=Enum.Font.Gotham,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center},lizardPage);corner(infoPanel,8)
 label(lizardPage,'اسم الضب (اتركه فارغاً لاختيار الأقرب)')
 local targetInput=input(lizardPage,'اكتب اسم الضب','')
 on(targetInput.FocusLost,function()S.Target=targetInput.Text end)
 btn(lizardPage,'انتقال مباشر إلى الضب مرة واحدة',function()
  S.Target=targetInput.Text;scanLizards();local e=targetLizard(S.Target);local r=root()
  if not e or not r then status('لم يتم العثور على ضب مطابق');return end
- local dest=e.root.Position+Vector3.new(0,4,6)
+ local dest=e.root.Position+Vector3.new(0,5,6)
  -- One-time pivot instead of a continuous teleport loop.
- local ch=LP.Character;if ch then ch:PivotTo(CFrame.new(dest,dest+e.root.CFrame.LookVector)) end
+ local ch=LP.Character;if ch then local ok,err=pcall(function()ch:PivotTo(CFrame.new(dest))end);if not ok then status('فشل الانتقال: '..tostring(err));return end end
  status('طلب الانتقال إلى '..e.model.Name)
 end)
 btn(lizardPage,'عرض معلومات أقرب ضب',function()
  scanLizards();local e=targetLizard(targetInput.Text)
- if not e then status('لا يوجد ضب مطابق');return end
+ if not e then infoPanel.Text='لم يتم العثور على ضب مطابق في العناصر المحمّلة حالياً';status('لا يوجد ضب مطابق');return end
  local d=info(e.model)
- status(e.model.Name..' | '..tostring(d.rarity or 'غير معروف')..' | قوة '..tostring(d.power or '?')..' | حجم '..tostring(d.size or '?'))
+ infoPanel.Text='الاسم: '..e.model.Name..'\nالندرة: '..tostring(d.rarity or 'غير متاحة')..'  |  النوع: '..tostring(d.kind or 'غير متاح')..'\nالقوة: '..tostring(d.power or 'غير متاحة')..'  |  الحجم: '..tostring(d.size or 'غير متاح');status('تم تحديث معلومات الضب')
 end)
-label(lizardPage,'الألوان والقوة والحجم تُقرأ من بيانات الماب إذا كانت متاحة. لا يتم اختلاق أرقام.',56)
+label(lizardPage,'الألوان من الندرة الفعلية إن كانت متاحة. القوة والحجم لا يتم اختلاقهما.',56)
 label(aimPage,'توجيه الكاميرا نحو الضب - قسم مستقل')
 btn(aimPage,'AIMBOT - توجيه الكاميرا',function()S.Aim=not S.Aim;if S.Aim then scanLizards() end end,'Aim')
 label(aimPage,'اسم الهدف (فارغ = أقرب ضب)')
@@ -219,19 +243,44 @@ label(aimPage,'يوجه الكاميرا فقط. لا يطلق أو يصيب ت�
 btn(carPage,'زيادة سرعة السيارة أثناء القيادة',function()S.CarSpeed=not S.CarSpeed end,'CarSpeed')
 speedEditor(carPage,'الحد المستهدف لسرعة السيارة', 'Car', 20,350,10)
 btn(carPage,'طيران السيارة (WASD / Space / Shift)',function()S.CarFly=not S.CarFly end,'CarFly')
-label(carPage,'السيارات المكتشفة')
+label(carPage,'السيارات المحمّلة في جهازك (قد لا تظهر السيارات البعيدة بسبب Streaming)')
 local cars=new('Frame',{Size=UDim2.new(1,-4,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},carPage)
 new('UIListLayout',{Padding=UDim.new(0,5)},cars)
-local function refreshCars()
- for _,c in ipairs(cars:GetChildren()) do if c:IsA('TextButton') then c:Destroy() end end
- local count=0
- for _,m in ipairs(WS:GetDescendants()) do
-  if m:IsA('Model') and m:FindFirstChildWhichIsA('VehicleSeat',true) then
-   count+=1;btn(cars,m.Name,function()local r=root();if r and m.Parent then m:PivotTo(r.CFrame*CFrame.new(6,3,0));status('طلب تحريك السيارة')end end)
-   if count>=35 then break end
+local function vehicleModels()
+ local results,seen={},{}
+ local names={'car','vehicle','truck','bike','sedan','suv','سيارة','مركبة'}
+ for _,o in ipairs(WS:GetDescendants()) do
+  if o:IsA('VehicleSeat') then
+   local m=o:FindFirstAncestorOfClass('Model')
+   if m and not seen[m] then seen[m]=true;results[#results+1]=m end
   end
  end
- status('السيارات: '..count)
+ for _,o in ipairs(WS:GetDescendants()) do
+  if o:IsA('Model') and not seen[o] and part(o) then
+   local name=string.lower(o.Name)
+   for _,word in ipairs(names) do
+    if name:find(word,1,true) then
+     seen[o]=true;results[#results+1]=o;break
+    end
+   end
+  end
+ end
+ table.sort(results,function(a,b)return a.Name<b.Name end)
+ return results
+end
+local function refreshCars()
+ for _,c in ipairs(cars:GetChildren()) do if c:IsA('TextButton') then c:Destroy() end end
+ local found=vehicleModels()
+ for i,m in ipairs(found) do
+  btn(cars,m.Name..' ['..i..']',function()
+   local r=root()
+   if not r then status('شخصيتك غير جاهزة');return end
+   if not m.Parent then status('السيارة غير موجودة حالياً');return end
+   local ok,err=pcall(function()m:PivotTo(r.CFrame*CFrame.new(9,3,0))end)
+   status(ok and ('محاولة سحب: '..m.Name..' (قد يمنعها السيرفر)') or ('فشل السحب: '..tostring(err)))
+  end)
+ end
+ status('السيارات المحملة: '..#found)
 end
 btn(carPage,'تحديث السيارات',refreshCars);refreshCars()
 -- periodic loops: no GetDescendants on each frame
@@ -282,11 +331,11 @@ local function cleanup()
  alive=false;S.Aim=false;S.CarSpeed=false;S.CarFly=false
  clearESP();clearRadar();restoreVis();stopSpeed()
  for _,c in ipairs(connections) do c:Disconnect() end;table.clear(connections)
- if env.ZyphoraV19Cleanup==cleanup then env.ZyphoraV19Cleanup=nil end
+ if env.ZyphoraV20Cleanup==cleanup then env.ZyphoraV20Cleanup=nil end
  if gui.Parent then gui:Destroy() end
 end
-env.ZyphoraV19Cleanup=cleanup
+env.ZyphoraV20Cleanup=cleanup
 on(close.MouseButton1Click,cleanup)
 on(gui.Destroying,cleanup)
-status('ZYPHORA PRO v19 READY')
-print('[ZYPHORA] v19 loaded')
+status('ZYPHORA PRO v20 READY')
+print('[ZYPHORA] v20 loaded')
