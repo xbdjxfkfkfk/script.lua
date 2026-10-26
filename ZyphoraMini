@@ -55,6 +55,7 @@ end
 local GUI = Instance.new("ScreenGui")
 GUI.Name = "ZyphoraPro"
 GUI.ResetOnSpawn = false
+GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.IgnoreGuiInset = true
 GUI.Parent = LP:WaitForChild("PlayerGui")
 
