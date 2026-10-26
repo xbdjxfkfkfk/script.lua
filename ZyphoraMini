@@ -1,34 +1,23 @@
--- [ ZYPHORA HUB MINI - PRO EDITION ]
+-- [ ZYPHORA HUB MINI - ULTIMATE PRO ]
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
-
--- محاولة تجاوز الحماية البسيطة للعبة
-pcall(function()
-    local mt = getrawmetatable(game)
-    setreadonly(mt, false)
-    local old = mt.__namecall
-    mt.__namecall = newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        if method == "FireServer" and tostring(self) == "BanEvent" then
-            return
-        end
-        return old(self, ...)
-    end)
-end)
 
 local Settings = {
     ESP = false,
     CarFly = false,
     Speed = false,
-    Noclip = false,
-    FlySpeed = 120
+    Noclip = false
 }
 
--- الواجهة الاحترافية
+-- إزالة الواجهة القديمة إن وجدت لتجنب التكرار
+if LocalPlayer.PlayerGui:FindFirstChild("ZyphoraMiniPro") then
+    LocalPlayer.PlayerGui.ZyphoraMiniPro:Destroy()
+end
+
+-- إنشاء الواجهة الاحترافية
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ZyphoraMiniPro"
 ScreenGui.ResetOnSpawn = false
@@ -48,7 +37,7 @@ local UIStroke = Instance.new("UIStroke", Main)
 UIStroke.Color = Color3.fromRGB(0, 170, 255)
 UIStroke.Thickness = 1.5
 
--- العنوان وزر الإغلاق
+-- العنوان
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundColor3 = Color3.fromRGB(18, 18, 25)
@@ -59,7 +48,7 @@ Title.TextSize = 13
 Title.Parent = Main
 Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 12)
 
--- زر تصغير/إغلاق الواجهة
+-- زر تصغير/إغلاق القائمة
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(0, 30, 0, 30)
 ToggleBtn.Position = UDim2.new(1, -35, 0, 5)
@@ -80,10 +69,10 @@ ToggleBtn.MouseButton1Click:Connect(function()
         end
     end
     Main.Size = isOpen and UDim2.new(0, 220, 0, 380) or UDim2.new(0, 220, 0, 40)
-    ToggleBtn.Text = isOpen and "-" else "+"
+    ToggleBtn.Text = isOpen and "-" or "+"
 end)
 
--- حاوية الأزرار المنظمة
+-- القائمة القابلة للتمرير
 local ScrollingFrame = Instance.new("ScrollingFrame")
 ScrollingFrame.Size = UDim2.new(1, -10, 1, -50)
 ScrollingFrame.Position = UDim2.new(0, 5, 0, 45)
@@ -107,7 +96,9 @@ local function CreateBtn(text, callback)
     btn.Parent = ScrollingFrame
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
     
-    btn.MouseButton1Click:Connect(callback)
+    btn.MouseButton1Click:Connect(function()
+        callback(btn)
+    end)
     return btn
 end
 
@@ -134,7 +125,7 @@ CreateBtn("👁️ كشف اللاعبين (ESP): OFF", function(self)
     end
 end)
 
--- 2. طيران سيارة بدون أخطاء (Car Fly Pro)
+-- 2. Car Fly
 CreateBtn("🚗 طيران السيارة: OFF", function(self)
     Settings.CarFly = not Settings.CarFly
     self.Text = Settings.CarFly and "🚗 طيران السيارة: ON" or "🚗 طيران السيارة: OFF"
@@ -146,15 +137,15 @@ CreateBtn("🚗 طيران السيارة: OFF", function(self)
                 local vehicle = char.Humanoid.SeatPart:FindFirstAncestorOfClass("Model")
                 local root = vehicle and vehicle:FindFirstChildWhichIsA("BasePart", true)
                 if root then
-                    root.AssemblyLinearVelocity = workspace.CurrentCamera.CFrame.LookVector * 80 + Vector3.new(0, 2, 0)
+                    root.AssemblyLinearVelocity = Vector3.new(0, 50, 0)
                 end
             end
-            task.staged or task.wait()
+            task.wait()
         end
     end)
 end)
 
--- 3. السرعة الخارقة
+-- 3. Speed
 CreateBtn("⚡ سرعة اللاعب: OFF", function(self)
     Settings.Speed = not Settings.Speed
     self.Text = Settings.Speed and "⚡ سرعة اللاعب: ON" or "⚡ سرعة اللاعب: OFF"
@@ -164,7 +155,7 @@ CreateBtn("⚡ سرعة اللاعب: OFF", function(self)
     end
 end)
 
--- 4. النوس (Noclip)
+-- 4. Noclip
 CreateBtn("👻 اختراق الجدران (Noclip): OFF", function(self)
     Settings.Noclip = not Settings.Noclip
     self.Text = Settings.Noclip and "👻 اختراق الجدران (Noclip): ON" or "👻 اختراق الجدران (Noclip): OFF"
@@ -178,7 +169,7 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- 5. التليبورت العادي (Click TP)
+-- 5. Click TP
 CreateBtn("📍 تليبورت بالماوس", function()
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
@@ -186,34 +177,34 @@ CreateBtn("📍 تليبورت بالماوس", function()
     end
 end)
 
--- 6. انتقال إلى مخيم / مكان محدد
+-- 6. Camp TP
 CreateBtn("⛺ انتقال إلى المخيم", function()
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
-        -- يمكنك تعديل الإحداثيات أدناه حسب مكان المخيم في لعبتك
-        char.HumanoidRootPart.CFrame = CFrame.new(0, 50, 0) 
+        char.HumanoidRootPart.CFrame = CFrame.new(0, 50, 0)
     end
 end)
 
--- 7. جلب الأشياء النادرة / النودات
+-- 7. Rare Items
 CreateBtn("💎 تجميع الأشياء النادرة", function()
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") and (obj.Name:lower():find("rare") or obj.Name:lower():find("gem") or obj.Name:lower():find("coin")) then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
-                firetouchinterest(char.HumanoidRootPart, obj, 0)
-                task.wait()
-                firetouchinterest(char.HumanoidRootPart, obj, 1)
+                pcall(function()
+                    firetouchinterest(char.HumanoidRootPart, obj, 0)
+                    task.wait()
+                    firetouchinterest(char.HumanoidRootPart, obj, 1)
+                end)
             end
         end
     end
 end)
 
--- 8. الضبان (مكان الهروب السري)
+-- 8. Escape (الضبان)
 CreateBtn("🏃‍♂️ انتقال سريع (الضبان)", function()
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
-        -- نقرة هروب للأعلى وللبعيد
         char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame + Vector3.new(0, 300, 0)
     end
 end)
