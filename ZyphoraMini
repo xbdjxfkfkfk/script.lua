@@ -1,0 +1,133 @@
+-- ZYPHORA HUB MINI v1.0
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+-- الإعدادات
+local Settings = {
+    ESP = false,
+    CarFly = false,
+    Speed = false,
+    Noclip = false,
+    FlySpeed = 100
+}
+
+-- الواجهة
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ZyphoraMini"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 200, 0, 280)
+Main.Position = UDim2.new(0, 20, 0.5, -140)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+Main.Active = true
+Main.Draggable = true
+Main.Parent = ScreenGui
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+Title.Text = "⚡ ZYPHORA MINI"
+Title.TextColor3 = Color3.fromRGB(0, 170, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.Parent = Main
+Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 10)
+
+-- دالة زر
+local function CreateBtn(text, y, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 35)
+    btn.Position = UDim2.new(0, 10, 0, y)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.Parent = Main
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+-- ESP
+CreateBtn("👁️ ESP: OFF", 45, function()
+    Settings.ESP = not Settings.ESP
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            if Settings.ESP then
+                local h = Instance.new("Highlight")
+                h.FillColor = Color3.new(1, 0, 0)
+                h.Adornee = p.Character
+                h.Parent = ScreenGui
+            else
+                for _, v in pairs(ScreenGui:GetChildren()) do
+                    if v:IsA("Highlight") then v:Destroy() end
+                end
+            end
+        end
+    end
+end)
+
+-- طيران سيارة
+CreateBtn("🚗 طيران: OFF", 90, function()
+    Settings.CarFly = not Settings.CarFly
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum or not hum.SeatPart then return end
+    
+    local vehicle = hum.SeatPart:FindFirstAncestorOfClass("Model")
+    local root = vehicle:FindFirstChildWhichIsA("BasePart", true)
+    
+    if Settings.CarFly then
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        bv.Velocity = Vector3.new(0, 50, 0)
+        bv.Parent = root
+        Settings.FlyBody = bv
+    else
+        if Settings.FlyBody then Settings.FlyBody:Destroy() end
+    end
+end)
+
+-- سرعة
+CreateBtn("⚡ سرعة: OFF", 135, function()
+    Settings.Speed = not Settings.Speed
+    local char = LocalPlayer.Character
+    if char then
+        local hum = char:FindFirstChild("Humanoid")
+        if hum then hum.WalkSpeed = Settings.Speed and 100 or 16 end
+    end
+end)
+
+-- تليبورت
+CreateBtn("📍 تليبورت", 180, function()
+    local char = LocalPlayer.Character
+    if char then
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if root then root.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 5, 0)) end
+    end
+end)
+
+-- نوس
+CreateBtn("👻 نوس: OFF", 225, function()
+    Settings.Noclip = not Settings.Noclip
+    if Settings.Noclip then
+        RunService.Stepped:Connect(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, v in pairs(char:GetDescendants()) do
+                    if v:IsA("BasePart") then v.CanCollide = false end
+                end
+            end
+        end)
+    end
+end)
+
+print("✅ ZYPHORA MINI LOADED")
