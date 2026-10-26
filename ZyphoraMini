@@ -1,84 +1,584 @@
 
--- ============================================
--- ZYPHORA PRO v18 - VEHICLE & LIZARD ADDON
--- Place before: -- Engine
--- ============================================
+--[[
+ ZYPHORA PRO v18.1
+ Complete Single-File Edition
+ Roblox Luau / Windows
 
-local AutoAimLizard = false
-local CarSpeedEnabled = false
-local CarMultiplier = 2
-local LizardTargetName = ""
-local addonConnections = {}
+ Client-side functionality only.
+ Server-controlled actions may be rejected or corrected.
+]]
 
-local function addonBind(signal, callback)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local LP = Players.LocalPlayer
+if not LP then
+    warn("[ZYPHORA] LocalPlayer not found")
+    return
+end
+
+local GLOBAL = _G
+
+if type(getgenv) == "function" then
+    local ok, value = pcall(getgenv)
+    if ok and type(value) == "table" then
+        GLOBAL = value
+    end
+end
+
+if type(GLOBAL.ZyphoraCleanup) == "function" then
+    pcall(GLOBAL.ZyphoraCleanup)
+end
+
+local GUI_NAME = "ZyphoraProV181"
+local PlayerGui = LP:WaitForChild("PlayerGui", 15)
+
+if not PlayerGui then
+    warn("[ZYPHORA] PlayerGui unavailable")
+    return
+end
+
+local parent = PlayerGui
+
+if type(gethui) == "function" then
+    local ok, result = pcall(gethui)
+
+    if ok and typeof(result) == "Instance" then
+        parent = result
+    end
+end
+
+local old = parent:FindFirstChild(GUI_NAME)
+if old then
+    old:Destroy()
+end
+
+local alive = true
+local connections = {}
+local espObjects = {}
+local wildlifeObjects = {}
+local visibilityCache = {}
+
+local S = {
+    ESP = false,
+    Speed = false,
+    Invis = false,
+    LizardScan = false,
+    LizardAim = false,
+    CarFly = false,
+    CarSpeed = false,
+    Multiplier = 2,
+    CarMultiplier = 2,
+    TargetName = ""
+}
+
+local C = {
+    bg = Color3.fromRGB(12, 14, 22),
+    panel = Color3.fromRGB(23, 27, 40),
+    panel2 = Color3.fromRGB(33, 39, 55),
+    accent = Color3.fromRGB(0, 198, 255),
+    text = Color3.fromRGB(242, 246, 255),
+    muted = Color3.fromRGB(165, 178, 195),
+    green = Color3.fromRGB(40, 220, 135),
+    red = Color3.fromRGB(235, 65, 85)
+}
+
+local function connect(signal, callback)
     local con = signal:Connect(callback)
-    table.insert(addonConnections, con)
+    table.insert(connections, con)
     return con
 end
 
-local function getLizardRoot(model)
+local function create(className, properties, parentObject)
+    local object = Instance.new(className)
+
+    for key, value in pairs(properties or {}) do
+        object[key] = value
+    end
+
+    object.Parent = parentObject
+    return object
+end
+
+local function round(object, radius)
+    create("UICorner", {
+        CornerRadius = UDim.new(0, radius or 8)
+    }, object)
+end
+
+local function character()
+    return LP.Character
+end
+
+local function humanoid()
+    local char = character()
+    return char and char:FindFirstChildOfClass("Humanoid")
+end
+
+local function rootPart()
+    local char = character()
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function camera()
+    return Workspace.CurrentCamera
+end
+
+local originalWalkSpeed
+local trackedHumanoid
+
+-- =====================================
+-- GUI
+-- =====================================
+
+local GUI = create("ScreenGui", {
+    Name = GUI_NAME,
+    ResetOnSpawn = false,
+    DisplayOrder = 100,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+}, parent)
+
+local Main = create("Frame", {
+    Size = UDim2.fromOffset(510, 450),
+    Position = UDim2.new(0.5, -255, 0.5, -225),
+    BackgroundColor3 = C.bg,
+    BorderSizePixel = 0,
+    Active = true,
+    ClipsDescendants = true
+}, GUI)
+round(Main, 12)
+
+create("UIStroke", {
+    Color = C.accent,
+    Thickness = 1.5
+}, Main)
+
+local Scale = create("UIScale", {
+    Scale = 1
+}, Main)
+
+local function updateScale()
+    local cam = camera()
+    if not cam then return end
+
+    local viewport = cam.ViewportSize
+
+    Scale.Scale = math.min(
+        1,
+        viewport.X / 550,
+        viewport.Y / 490
+    )
+end
+
+updateScale()
+
+local Header = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 47),
+    BackgroundColor3 = C.panel,
+    BorderSizePixel = 0,
+    Active = true
+}, Main)
+
+create("TextLabel", {
+    Size = UDim2.new(1, -100, 1, 0),
+    Position = UDim2.fromOffset(14, 0),
+    BackgroundTransparency = 1,
+    Text = "⚡ ZYPHORA PRO v18.1",
+    TextColor3 = C.text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 16,
+    TextXAlignment = Enum.TextXAlignment.Left
+}, Header)
+
+local MinBtn = create("TextButton", {
+    Size = UDim2.fromOffset(30, 30),
+    Position = UDim2.new(1, -76, 0, 8),
+    BackgroundColor3 = C.panel2,
+    Text = "−",
+    TextColor3 = C.text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 18
+}, Header)
+round(MinBtn, 7)
+
+local CloseBtn = create("TextButton", {
+    Size = UDim2.fromOffset(30, 30),
+    Position = UDim2.new(1, -39, 0, 8),
+    BackgroundColor3 = C.red,
+    Text = "X",
+    TextColor3 = C.text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 13
+}, Header)
+round(CloseBtn, 7)
+
+local TabBar = create("Frame", {
+    Size = UDim2.new(1, -16, 0, 38),
+    Position = UDim2.fromOffset(8, 54),
+    BackgroundTransparency = 1
+}, Main)
+
+create("UIListLayout", {
+    FillDirection = Enum.FillDirection.Horizontal,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0, 5)
+}, TabBar)
+
+local PageContainer = create("Frame", {
+    Size = UDim2.new(1, -16, 1, -139),
+    Position = UDim2.fromOffset(8, 99),
+    BackgroundTransparency = 1,
+    ClipsDescendants = true
+}, Main)
+
+local Footer = create("TextLabel", {
+    Size = UDim2.new(1, -16, 0, 28),
+    Position = UDim2.new(0, 8, 1, -34),
+    BackgroundColor3 = C.panel,
+    Text = "● READY",
+    TextColor3 = C.green,
+    Font = Enum.Font.GothamBold,
+    TextSize = 11,
+    TextTruncate = Enum.TextTruncate.AtEnd
+}, Main)
+round(Footer, 7)
+
+local function status(message)
+    if alive then
+        Footer.Text = "● " .. tostring(message)
+    end
+end
+
+local pages = {}
+local tabButtons = {}
+
+local function newTab(title, index)
+    local tab = create("TextButton", {
+        Size = UDim2.new(0, 119, 1, 0),
+        BackgroundColor3 = index == 1
+            and C.accent or C.panel,
+        Text = title,
+        TextColor3 = C.text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 11,
+        LayoutOrder = index
+    }, TabBar)
+    round(tab, 7)
+
+    local page = create("ScrollingFrame", {
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Visible = index == 1,
+        CanvasSize = UDim2.fromOffset(0, 0),
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = C.accent,
+        ScrollingDirection = Enum.ScrollingDirection.Y
+    }, PageContainer)
+
+    local layout = create("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 7)
+    }, page)
+
+    create("UIPadding", {
+        PaddingTop = UDim.new(0, 5),
+        PaddingBottom = UDim.new(0, 12),
+        PaddingLeft = UDim.new(0, 4),
+        PaddingRight = UDim.new(0, 9)
+    }, page)
+
+    connect(
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"),
+        function()
+            page.CanvasSize = UDim2.fromOffset(
+                0,
+                layout.AbsoluteContentSize.Y + 20
+            )
+        end
+    )
+
+    connect(tab.MouseButton1Click, function()
+        for _, p in ipairs(pages) do
+            p.Visible = false
+        end
+
+        for _, b in ipairs(tabButtons) do
+            b.BackgroundColor3 = C.panel
+        end
+
+        page.Visible = true
+        tab.BackgroundColor3 = C.accent
+    end)
+
+    table.insert(pages, page)
+    table.insert(tabButtons, tab)
+
+    return page
+end
+
+local function label(parentObject, text, height)
+    return create("TextLabel", {
+        Size = UDim2.new(1, -4, 0, height or 26),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = C.accent,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, parentObject)
+end
+
+local function button(parentObject, text, callback, stateKey)
+    local btn = create("TextButton", {
+        Size = UDim2.new(1, -4, 0, 40),
+        BackgroundColor3 = C.panel,
+        BorderSizePixel = 0,
+        Text = "",
+        AutoButtonColor = true
+    }, parentObject)
+    round(btn, 8)
+
+    create("TextLabel", {
+        Size = UDim2.new(1, -85, 1, 0),
+        Position = UDim2.fromOffset(12, 0),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = C.text,
+        Font = Enum.Font.GothamMedium,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd
+    }, btn)
+
+    local indicator = create("TextLabel", {
+        Size = UDim2.fromOffset(54, 25),
+        Position = UDim2.new(1, -65, 0.5, -12),
+        BackgroundColor3 = C.panel2,
+        Text = stateKey and "OFF" or "RUN",
+        TextColor3 = C.muted,
+        Font = Enum.Font.GothamBold,
+        TextSize = 10
+    }, btn)
+    round(indicator, 6)
+
+    local function refresh()
+        if not stateKey then return end
+
+        local enabled = S[stateKey]
+        indicator.Text = enabled and "ON" or "OFF"
+        indicator.BackgroundColor3 =
+            enabled and C.green or C.panel2
+        indicator.TextColor3 =
+            enabled and C.bg or C.muted
+    end
+
+    connect(btn.MouseButton1Click, function()
+        local ok, err = pcall(callback)
+
+        if not ok then
+            warn("[ZYPHORA]", err)
+            status("ERROR: CHECK CONSOLE")
+        end
+
+        refresh()
+    end)
+
+    return btn
+end
+
+local function input(parentObject, placeholder, defaultText)
+    local box = create("TextBox", {
+        Size = UDim2.new(1, -4, 0, 40),
+        BackgroundColor3 = C.panel2,
+        Text = defaultText or "",
+        PlaceholderText = placeholder or "",
+        PlaceholderColor3 = C.muted,
+        TextColor3 = C.text,
+        Font = Enum.Font.Gotham,
+        TextSize = 12,
+        ClearTextOnFocus = false
+    }, parentObject)
+
+    round(box, 8)
+    return box
+end
+
+-- =====================================
+-- PLAYER ESP
+-- =====================================
+
+local function clearESP()
+    for _, obj in pairs(espObjects) do
+        if obj then
+            obj:Destroy()
+        end
+    end
+
+    table.clear(espObjects)
+end
+
+local function updateESP()
+    if not S.ESP then
+        clearESP()
+        return
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP then
+            local char = player.Character
+            local existing = espObjects[player]
+
+            if char and (
+                not existing
+                or existing.Adornee ~= char
+            ) then
+                if existing then
+                    existing:Destroy()
+                end
+
+                espObjects[player] = create("Highlight", {
+                    Name = "ZyphoraESP",
+                    Adornee = char,
+                    FillColor = C.accent,
+                    FillTransparency = 0.7,
+                    OutlineColor = C.text,
+                    OutlineTransparency = 0,
+                    DepthMode =
+                        Enum.HighlightDepthMode.AlwaysOnTop
+                }, GUI)
+
+            elseif not char and existing then
+                existing:Destroy()
+                espObjects[player] = nil
+            end
+        end
+    end
+
+    for player, obj in pairs(espObjects) do
+        if player.Parent ~= Players then
+            obj:Destroy()
+            espObjects[player] = nil
+        end
+    end
+end
+
+-- =====================================
+-- SPEED / INVISIBILITY
+-- =====================================
+
+local function updateSpeed()
+    local hum = humanoid()
+
+    if not hum then return end
+
+    if S.Speed then
+        if trackedHumanoid ~= hum then
+            trackedHumanoid = hum
+            originalWalkSpeed = hum.WalkSpeed
+        end
+
+        hum.WalkSpeed = 16 * S.Multiplier
+    end
+end
+
+local function disableSpeed()
+    if trackedHumanoid
+        and trackedHumanoid.Parent
+        and originalWalkSpeed then
+
+        trackedHumanoid.WalkSpeed = originalWalkSpeed
+    end
+
+    trackedHumanoid = nil
+    originalWalkSpeed = nil
+end
+
+local function restoreVisibility()
+    for obj, value in pairs(visibilityCache) do
+        if obj and obj.Parent then
+            if obj:IsA("BasePart") then
+                obj.LocalTransparencyModifier = value
+            elseif obj:IsA("Decal") then
+                obj.Transparency = value
+            end
+        end
+    end
+
+    table.clear(visibilityCache)
+end
+
+local function updateVisibility()
+    if not S.Invis then return end
+
+    local char = character()
+    if not char then return end
+
+    for _, obj in ipairs(char:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            if visibilityCache[obj] == nil then
+                visibilityCache[obj] =
+                    obj.LocalTransparencyModifier
+            end
+
+            obj.LocalTransparencyModifier = 1
+
+        elseif obj:IsA("Decal") then
+            if visibilityCache[obj] == nil then
+                visibilityCache[obj] = obj.Transparency
+            end
+
+            obj.Transparency = 1
+        end
+    end
+end
+
+-- =====================================
+-- LIZARD DETECTION
+-- =====================================
+
+local lizardKeywords = {
+    "lizard",
+    "dhab",
+    "reptile",
+    "lhib",
+    "ضب"
+}
+
+local function isLizard(model)
+    if not model:IsA("Model") then
+        return false
+    end
+
+    if Players:GetPlayerFromCharacter(model) then
+        return false
+    end
+
+    local name = string.lower(model.Name)
+
+    for _, keyword in ipairs(lizardKeywords) do
+        if string.find(name, keyword, 1, true) then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function lizardRoot(model)
     return model.PrimaryPart
         or model:FindFirstChildWhichIsA("BasePart", true)
 end
 
-local function findLizards()
-    local results = {}
-
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") and isWildlife(obj) then
-            local root = getLizardRoot(obj)
-
-            if root then
-                table.insert(results, {
-                    Model = obj,
-                    Root = root
-                })
-            end
-        end
-    end
-
-    return results
-end
-
-local function nearestLizard(nameFilter)
-    local myRoot = getRoot()
-    if not myRoot then return nil end
-
-    local nearest = nil
-    local bestDistance = math.huge
-
-    for _, entry in ipairs(findLizards()) do
-        local name = string.lower(entry.Model.Name)
-
-        local matches = nameFilter == ""
-            or string.find(
-                name,
-                string.lower(nameFilter),
-                1,
-                true
-            ) ~= nil
-
-        if matches then
-            local distance = (
-                entry.Root.Position - myRoot.Position
-            ).Magnitude
-
-            if distance < bestDistance then
-                bestDistance = distance
-                nearest = entry
-            end
-        end
-    end
-
-    return nearest
-end
-
-local function readValue(model, names)
+local function readStat(model, names)
     for _, name in ipairs(names) do
-        local attr = model:GetAttribute(name)
+        local attribute = model:GetAttribute(name)
 
-        if attr ~= nil then
-            return attr
+        if attribute ~= nil then
+            return attribute
         end
 
         local child = model:FindFirstChild(name, true)
@@ -91,215 +591,742 @@ local function readValue(model, names)
     return nil
 end
 
-local function rarityColor(rarity)
-    local value = string.lower(tostring(rarity or ""))
-
-    if value:find("خرافي") or value:find("mythic") then
-        return Color3.fromRGB(255, 55, 230)
-    elseif value:find("ذهبي") or value:find("legendary") then
-        return Color3.fromRGB(255, 196, 45)
-    elseif value:find("بنفسجي") or value:find("epic") then
-        return Color3.fromRGB(165, 100, 255)
-    elseif value:find("أزرق") or value:find("rare") then
-        return Color3.fromRGB(50, 155, 255)
-    elseif value:find("أخضر") or value:find("uncommon") then
-        return Color3.fromRGB(65, 220, 125)
-    end
-
-    return Color3.fromRGB(220, 225, 230)
-end
-
-local function lizardInfo(model)
-    local rarity = readValue(model, {
-        "Rarity", "Tier", "ندرة"
-    })
-
-    local power = readValue(model, {
-        "Power", "Strength", "قوة"
-    })
-
-    local size = readValue(model, {
-        "Size", "Scale", "حجم"
-    })
-
+local function lizardStats(model)
     return {
-        Rarity = rarity or "غير معروف",
-        Power = power or "غير متاح",
-        Size = size or "غير متاح"
+        Rarity = readStat(model, {
+            "Rarity", "Tier", "ندرة"
+        }) or "غير معروف",
+
+        Power = readStat(model, {
+            "Power", "Strength", "قوة"
+        }) or "غير متاح",
+
+        Size = readStat(model, {
+            "Size", "Scale", "حجم"
+        }) or "غير متاح"
     }
 end
 
--- Extra controls in the existing lizard tab
+local function rarityColor(value)
+    local text = string.lower(tostring(value))
 
-label(tab3, "اسم الضب المطلوب")
+    if text:find("mythic", 1, true)
+        or text:find("خرافي", 1, true) then
 
-local targetInput = make("TextBox", {
-    Size = UDim2.new(1, -4, 0, 40),
-    BackgroundColor3 = C.panel2,
-    Text = "",
-    PlaceholderText = "اكتب اسم الضب أو اتركه فارغاً للأقرب",
-    PlaceholderColor3 = C.muted,
-    TextColor3 = C.text,
-    Font = Enum.Font.Gotham,
-    TextSize = 12,
-    ClearTextOnFocus = false
-}, tab3)
-corner(targetInput, 8)
+        return Color3.fromRGB(255, 50, 225)
 
-addonBind(targetInput.FocusLost, function()
-    LizardTargetName = targetInput.Text
-end)
+    elseif text:find("legendary", 1, true)
+        or text:find("ذهبي", 1, true) then
 
-button(tab3, "الاتجاه إلى الضب المحدد", function()
-    LizardTargetName = targetInput.Text
+        return Color3.fromRGB(255, 200, 45)
 
-    local target = nearestLizard(LizardTargetName)
-    local root = getRoot()
+    elseif text:find("epic", 1, true)
+        or text:find("بنفسجي", 1, true) then
 
-    if not target or not root then
-        notify("LIZARD NOT FOUND")
+        return Color3.fromRGB(165, 90, 255)
+
+    elseif text:find("rare", 1, true)
+        or text:find("أزرق", 1, true) then
+
+        return Color3.fromRGB(45, 160, 255)
+
+    elseif text:find("uncommon", 1, true)
+        or text:find("أخضر", 1, true) then
+
+        return Color3.fromRGB(45, 225, 130)
+    end
+
+    return Color3.fromRGB(220, 225, 235)
+end
+
+local lizardCache = {}
+local lizardSnapshot = {}
+local scanIndex = 1
+
+local function rebuildLizardSnapshot()
+    table.clear(lizardCache)
+
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if isLizard(obj) then
+            local part = lizardRoot(obj)
+
+            if part then
+                table.insert(lizardCache, {
+                    Model = obj,
+                    Root = part
+                })
+            end
+        end
+    end
+end
+
+local function nearestLizard(filter)
+    local root = rootPart()
+    if not root then return nil end
+
+    local closest
+    local shortest = math.huge
+    local query = string.lower(filter or "")
+
+    for _, entry in ipairs(lizardCache) do
+        local model = entry.Model
+        local part = entry.Root
+
+        if model.Parent and part.Parent then
+            local matches = query == ""
+                or string.find(
+                    string.lower(model.Name),
+                    query,
+                    1,
+                    true
+                ) ~= nil
+
+            if matches then
+                local distance =
+                    (part.Position - root.Position).Magnitude
+
+                if distance < shortest then
+                    shortest = distance
+                    closest = entry
+                end
+            end
+        end
+    end
+
+    return closest
+end
+
+local function clearLizardRadar()
+    for _, gui in pairs(wildlifeObjects) do
+        if gui then
+            gui:Destroy()
+        end
+    end
+
+    table.clear(wildlifeObjects)
+end
+
+local function createLizardMarker(entry)
+    local model = entry.Model
+    local part = entry.Root
+
+    if wildlifeObjects[model] or not part.Parent then
         return
     end
 
-    -- Local movement request; server may correct it
+    local stats = lizardStats(model)
+    local color = rarityColor(stats.Rarity)
+
+    local bb = create("BillboardGui", {
+        Name = "ZyphoraLizardMarker",
+        Adornee = part,
+        Size = UDim2.fromOffset(250, 112),
+        StudsOffsetWorldSpace = Vector3.new(0, 4, 0),
+        AlwaysOnTop = true,
+        MaxDistance = 350
+    }, GUI)
+
+    local frame = create("Frame", {
+        Size = UDim2.fromScale(1, 1),
+        BackgroundColor3 = C.bg,
+        BackgroundTransparency = 0.12,
+        BorderSizePixel = 0
+    }, bb)
+    round(frame, 8)
+
+    create("UIStroke", {
+        Color = color,
+        Thickness = 1.5
+    }, frame)
+
+    local lines = {
+        "🦎 " .. model.Name,
+        "الندرة: " .. tostring(stats.Rarity),
+        "القوة: " .. tostring(stats.Power),
+        "الحجم: " .. tostring(stats.Size)
+    }
+
+    local layout = create("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 2)
+    }, frame)
+
+    create("UIPadding", {
+        PaddingTop = UDim.new(0, 5),
+        PaddingLeft = UDim.new(0, 5),
+        PaddingRight = UDim.new(0, 5)
+    }, frame)
+
+    for i, text in ipairs(lines) do
+        create("TextLabel", {
+            Size = UDim2.new(1, 0, 0, 23),
+            BackgroundTransparency = 1,
+            Text = text,
+            TextColor3 = i == 1 and color or C.text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 11,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            LayoutOrder = i
+        }, frame)
+    end
+
+    wildlifeObjects[model] = bb
+end
+
+local function refreshLizardRadar()
+    if not S.LizardScan then
+        clearLizardRadar()
+        return
+    end
+
+    for _, entry in ipairs(lizardCache) do
+        createLizardMarker(entry)
+    end
+
+    for model, marker in pairs(wildlifeObjects) do
+        if not model.Parent then
+            marker:Destroy()
+            wildlifeObjects[model] = nil
+        end
+    end
+end
+
+-- =====================================
+-- VEHICLES
+-- =====================================
+
+local function seatedVehicleRoot()
+    local hum = humanoid()
+    local seat = hum and hum.SeatPart
+
+    if not seat or not seat:IsA("VehicleSeat") then
+        return nil
+    end
+
+    local model = seat:FindFirstAncestorOfClass("Model")
+
+    if model then
+        return model.PrimaryPart or seat
+    end
+
+    return seat
+end
+
+local function isVehicle(model)
+    if not model:IsA("Model") then
+        return false
+    end
+
+    return model:FindFirstChildWhichIsA(
+        "VehicleSeat",
+        true
+    ) ~= nil
+end
+
+-- =====================================
+-- TABS
+-- =====================================
+
+local tab1 = newTab("⚡ اللاعب", 1)
+local tab2 = newTab("🎯 الانتقال", 2)
+local tab3 = newTab("🦎 الضبان", 3)
+local tab4 = newTab("🚗 السيارات", 4)
+
+-- Player controls
+button(tab1, "كشف اللاعبين ESP", function()
+    S.ESP = not S.ESP
+    updateESP()
+    status("ESP UPDATED")
+end, "ESP")
+
+button(tab1, "سرعة اللاعب", function()
+    S.Speed = not S.Speed
+
+    if S.Speed then
+        updateSpeed()
+    else
+        disableSpeed()
+    end
+
+    status("SPEED UPDATED")
+end, "Speed")
+
+button(tab1, "إخفاء اللاعب محلياً", function()
+    S.Invis = not S.Invis
+
+    if S.Invis then
+        updateVisibility()
+    else
+        restoreVisibility()
+    end
+
+    status("INVISIBILITY UPDATED")
+end, "Invis")
+
+label(tab1, "مضاعف سرعة اللاعب (1 - 10)")
+
+local speedInput = input(
+    tab1,
+    "اكتب مضاعف السرعة",
+    "2"
+)
+
+connect(speedInput.FocusLost, function()
+    local value = tonumber(speedInput.Text)
+
+    if value and value >= 1 and value <= 10 then
+        S.Multiplier = value
+        updateSpeed()
+        status("PLAYER MULTIPLIER: " .. value)
+    else
+        status("INVALID MULTIPLIER")
+    end
+
+    speedInput.Text = tostring(S.Multiplier)
+end)
+
+-- Player teleport
+label(tab2, "الانتقال إلى لاعب")
+
+local playerList = create("Frame", {
+    Size = UDim2.new(1, -4, 0, 0),
+    AutomaticSize = Enum.AutomaticSize.Y,
+    BackgroundTransparency = 1
+}, tab2)
+
+create("UIListLayout", {
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0, 5)
+}, playerList)
+
+local function refreshPlayers()
+    for _, child in ipairs(playerList:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP then
+            button(playerList, player.DisplayName, function()
+                local root = rootPart()
+                local target = player.Character
+                    and player.Character:FindFirstChild(
+                        "HumanoidRootPart"
+                    )
+
+                if root and target then
+                    root.CFrame =
+                        target.CFrame * CFrame.new(0, 0, 5)
+
+                    status("TELEPORT REQUESTED")
+                else
+                    status("PLAYER UNAVAILABLE")
+                end
+            end)
+        end
+    end
+end
+
+button(tab2, "تحديث اللاعبين", refreshPlayers)
+refreshPlayers()
+
+-- Lizard controls
+button(tab3, "رادار الضبان", function()
+    S.LizardScan = not S.LizardScan
+
+    if S.LizardScan then
+        rebuildLizardSnapshot()
+        refreshLizardRadar()
+    else
+        clearLizardRadar()
+    end
+
+    status("LIZARD RADAR UPDATED")
+end, "LizardScan")
+
+label(tab3, "Input: اكتب اسم الضب المطلوب")
+
+local lizardInput = input(
+    tab3,
+    "اسم الضب - اتركه فارغاً للأقرب",
+    ""
+)
+
+connect(lizardInput.FocusLost, function()
+    S.TargetName = lizardInput.Text
+end)
+
+button(tab3, "الانتقال مباشرة إلى الضب", function()
+    S.TargetName = lizardInput.Text
+    rebuildLizardSnapshot()
+
+    local target = nearestLizard(S.TargetName)
+    local root = rootPart()
+
+    if not target or not root then
+        status("LIZARD NOT FOUND")
+        return
+    end
+
     root.CFrame =
         target.Root.CFrame * CFrame.new(0, 0, 6)
 
-    notify("MOVED TO " .. target.Model.Name)
+    status("TARGET: " .. target.Model.Name)
 end)
 
-button(tab3, "توجيه الكاميرا إلى الضب", function()
-    AutoAimLizard = not AutoAimLizard
-    notify(
-        AutoAimLizard
-        and "LIZARD AIM ON"
-        or "LIZARD AIM OFF"
-    )
-end)
+button(tab3, "توجيه الكاميرا للضب", function()
+    S.LizardAim = not S.LizardAim
+    S.TargetName = lizardInput.Text
 
-button(tab3, "عرض معلومات أقرب ضب", function()
-    local target = nearestLizard(targetInput.Text)
+    if S.LizardAim then
+        rebuildLizardSnapshot()
+    end
+
+    status("LIZARD AIM UPDATED")
+end, "LizardAim")
+
+button(tab3, "معلومات أقرب ضب", function()
+    rebuildLizardSnapshot()
+
+    local target = nearestLizard(lizardInput.Text)
 
     if not target then
-        notify("NO MATCHING LIZARD")
+        status("NO LIZARD FOUND")
         return
     end
 
-    local info = lizardInfo(target.Model)
+    local info = lizardStats(target.Model)
 
-    notify(
+    status(
         target.Model.Name
-        .. " | "
-        .. tostring(info.Rarity)
-        .. " | P:"
-        .. tostring(info.Power)
-        .. " | S:"
-        .. tostring(info.Size)
+        .. " | " .. tostring(info.Rarity)
+        .. " | P:" .. tostring(info.Power)
+        .. " | S:" .. tostring(info.Size)
     )
 end)
 
--- Vehicle speed controls
+label(
+    tab3,
+    "الندرة والقوة والحجم تظهر إذا كانت "
+    .. "اللعبة توفر هذه البيانات للعميل.",
+    48
+)
 
-label(tab4, "مضاعف سرعة السيارة: 1 إلى 10")
-
-local carInput = make("TextBox", {
-    Size = UDim2.new(1, -4, 0, 40),
-    BackgroundColor3 = C.panel2,
-    Text = tostring(CarMultiplier),
-    TextColor3 = C.text,
-    Font = Enum.Font.GothamBold,
-    TextSize = 13,
-    ClearTextOnFocus = false
-}, tab4)
-corner(carInput, 8)
-
-addonBind(carInput.FocusLost, function()
-    local number = tonumber(carInput.Text)
-
-    if number and number >= 1 and number <= 10 then
-        CarMultiplier = number
-        notify("CAR MULTIPLIER: " .. number)
-    else
-        notify("ENTER CAR MULTIPLIER 1-10")
-    end
-
-    carInput.Text = tostring(CarMultiplier)
-end)
+-- Vehicle controls
+button(tab4, "طيران السيارة", function()
+    S.CarFly = not S.CarFly
+    status("CAR FLY UPDATED")
+end, "CarFly")
 
 button(tab4, "زيادة سرعة السيارة أثناء القيادة", function()
-    CarSpeedEnabled = not CarSpeedEnabled
+    S.CarSpeed = not S.CarSpeed
+    status("CAR SPEED UPDATED")
+end, "CarSpeed")
 
-    notify(
-        CarSpeedEnabled
-        and "CAR SPEED ON"
-        or "CAR SPEED OFF"
-    )
+label(tab4, "مضاعف سرعة السيارة (1 - 10)")
+
+local carInput = input(
+    tab4,
+    "اكتب مضاعف سرعة السيارة",
+    "2"
+)
+
+connect(carInput.FocusLost, function()
+    local value = tonumber(carInput.Text)
+
+    if value and value >= 1 and value <= 10 then
+        S.CarMultiplier = value
+        status("CAR MULTIPLIER: " .. value)
+    else
+        status("INVALID CAR MULTIPLIER")
+    end
+
+    carInput.Text = tostring(S.CarMultiplier)
 end)
 
--- Runtime updates
+label(tab4, "السيارات الموجودة في الماب")
 
+local carList = create("Frame", {
+    Size = UDim2.new(1, -4, 0, 0),
+    AutomaticSize = Enum.AutomaticSize.Y,
+    BackgroundTransparency = 1
+}, tab4)
+
+create("UIListLayout", {
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0, 5)
+}, carList)
+
+local function refreshCars()
+    for _, child in ipairs(carList:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+
+    local count = 0
+
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if isVehicle(obj) then
+            count += 1
+
+            button(carList, obj.Name, function()
+                local root = rootPart()
+
+                if root and obj.Parent then
+                    obj:PivotTo(
+                        root.CFrame * CFrame.new(6, 3, 0)
+                    )
+
+                    status("CAR MOVE REQUESTED")
+                end
+            end)
+
+            if count >= 40 then
+                break
+            end
+        end
+    end
+
+    status("CARS FOUND: " .. count)
+end
+
+button(tab4, "تحديث السيارات", refreshCars)
+refreshCars()
+
+-- =====================================
+-- ENGINE
+-- =====================================
+
+local fastTimer = 0
+local scanTimer = 0
 local aimTimer = 0
+local uiTimer = 0
 
-addonBind(RunService.Heartbeat, function(dt)
+connect(RunService.Heartbeat, function(dt)
     if not alive then return end
 
+    fastTimer += dt
+    scanTimer += dt
     aimTimer += dt
+    uiTimer += dt
 
-    -- Camera target, throttled to reduce scanning
-    if AutoAimLizard and aimTimer >= 0.15 then
+    if fastTimer >= 0.25 then
+        fastTimer = 0
+
+        updateSpeed()
+        updateVisibility()
+        updateESP()
+    end
+
+    if scanTimer >= 3 then
+        scanTimer = 0
+
+        if S.LizardScan or S.LizardAim then
+            rebuildLizardSnapshot()
+        end
+
+        if S.LizardScan then
+            refreshLizardRadar()
+        end
+    end
+
+    if S.LizardAim and aimTimer >= 0.15 then
         aimTimer = 0
 
-        local target = nearestLizard(LizardTargetName)
-        local camera = Workspace.CurrentCamera
+        local target = nearestLizard(S.TargetName)
+        local cam = camera()
 
-        if target and camera then
-            local position = camera.CFrame.Position
-            local destination = target.Root.Position
-
-            camera.CFrame = CFrame.lookAt(
-                position,
-                destination
+        if target and cam then
+            cam.CFrame = CFrame.lookAt(
+                cam.CFrame.Position,
+                target.Root.Position
             )
         end
     end
 
-    -- Vehicle speed boost
-    if CarSpeedEnabled and not S.CarFly then
-        local root = seatedVehicleRoot()
+    if uiTimer >= 2 then
+        uiTimer = 0
+        updateScale()
+    end
 
-        if root then
-            local velocity = root.AssemblyLinearVelocity
-            local horizontal = Vector3.new(
-                velocity.X, 0, velocity.Z
+    local vehicleRoot = seatedVehicleRoot()
+
+    if vehicleRoot and S.CarFly then
+        local cam = camera()
+
+        if cam then
+            local direction = Vector3.zero
+            local cf = cam.CFrame
+
+            if UIS:IsKeyDown(Enum.KeyCode.W) then
+                direction += cf.LookVector
+            end
+
+            if UIS:IsKeyDown(Enum.KeyCode.S) then
+                direction -= cf.LookVector
+            end
+
+            if UIS:IsKeyDown(Enum.KeyCode.A) then
+                direction -= cf.RightVector
+            end
+
+            if UIS:IsKeyDown(Enum.KeyCode.D) then
+                direction += cf.RightVector
+            end
+
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then
+                direction += Vector3.yAxis
+            end
+
+            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
+                direction -= Vector3.yAxis
+            end
+
+            if direction.Magnitude > 0 then
+                vehicleRoot.AssemblyLinearVelocity =
+                    direction.Unit
+                    * (35 * S.CarMultiplier)
+            else
+                vehicleRoot.AssemblyLinearVelocity =
+                    Vector3.zero
+            end
+        end
+
+    elseif vehicleRoot and S.CarSpeed then
+        local velocity =
+            vehicleRoot.AssemblyLinearVelocity
+
+        local horizontal = Vector3.new(
+            velocity.X,
+            0,
+            velocity.Z
+        )
+
+        if horizontal.Magnitude > 1 then
+            local targetSpeed = math.min(
+                horizontal.Magnitude
+                * (1 + dt * S.CarMultiplier),
+                35 * S.CarMultiplier
             )
 
-            if horizontal.Magnitude > 1 then
-                local targetSpeed = math.min(
-                    horizontal.Magnitude
-                    * (1 + dt * CarMultiplier),
-                    35 * CarMultiplier
-                )
+            local boosted =
+                horizontal.Unit * targetSpeed
 
-                local boosted =
-                    horizontal.Unit * targetSpeed
-
-                root.AssemblyLinearVelocity = Vector3.new(
+            vehicleRoot.AssemblyLinearVelocity =
+                Vector3.new(
                     boosted.X,
                     velocity.Y,
                     boosted.Z
                 )
-            end
         end
     end
 end)
 
--- Extend the existing cleanup function manually:
--- Add these lines inside cleanup() before GUI:Destroy():
---
--- AutoAimLizard = false
--- CarSpeedEnabled = false
--- for _, con in ipairs(addonConnections) do
---     con:Disconnect()
--- end
+-- =====================================
+-- DRAGGING
+-- =====================================
 
-print("[ZYPHORA] v18 ADDON LOADED")
+local dragging = false
+local dragStart
+local startPosition
+
+connect(Header.InputBegan, function(inputObject)
+    if inputObject.UserInputType ==
+        Enum.UserInputType.MouseButton1 then
+
+        dragging = true
+        dragStart = inputObject.Position
+        startPosition = Main.Position
+    end
+end)
+
+connect(UIS.InputChanged, function(inputObject)
+    if dragging and inputObject.UserInputType ==
+        Enum.UserInputType.MouseMovement then
+
+        local delta =
+            (inputObject.Position - dragStart)
+            / Scale.Scale
+
+        Main.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+connect(UIS.InputEnded, function(inputObject)
+    if inputObject.UserInputType ==
+        Enum.UserInputType.MouseButton1 then
+
+        dragging = false
+    end
+end)
+
+-- =====================================
+-- MINIMIZE / CLEANUP
+-- =====================================
+
+local minimized = false
+
+connect(MinBtn.MouseButton1Click, function()
+    minimized = not minimized
+
+    TabBar.Visible = not minimized
+    PageContainer.Visible = not minimized
+    Footer.Visible = not minimized
+
+    Main.Size = minimized
+        and UDim2.fromOffset(510, 47)
+        or UDim2.fromOffset(510, 450)
+
+    MinBtn.Text = minimized and "+" or "−"
+end)
+
+local function cleanup()
+    if not alive then return end
+    alive = false
+
+    S.CarFly = false
+    S.CarSpeed = false
+    S.LizardAim = false
+    S.LizardScan = false
+
+    clearESP()
+    clearLizardRadar()
+    restoreVisibility()
+    disableSpeed()
+
+    for _, con in ipairs(connections) do
+        con:Disconnect()
+    end
+
+    table.clear(connections)
+
+    if GLOBAL.ZyphoraCleanup == cleanup then
+        GLOBAL.ZyphoraCleanup = nil
+    end
+
+    if GUI.Parent then
+        GUI:Destroy()
+    end
+end
+
+GLOBAL.ZyphoraCleanup = cleanup
+
+connect(CloseBtn.MouseButton1Click, cleanup)
+connect(GUI.Destroying, cleanup)
+
+connect(LP.CharacterAdded, function()
+    restoreVisibility()
+    trackedHumanoid = nil
+    originalWalkSpeed = nil
+end)
+
+status("ZYPHORA PRO v18.1 READY")
+
+print("ZYPHORA PRO v18.1 LOADED")
