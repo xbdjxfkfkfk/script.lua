@@ -12,7 +12,7 @@ if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
 local env=_G
 if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
 if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
-for _,name in ipairs({'Lx_NexusV35','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+for _,name in ipairs({'Lx_NexusV35','Lx_NexusV36','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
  local old=PG:FindFirstChild(name)
  if old then old:Destroy() end
 end
@@ -26,8 +26,8 @@ local function hum() return LP.Character and LP.Character:FindFirstChildOfClass(
 local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(9,11,20),card=Color3.fromRGB(25,28,43),muted=Color3.fromRGB(150,160,186),white=Color3.fromRGB(248,249,255),purple=Color3.fromRGB(153,101,255),green=Color3.fromRGB(68,211,136)}
-for _,oldName in ipairs({'Lx_NexusV35','Lx_NexusFOV_V35','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local gui=inst('ScreenGui',{Name='Lx_NexusV35',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+for _,oldName in ipairs({'Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusFOV_V36','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
+local gui=inst('ScreenGui',{Name='Lx_NexusV36',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 inst('UIStroke',{Color=Color3.fromRGB(70,51,108),Thickness=1.4,Transparency=.12},main)
 local scale=inst('UIScale',{Scale=1},main)
@@ -181,6 +181,25 @@ local function rarity(m)
  local raw=tostring(read(m,{'Rarity','Tier','Grade','ندرة'}) or ''):lower():gsub('^%s+',''):gsub('%s+$','')
  return rarities[raw] or (rarityColors[raw] and raw) or 'غير محدد'
 end
+local function animalSize(model)
+ -- Only report game-provided size stats, never derive an invented value.
+ local v=read(model,{'Size','Scale','SizeValue','AnimalSize','DhabSize','CreatureSize','الحجم','حجم'})
+ if v==nil then return 'غير متاح' end
+ local n=tonumber(v)
+ if n then
+  if n~=n or n==math.huge or n==-math.huge then return 'غير متاح' end
+  return string.format('%.2f',n):gsub('%.?0+$','')
+ end
+ if typeof(v)=='Vector3' then return string.format('%.1f × %.1f × %.1f',v.X,v.Y,v.Z) end
+ return tostring(v)
+end
+local function animalWeight(model)
+ local v=read(model,{'Weight','Mass','AnimalWeight','الوزن'})
+ if v==nil then return 'غير متاح' end
+ local n=tonumber(v)
+ if n then return string.format('%.2f',n):gsub('%.?0+$','') end
+ return tostring(v)
+end
 local function nice(v,unit)
  if v==nil then return nil end
  local n=tonumber(v);if n then return string.format('%.1f',n)..(unit or '') end
@@ -217,6 +236,40 @@ local filterBtn
 filterBtn=action(radar,'فلتر الندرة: الكل',function() fi=fi%#filterValues+1;S.Filter=filterValues[fi];filterBtn.Text='فلتر الندرة: '..S.Filter end)
 local closestLabel=label(radar,'أقرب ضب: لا يوجد','يتم التحديث عند تفعيل الرادار')
 local nearestText=closestLabel:FindFirstChildOfClass('TextLabel')
+-- Persistent live list of all loaded, living lizards in range.
+local listTitle=label(radar,'قائمة الضبان | الحجم والمسافة','الأقرب أولاً • بيانات الحجم والوزن من الماب فقط')
+local animalList=inst('Frame',{Size=UDim2.new(1,-2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},radar)
+inst('UIListLayout',{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},animalList)
+local function rebuildAnimalList()
+ for _,x in ipairs(animalList:GetChildren()) do if x:IsA('Frame') then x:Destroy() end end
+ if not S.Radar then
+  label(animalList,'الرادار متوقف','فعّل كشف الضبان لعرض الأحجام والمسافات')
+  return
+ end
+ local r=root()
+ if not r then label(animalList,'الشخصية غير جاهزة');return end
+ local entries={}
+ for _,e in ipairs(cache) do
+  if e.model.Parent and e.part.Parent and living(e.model) and lizard(e.model) then
+   local d=(e.part.Position-r.Position).Magnitude
+   if d<=S.RadarRange and (S.Filter=='الكل' or rarity(e.model)==S.Filter) then
+    entries[#entries+1]={model=e.model,distance=d}
+   end
+  end
+ end
+ table.sort(entries,function(a,b)return a.distance<b.distance end)
+ if #entries==0 then label(animalList,'لا توجد ضبان مطابقة','قد تكون خارج المدى أو لم تُحمّلها اللعبة');return end
+ for i=1,math.min(#entries,25) do
+  local e=entries[i]
+  local rarityName=rarity(e.model)
+  local card=inst('Frame',{Size=UDim2.new(1,-2,0,69),BackgroundColor3=C.card,BorderSizePixel=0,LayoutOrder=i},animalList)
+  round(card,10)
+  inst('UIStroke',{Color=rarityColors[rarityName] or C.purple,Thickness=1,Transparency=.25},card)
+  inst('TextLabel',{Size=UDim2.new(1,-16,0,23),Position=UDim2.fromOffset(8,4),BackgroundTransparency=1,Text=e.model.Name..' | '..rarityName,TextColor3=rarityColors[rarityName] or C.white,TextSize=12,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},card)
+  inst('TextLabel',{Size=UDim2.new(1,-16,0,33),Position=UDim2.fromOffset(8,28),BackgroundTransparency=1,Text='الحجم: '..animalSize(e.model)..'  |  الوزن: '..animalWeight(e.model)..'  |  المسافة: '..math.floor(e.distance+.5)..' وحدة',TextColor3=C.white,TextSize=11,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,TextWrapped=true},card)
+ end
+end
+
 local merchant=tab('كشف التاجر')
 toggle(merchant,'كشف التجار','Merchant')
 local merchantInfo=label(merchant,'أقرب تاجر: غير مكتشف','المسافة والاتجاه حسب النماذج المحمّلة')
@@ -330,7 +383,7 @@ conn(UIS.InputChanged,function(i)if dragging and i.UserInputType==Enum.UserInput
 conn(UIS.InputEnded,function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
 -- Visible FOV overlay. Radius is in screen pixels, not camera degrees.
 local fovGui=inst('ScreenGui',{
- Name='Lx_NexusFOV_V35',ResetOnSpawn=false,IgnoreGuiInset=true,
+ Name='Lx_NexusFOV_V36',ResetOnSpawn=false,IgnoreGuiInset=true,
  DisplayOrder=89,ZIndexBehavior=Enum.ZIndexBehavior.Sibling
 },PG)
 local fovCircle=inst('Frame',{
@@ -356,7 +409,7 @@ local function cleanup()
  if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.Speed=false;S.Fog=false;S.Fullbright=false
  clearMarkers();applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
  for _,c in ipairs(conns) do c:Disconnect() end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV35')end)
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV36')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
  gui:Destroy()
 end
@@ -389,8 +442,8 @@ conn(RunService.Heartbeat,function(dt)
     local d=r and (e.part.Position-r.Position).Magnitude or math.huge
     if d<=S.RadarRange and living(e.model) and lizard(e.model) and (S.Filter=='الكل' or rarity(e.model)==S.Filter) then
      makeMarker(e);local bb=markers[e.model];if bb then bb.MaxDistance=S.RadarRange;local t=bb:FindFirstChildOfClass('TextLabel');if t then
-      local weight=nice(read(e.model,{'Weight','Mass','الوزن'}),' كجم');local size=nice(read(e.model,{'Size','Scale','الحجم'}),' م')
-      t.Text=(rarity(e.model)=='غير محدد' and 'ضب' or rarity(e.model))..'\n'..(weight and weight..'  •  ' or '')..(size and size..'  •  ' or '')..math.floor(d)..' وحدة'
+      local weight=animalWeight(e.model);local size=animalSize(e.model)
+      t.Text=(rarity(e.model)=='غير محدد' and 'ضب' or rarity(e.model))..'\nحجم '..size..'  •  وزن '..weight..'  •  '..math.floor(d)..' وحدة'
       t.TextColor3=rarityColors[rarity(e.model)] or C.white
      end end
     elseif markers[e.model] then markers[e.model]:Destroy();markers[e.model]=nil end
@@ -402,14 +455,15 @@ conn(RunService.Heartbeat,function(dt)
      bb:Destroy();markers[m]=nil
     end
    end
-   local e,d=nearest(S.Filter);nearestText.Text=e and ('أقرب ضب: '..e.model.Name..' | '..math.floor(d)..' وحدة') or 'أقرب ضب: لا يوجد'
+   local e,d=nearest(S.Filter);nearestText.Text=e and ('أقرب ضب: '..e.model.Name..' | حجم '..animalSize(e.model)..' | '..math.floor(d)..' وحدة') or 'أقرب ضب: لا يوجد'
   else clearMarkers() end
+  rebuildAnimalList()
   if S.Merchant then local p,d=findMerchant();merchantText.Text=p and ('أقرب تاجر: '..math.floor(d)..' وحدة') or 'أقرب تاجر: غير مكتشف' end
   if S.Fog or S.Fullbright then applyVisuals() end
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
-local aimBinding='Lx_NexusAimV35'
+local aimBinding='Lx_NexusAimV36'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
  local cam=WS.CurrentCamera
@@ -440,5 +494,5 @@ RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,functi
   cam.CFrame=cam.CFrame:Lerp(desired,math.clamp(alpha,0,1))
  end
 end)
-msg('Lx NEXUS v35 جاهز | FOV فعلي للضبان داخل الدائرة')
-print('[Lx NEXUS PRO] v35 loaded')
+msg('Lx NEXUS v36 جاهز | FOV فعلي للضبان داخل الدائرة')
+print('[Lx NEXUS PRO] v36 loaded')
