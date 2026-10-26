@@ -1,4 +1,4 @@
--- Lx NEXUS PRO v45 | single-file Luau client utility
+-- Lx NEXUS PRO v46 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
 local Players=game:GetService('Players')
 local RunService=game:GetService('RunService')
@@ -12,7 +12,7 @@ if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
 local env=_G
 if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
 if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
-for _,name in ipairs({'Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+for _,name in ipairs({'Lx_NexusV46','Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
  local old=PG:FindFirstChild(name)
  if old then old:Destroy() end
 end
@@ -26,8 +26,8 @@ local function hum() return LP.Character and LP.Character:FindFirstChildOfClass(
 local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(9,11,20),card=Color3.fromRGB(25,28,43),muted=Color3.fromRGB(150,160,186),white=Color3.fromRGB(248,249,255),purple=Color3.fromRGB(153,101,255),green=Color3.fromRGB(68,211,136)}
-for _,oldName in ipairs({'Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local gui=inst('ScreenGui',{Name='Lx_NexusV45',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+for _,oldName in ipairs({'Lx_NexusV46','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
+local gui=inst('ScreenGui',{Name='Lx_NexusV46',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 inst('UIStroke',{Color=Color3.fromRGB(70,51,108),Thickness=1.4,Transparency=.12},main)
 local scale=inst('UIScale',{Scale=1},main)
@@ -129,16 +129,21 @@ local function read(model,names)
  for _,n in ipairs(names) do local v=model:GetAttribute(n);if v~=nil then return v end;local child=model:FindFirstChild(n,true);if child and child:IsA('ValueBase') then return child.Value end end
 end
 -- Strict model classification: never attach animal markers to players or vehicles.
+local vehicleExclusions=setmetatable({}, {__mode='k'})
 local function blockedAncestor(obj)
  local cursor=obj
  while cursor and cursor~=WS do
+  if cursor:IsA('VehicleSeat') or cursor:IsA('Seat') then return true end
   if cursor:IsA('Model') then
    if Players:GetPlayerFromCharacter(cursor) then return true end
    local n=cursor.Name:lower()
-   if n:find('car',1,true) or n:find('truck',1,true) or n:find('vehicle',1,true) or n:find('سيار',1,true) then return true end
-   if cursor:FindFirstChildWhichIsA('VehicleSeat',true) then return true end
+   if n:find('car',1,true) or n:find('truck',1,true) or n:find('vehicle',1,true) or n:find('سيار',1,true) or n:find('مركب',1,true) then return true end
+   if vehicleExclusions[cursor] then return true end
+   -- A seat anywhere in the model marks the entire assembly as a vehicle.
+   if cursor:FindFirstChildWhichIsA('VehicleSeat',true) or cursor:FindFirstChildWhichIsA('Seat',true) then
+    vehicleExclusions[cursor]=true;return true
+   end
   end
-  if cursor:IsA('VehicleSeat') or cursor:IsA('Seat') then return true end
   cursor=cursor.Parent
  end
  return false
@@ -160,10 +165,12 @@ local function lizard(model)
  if not model:IsA('Model') or blockedAncestor(model) then return false end
  local n=model.Name:lower()
  local species=read(model,{'Species','AnimalType','CreatureType','PetType','MobType','نوع'})
- local named=n:find('dhab',1,true) or n:find('lizard',1,true) or n:find('ضب',1,true) or n:find('dhub',1,true) or n:find('dab',1,true) or n:find('reptile',1,true) or n:find('lizardnpc',1,true)
- local typed=species and (tostring(species):lower():find('dhab',1,true) or tostring(species):lower():find('lizard',1,true) or tostring(species):find('ضب',1,true) or tostring(species):lower():find('reptile',1,true))
- -- Require a body part belonging to this animal, not a nested part from a vehicle.
- return (named or typed) and model:FindFirstChildWhichIsA('BasePart',true)~=nil or false
+ local named=n:find('dhab',1,true) or n:find('lizard',1,true) or n:find('ضب',1,true) or n:find('dhub',1,true) or n:find('reptile',1,true)
+ local typed=species and (tostring(species):lower():find('dhab',1,true) or tostring(species):lower():find('lizard',1,true) or tostring(species):find('ضب',1,true))
+ -- A nested child named "ضب" inside a vehicle must never qualify.
+ if not (named or typed) then return false end
+ if model:FindFirstChildWhichIsA('Seat',true) or model:FindFirstChildWhichIsA('VehicleSeat',true) then return false end
+ return model:FindFirstChildWhichIsA('BasePart',true)~=nil
 end
 local function part(model) return model.PrimaryPart or model:FindFirstChildWhichIsA('BasePart',true) end
 local function living(model)
@@ -205,9 +212,29 @@ local function nice(v,unit)
  local n=tonumber(v);if n then return string.format('%.1f',n)..(unit or '') end
  return tostring(v)
 end
-local cache={};local function refreshCache()
+-- Event-maintained animal index: avoids traversing every workspace descendant every second.
+local indexed=setmetatable({}, {__mode='k'})
+local cache={}
+local function trackAnimal(m)
+ if m:IsA('Model') and not indexed[m] and lizard(m) and living(m) then indexed[m]=true end
+end
+for _,obj in ipairs(WS:GetDescendants()) do
+ if obj:IsA('Model') then trackAnimal(obj) end
+end
+conn(WS.DescendantAdded,function(obj)
+ if obj:IsA('Model') then task.defer(function() if alive and obj.Parent then trackAnimal(obj) end end) end
+end)
+conn(WS.DescendantRemoving,function(obj)
+ if indexed[obj] then indexed[obj]=nil end
+end)
+local function refreshCache()
  table.clear(cache)
- for _,m in ipairs(WS:GetDescendants()) do if lizard(m) and living(m) then local p=part(m);if p then cache[#cache+1]={model=m,part=p} end end end
+ for m in pairs(indexed) do
+  if m.Parent and living(m) and lizard(m) then
+   local p=part(m)
+   if p and p.Parent then cache[#cache+1]={model=m,part=p} end
+  else indexed[m]=nil end
+ end
 end
 local function nearest(filter)
  local r=root();if not r then return nil end
@@ -223,8 +250,8 @@ end
 local function clearMarkers() for _,g in pairs(markers) do pcall(function()g:Destroy()end) end;table.clear(markers) end
 local function makeMarker(e)
  local m=e.model;if markers[m] or not living(m) or not lizard(m) then return end
- local bb=inst('BillboardGui',{Name='XAnimalRadar',Adornee=e.part,Size=UDim2.fromOffset(230,46),StudsOffsetWorldSpace=Vector3.new(0,3.5,0),AlwaysOnTop=true,MaxDistance=S.RadarRange},gui)
- local text=inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextColor3=rarityColors[rarity(m)] or C.white,TextStrokeTransparency=.25,TextSize=13,Font=Enum.Font.GothamBold,TextWrapped=true},bb)
+ local bb=inst('BillboardGui',{Name='LxAnimalRadar',Adornee=e.part,Size=UDim2.fromOffset(190,40),StudsOffsetWorldSpace=Vector3.new(0,3.2,0),AlwaysOnTop=false,MaxDistance=math.min(S.RadarRange,1200)},gui)
+ local text=inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextColor3=rarityColors[rarity(m)] or C.white,TextStrokeTransparency=.4,TextSize=11,Font=Enum.Font.GothamBold,TextWrapped=true},bb)
  markers[m]=bb
 end
 local radar=tab('كشف العناصر')
@@ -724,30 +751,40 @@ local function cleanup()
  if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.CarFly=false;S.Speed=false;S.Fog=false;S.Fullbright=false
  stopCarFly();clearVehicleBoost();clearMarkers();clearResourceMarkers();if merchantMarker then merchantMarker:Destroy() end;applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
  for _,c in ipairs(conns) do c:Disconnect() end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV45')end)
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV46')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
  gui:Destroy()
 end
 env.XHubCleanup=cleanup
 conn(close.MouseButton1Click,cleanup)
-local timer=0;local aimTarget=nil;local aimTimer=0;local fitTimer=0
+local timer=0;local aimTarget=nil;local aimTimer=0;local fitTimer=0;local listTimer=0;local extrasTimer=0
 conn(RunService.Heartbeat,function(dt)
  if not alive then return end
- timer+=dt;aimTimer+=dt;fitTimer+=dt;if fitTimer>=1 then fitTimer=0;fitScreen() end
+ timer+=dt;aimTimer+=dt;fitTimer+=dt;listTimer+=dt;extrasTimer+=dt;if fitTimer>=1 then fitTimer=0;fitScreen() end
  if S.Speed then local h=hum();if h then if speedHum~=h then speedHum=h;originalSpeed=h.WalkSpeed end;h.WalkSpeed=S.Walk end end
  updateCarFly()
  updateVehicleBoost(dt)
- if timer>=1 then
+ if timer>=0.8 then
   timer=0
   if S.Radar or S.Aim or S.RareAlert then refreshCache() end
   if S.RareAlert then checkRareSpawn() elseif rareBanner.Visible then rareBanner.Visible=false end
-  refreshExtrasESP()
+  if extrasTimer>=3 then extrasTimer=0;refreshExtrasESP() end
   if S.Radar then
    local r=root()
+   local visible={}
    for _,e in ipairs(cache) do
     local d=r and (e.part.Position-r.Position).Magnitude or math.huge
-    if d<=S.RadarRange and living(e.model) and lizard(e.model) and (S.Filter=='الكل' or rarity(e.model)==S.Filter) then
-     makeMarker(e);local bb=markers[e.model];if bb then bb.MaxDistance=S.RadarRange;local t=bb:FindFirstChildOfClass('TextLabel');if t then
+    if d<=S.RadarRange then visible[#visible+1]={e=e,d=d} end
+   end
+   table.sort(visible,function(a,b)return a.d<b.d end)
+   local shown=0
+   for _,item in ipairs(visible) do
+    local e=item.e
+    local d=item.d
+    local match=living(e.model) and lizard(e.model) and (S.Filter=='الكل' or rarity(e.model)==S.Filter)
+    if match and shown<28 then
+     shown+=1
+     makeMarker(e);local bb=markers[e.model];if bb then bb.MaxDistance=math.min(S.RadarRange,1200);local t=bb:FindFirstChildOfClass('TextLabel');if t then
       local weight=animalWeight(e.model);local size=animalSize(e.model)
       t.Text=(rarity(e.model)=='غير محدد' and 'ضب' or rarity(e.model))..'\nحجم '..size..'  •  وزن '..weight..'  •  '..math.floor(d)..' وحدة'
       t.TextColor3=rarityColors[rarity(e.model)] or C.white
@@ -757,20 +794,20 @@ conn(RunService.Heartbeat,function(dt)
    for m,bb in pairs(markers) do
     local p=part(m)
     local d=(r and p and p.Parent) and (p.Position-r.Position).Magnitude or math.huge
-    if not m.Parent or not living(m) or not lizard(m) or d>S.RadarRange or (S.Filter~='الكل' and rarity(m)~=S.Filter) then
+    if not m.Parent or not living(m) or not lizard(m) or d>math.min(S.RadarRange,1200) or (S.Filter~='الكل' and rarity(m)~=S.Filter) then
      bb:Destroy();markers[m]=nil
     end
    end
    local e,d=nearest(S.Filter);nearestText.Text=e and ('أقرب ضب: '..e.model.Name..' | حجم '..animalSize(e.model)..' | '..math.floor(d)..' وحدة') or 'أقرب ضب: لا يوجد'
   else clearMarkers() end
-  rebuildAnimalList()
+  if listTimer>=2.4 then listTimer=0;rebuildAnimalList() end
   if S.Merchant then local p,d=findMerchant();merchantText.Text=p and ('أقرب تاجر: '..math.floor(d)..' وحدة') or 'أقرب تاجر: غير مكتشف' end
   if vehicleDiagnosticText then vehicleDiagnosticText.Text='التشخيص: '..(S.CarFly and flyState or vehicleState) end
   if S.Fog or S.Fullbright then applyVisuals() end
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
-local aimBinding='Lx_NexusAimV45'
+local aimBinding='Lx_NexusAimV46'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
  local cam=WS.CurrentCamera
@@ -801,5 +838,5 @@ RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,functi
   cam.CFrame=cam.CFrame:Lerp(desired,math.clamp(alpha,0,1))
  end
 end)
-msg('Lx NEXUS v45 جاهز | النوادر والتاجر ونقاط البيع')
-print('[Lx NEXUS PRO] v45 loaded')
+msg('Lx NEXUS v46 | رادار أخف • علامات الضبان فقط')
+print('[Lx NEXUS PRO] v46 loaded')
