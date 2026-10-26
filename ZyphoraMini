@@ -1,4 +1,4 @@
--- Lx NEXUS PRO v44 | single-file Luau client utility
+-- Lx NEXUS PRO v45 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
 local Players=game:GetService('Players')
 local RunService=game:GetService('RunService')
@@ -12,12 +12,12 @@ if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
 local env=_G
 if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
 if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
-for _,name in ipairs({'Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+for _,name in ipairs({'Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
  local old=PG:FindFirstChild(name)
  if old then old:Destroy() end
 end
 local alive=true;local conns={};local markers={};local lightSaved={};local atmoSaved={};local originalSpeed=nil;local speedHum=nil
-local S={Radar=false,RadarRange=1500,Aim=false,AimRange=800,AimSmooth=.14,FOV=160,Speed=false,Walk=32,CarSpeed=false,CarTarget=200,CarDirection=1,CarFly=false,FlySpeed=100,Fog=false,Fullbright=false,Merchant=false,ResourceESP=false,RareAlert=true,Filter='الكل'}
+local S={Radar=false,RadarRange=3000,Aim=false,AimRange=800,AimSmooth=.14,FOV=160,Speed=false,Walk=32,CarSpeed=false,CarTarget=200,CarDirection=1,CarFly=false,FlySpeed=100,Fog=false,Fullbright=false,Merchant=false,ResourceESP=false,RareAlert=true,Filter='الكل'}
 local function conn(signal,fn) local c=signal:Connect(fn);conns[#conns+1]=c;return c end
 local function inst(typ,props,parent) local x=Instance.new(typ);for k,v in pairs(props or {}) do x[k]=v end;x.Parent=parent;return x end
 local function round(x,r) inst('UICorner',{CornerRadius=UDim.new(0,r or 9)},x) end
@@ -26,8 +26,8 @@ local function hum() return LP.Character and LP.Character:FindFirstChildOfClass(
 local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(9,11,20),card=Color3.fromRGB(25,28,43),muted=Color3.fromRGB(150,160,186),white=Color3.fromRGB(248,249,255),purple=Color3.fromRGB(153,101,255),green=Color3.fromRGB(68,211,136)}
-for _,oldName in ipairs({'Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local gui=inst('ScreenGui',{Name='Lx_NexusV44',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+for _,oldName in ipairs({'Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
+local gui=inst('ScreenGui',{Name='Lx_NexusV45',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 inst('UIStroke',{Color=Color3.fromRGB(70,51,108),Thickness=1.4,Transparency=.12},main)
 local scale=inst('UIScale',{Scale=1},main)
@@ -159,9 +159,9 @@ end
 local function lizard(model)
  if not model:IsA('Model') or blockedAncestor(model) then return false end
  local n=model.Name:lower()
- local species=read(model,{'Species','AnimalType','CreatureType','نوع'})
- local named=n:find('dhab',1,true) or n:find('lizard',1,true) or n:find('ضب',1,true)
- local typed=species and (tostring(species):lower():find('dhab',1,true) or tostring(species):lower():find('lizard',1,true) or tostring(species):find('ضب',1,true))
+ local species=read(model,{'Species','AnimalType','CreatureType','PetType','MobType','نوع'})
+ local named=n:find('dhab',1,true) or n:find('lizard',1,true) or n:find('ضب',1,true) or n:find('dhub',1,true) or n:find('dab',1,true) or n:find('reptile',1,true) or n:find('lizardnpc',1,true)
+ local typed=species and (tostring(species):lower():find('dhab',1,true) or tostring(species):lower():find('lizard',1,true) or tostring(species):find('ضب',1,true) or tostring(species):lower():find('reptile',1,true))
  -- Require a body part belonging to this animal, not a nested part from a vehicle.
  return (named or typed) and model:FindFirstChildWhichIsA('BasePart',true)~=nil or false
 end
@@ -178,12 +178,12 @@ end
 local rarities={['t1']='عادي',['t2']='مميز',['t3']='نادر',['t4']='فاخر',['t5']='أسطوري',['t6']='خرافي',common='عادي',uncommon='مميز',rare='نادر',epic='فاخر',legendary='أسطوري',mythic='خرافي'}
 local rarityColors={['عادي']=Color3.fromRGB(230,230,230),['مميز']=Color3.fromRGB(65,220,110),['نادر']=Color3.fromRGB(75,155,255),['فاخر']=Color3.fromRGB(170,90,240),['أسطوري']=Color3.fromRGB(255,192,60),['خرافي']=Color3.fromRGB(245,65,80)}
 local function rarity(m)
- local raw=tostring(read(m,{'Rarity','Tier','Grade','ندرة'}) or ''):lower():gsub('^%s+',''):gsub('%s+$','')
+ local raw=tostring(read(m,{'Rarity','Tier','Grade','Rank','RarityName','ندرة'}) or ''):lower():gsub('^%s+',''):gsub('%s+$','')
  return rarities[raw] or (rarityColors[raw] and raw) or 'غير محدد'
 end
 local function animalSize(model)
  -- Only report game-provided size stats, never derive an invented value.
- local v=read(model,{'Size','Scale','SizeValue','AnimalSize','DhabSize','CreatureSize','الحجم','حجم'})
+ local v=read(model,{'Size','Scale','SizeValue','AnimalSize','DhabSize','CreatureSize','SizeStat','الحجم','حجم'})
  if v==nil then return 'غير متاح' end
  local n=tonumber(v)
  if n then
@@ -194,7 +194,7 @@ local function animalSize(model)
  return tostring(v)
 end
 local function animalWeight(model)
- local v=read(model,{'Weight','Mass','AnimalWeight','الوزن'})
+ local v=read(model,{'Weight','Mass','AnimalWeight','WeightKG','الوزن'})
  if v==nil then return 'غير متاح' end
  local n=tonumber(v)
  if n then return string.format('%.2f',n):gsub('%.?0+$','') end
@@ -270,6 +270,8 @@ local function rebuildAnimalList()
  end
 end
 
+local findMerchant,clearResourceMarkers,validResource,resourcePart,nearestNamed,goToPointWithCar,rareBanner
+local saleWords
 local merchant=tab('كشف التاجر')
 toggle(merchant,'كشف التجار','Merchant')
 local merchantInfo=label(merchant,'أقرب تاجر: غير مكتشف','المسافة والاتجاه حسب النماذج المحمّلة')
@@ -281,7 +283,7 @@ findMerchant=function()
  for _,obj in ipairs(WS:GetDescendants()) do
   if obj:IsA('Model') and not playerAncestor(obj) then
    local n=obj.Name:lower()
-   if n:find('merchant',1,true) or n:find('trader',1,true) or n:find('تاجر',1,true) then
+   if n:find('merchant',1,true) or n:find('trader',1,true) or n:find('تاجر',1,true) or n:find('الخلا',1,true) or n:find('dealer',1,true) then
     local p=part(obj);if p then local dis=(p.Position-r.Position).Magnitude;if dis<d then best=p;d=dis end end
    end
   end
@@ -340,19 +342,19 @@ local function moveTo(pos)
 end
 -- Rare resources, sale-point navigation, and rare-spawn notifications.
 -- Detection uses only objects replicated by the current game; names are heuristics.
-local resourceWords={'ياقوت','ruby','تبر','gold nugget','goldnugget','gold ore','gem','جوهرة','emerald','زمرد','diamond','ألماس','الماس','sapphire','ياقوت أزرق','rare ore','خام نادر'}
-local saleWords={'بيع','sell','sale','buyer','المشتري','نقطة البيع','sellpoint','sell zone','sellzone'}
+local resourceWords={'ياقوت','ruby','تبر','gold nugget','goldnugget','gold ore','gem','جوهرة','emerald','زمرد','diamond','ألماس','الماس','sapphire','ياقوت أزرق','rare ore','خام نادر','ore','mineral','resource','nugget','خام','معدن'}
+saleWords={'بيع','sell','sale','buyer','المشتري','نقطة البيع','sellpoint','sell zone','sellzone','sell npc','selling','vendor'}
 local function nameMatches(obj,words)
  local n=string.lower(obj.Name)
  for _,w in ipairs(words) do if string.find(n,w,1,true) then return true end end
  return false
 end
-local function resourcePart(obj)
+resourcePart=function(obj)
  if obj:IsA('BasePart') then return obj end
  if obj:IsA('Model') then return part(obj) end
  return nil
 end
-local function validResource(obj)
+validResource=function(obj)
  if not (obj:IsA('Model') or obj:IsA('BasePart')) or not obj:IsDescendantOf(WS) then return false end
  if playerAncestor(obj) or blockedAncestor(obj) or lizard(obj) then return false end
  if not nameMatches(obj,resourceWords) then return false end
@@ -364,7 +366,7 @@ local function validResource(obj)
  end
  return resourcePart(obj)~=nil
 end
-local function nearestNamed(words)
+nearestNamed=function(words)
  local r=root();if not r then return nil,nil end
  local best,d=nil,math.huge
  for _,obj in ipairs(WS:GetDescendants()) do
@@ -382,8 +384,8 @@ local function occupiedVehicle()
  if not model or not model:IsDescendantOf(WS) then return nil,nil end
  return model,seat
 end
-local function goToPointWithCar(target)
- if not target then msg('الهدف غير محمّل في الماب');return end
+goToPointWithCar=function(target)
+ if not target then msg('الهدف غير موجود ضمن العناصر المحمّلة؛ قد يكون خارج StreamingEnabled');return end
  local car,seat=occupiedVehicle()
  if not car then moveTo(target.Position);msg('انتقال اللاعب فقط: أنت لست في سيارة');return end
  local offset=Vector3.new(0,7,0)
@@ -396,11 +398,11 @@ local function goToPointWithCar(target)
   else msg('تم نقل السيارة محلياً؛ تحقق من ثبات الموقع') end
  end)
 end
-local findMerchant
 local resourceMarkers={}
 local merchantMarker=nil
 local knownRare={}
-local rareBanner=inst('Frame',{Size=UDim2.fromOffset(340,65),Position=UDim2.new(.5,-170,0,20),BackgroundColor3=Color3.fromRGB(36,22,55),Visible=false,BorderSizePixel=0},gui)
+local rareInitialized=false
+rareBanner=inst('Frame',{Size=UDim2.fromOffset(340,65),Position=UDim2.new(.5,-170,0,20),BackgroundColor3=Color3.fromRGB(36,22,55),Visible=false,BorderSizePixel=0},gui)
 round(rareBanner,12)
 inst('UIStroke',{Color=C.purple,Thickness=1.5},rareBanner)
 local rareBannerText=inst('TextLabel',{Size=UDim2.new(1,-16,1,-8),Position=UDim2.fromOffset(8,4),BackgroundTransparency=1,TextColor3=C.white,TextSize=14,Font=Enum.Font.GothamBold,TextWrapped=true},rareBanner)
@@ -410,7 +412,7 @@ local function billboardFor(target,text,color)
  local t=inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text=text,TextColor3=color,TextStrokeTransparency=.18,Font=Enum.Font.GothamBold,TextSize=13,TextWrapped=true},b)
  return b,t
 end
-local function clearResourceMarkers()
+clearResourceMarkers=function()
  for _,b in pairs(resourceMarkers) do b:Destroy() end
  table.clear(resourceMarkers)
 end
@@ -455,7 +457,7 @@ local function checkRareSpawn()
    local rank=rarity(e.model)
    if rank=='نادر' or rank=='فاخر' or rank=='أسطوري' or rank=='خرافي' then
     seen[e.model]=true
-    if not knownRare[e.model] and S.RareAlert and r then
+    if rareInitialized and not knownRare[e.model] and S.RareAlert and r then
      local d=math.floor((e.part.Position-r.Position).Magnitude)
      rareBannerText.Text='ضب '..rank..' ظهر!\n'..e.model.Name..' • '..d..' وحدة'
      rareBanner.Visible=true;bannerUntil=now+5
@@ -464,6 +466,7 @@ local function checkRareSpawn()
   end
  end
  knownRare=seen
+ rareInitialized=true
 end
 
 local function refreshCars()
@@ -721,7 +724,7 @@ local function cleanup()
  if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.CarFly=false;S.Speed=false;S.Fog=false;S.Fullbright=false
  stopCarFly();clearVehicleBoost();clearMarkers();clearResourceMarkers();if merchantMarker then merchantMarker:Destroy() end;applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
  for _,c in ipairs(conns) do c:Disconnect() end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV44')end)
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV45')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
  gui:Destroy()
 end
@@ -767,7 +770,7 @@ conn(RunService.Heartbeat,function(dt)
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
-local aimBinding='Lx_NexusAimV44'
+local aimBinding='Lx_NexusAimV45'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
  local cam=WS.CurrentCamera
@@ -798,5 +801,5 @@ RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,functi
   cam.CFrame=cam.CFrame:Lerp(desired,math.clamp(alpha,0,1))
  end
 end)
-msg('Lx NEXUS v44 جاهز | النوادر والتاجر ونقاط البيع')
-print('[Lx NEXUS PRO] v44 loaded')
+msg('Lx NEXUS v45 جاهز | النوادر والتاجر ونقاط البيع')
+print('[Lx NEXUS PRO] v45 loaded')
