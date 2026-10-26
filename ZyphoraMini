@@ -1,4 +1,4 @@
--- X | ZYPHORA HUB v26 | Single-file Roblox Luau client UI
+-- X | ZYPHORA HUB v27 | Single-file Roblox Luau client UI
 -- Features depend on objects replicated to this client. No server bypass is implied.
 local Players=game:GetService('Players')
 local RS=game:GetService('RunService')
@@ -84,24 +84,52 @@ local function rarity(m)
  for _,d in ipairs(defs) do for _,term in ipairs(d[3]) do if s==term then return d[1],d[2] end end end
  return tostring(r),palette.sub
 end
--- Strict animal recognition: never mark a player character or anything inside it.
+-- Strict recognition: never classify a car, passenger, player or vehicle accessory as wildlife.
+local function vehicleAncestor(obj)
+ local node=obj
+ while node and node~=WS do
+  if node:IsA('Model') then
+   if node:FindFirstChildWhichIsA('VehicleSeat',true) then return true end
+   local n=node.Name:lower()
+   if n:find('vehicle',1,true) or n:find('truck',1,true) or n:find('pickup',1,true) or n:find('سيارة',1,true) then return true end
+  end
+  node=node.Parent
+ end
+ return false
+end
 local function belongsToPlayer(model)
  local node=model
  while node and node~=WS do
   if node:IsA('Model') then
-   if Players:GetPlayerFromCharacter(node) then return true end
-   local h=node:FindFirstChildOfClass('Humanoid')
-   if h and (node==LP.Character or Players:GetPlayerFromCharacter(node)) then return true end
+   if Players:GetPlayerFromCharacter(node) or node==LP.Character then return true end
+   for _,p in ipairs(Players:GetPlayers()) do if p.Character==node then return true end end
   end
   node=node.Parent
  end
  return false
 end
 local function animal(m)
- if not m:IsA('Model') or belongsToPlayer(m) then return false end
- if m:FindFirstChildOfClass('Humanoid') and not (m.Name:lower():find('dhab',1,true) or m.Name:find('ضب',1,true)) then return false end
+ if not m:IsA('Model') or belongsToPlayer(m) or vehicleAncestor(m) then return false end
  local n=m.Name:lower()
- return n:find('dhab',1,true)~=nil or n:find('lizard',1,true)~=nil or n:find('ضب',1,true)~=nil or n:find('reptile',1,true)~=nil
+ -- Only accept animal-shaped model names, not incidental text on vehicle components.
+ local named=n:match('^dhab[%s_%-]') or n=='dhab' or n:match('^lizard[%s_%-]') or n=='lizard' or n:match('^reptile[%s_%-]') or n=='reptile' or n:match('^ضب')
+ if not named then return false end
+ if m:FindFirstChildWhichIsA('VehicleSeat',true) then return false end
+ return true
+end
+local function living(m)
+ if not m or not m.Parent then return false end
+ local h=m:FindFirstChildOfClass('Humanoid')
+ if h and h.Health<=0 then return false end
+ for _,key in ipairs({'Dead','IsDead','Killed','Collected','Harvested'}) do
+  local v=m:GetAttribute(key)
+  if v==true then return false end
+  local child=m:FindFirstChild(key,true)
+  if child and child:IsA('BoolValue') and child.Value then return false end
+ end
+ local hp=stat(m,{'Health','HP','CurrentHealth','health'})
+ if type(hp)=='number' and hp<=0 then return false end
+ return true
 end
 local function part(m)
  return m.PrimaryPart or m:FindFirstChild('Head',true) or m:FindFirstChildWhichIsA('BasePart',true)
@@ -110,7 +138,7 @@ local animals={}; local lastScan=0
 local function scan()
  table.clear(animals)
  for _,m in ipairs(WS:GetDescendants()) do
-  if animal(m) then
+  if animal(m) and living(m) then
    local p=part(m)
    if p and p:IsDescendantOf(m) and not belongsToPlayer(m) then
     animals[#animals+1]={m=m,p=p}
@@ -125,7 +153,7 @@ end
 local function nearest(filterRange)
  local me=root(); if not me then return nil end
  local best,bestDist=nil,math.huge
- for _,e in ipairs(animals) do if e.m.Parent and e.p.Parent and not belongsToPlayer(e.m) and matches(e) then local d=(e.p.Position-me.Position).Magnitude; if d<bestDist and d<=(filterRange or math.huge) then best,bestDist=e,d end end end
+ for _,e in ipairs(animals) do if e.m.Parent and e.p.Parent and animal(e.m) and living(e.m) and matches(e) then local d=(e.p.Position-me.Position).Magnitude; if d<bestDist and d<=(filterRange or math.huge) then best,bestDist=e,d end end end
  return best,bestDist
 end
 local function compact(v)
@@ -144,7 +172,7 @@ end
 local function updateMarkers()
  local me=root(); if not me then return end
  local seen={}
- for _,e in ipairs(animals) do if e.m.Parent and e.p.Parent and not belongsToPlayer(e.m) and matches(e) then
+ for _,e in ipairs(animals) do if e.m.Parent and e.p.Parent and animal(e.m) and living(e.m) and matches(e) then
   local d=(e.p.Position-me.Position).Magnitude
   if d<=state.range then
    marker(e); local o=markers[e.m]; local r,c=rarity(e.m); local weight=stat(e.m,{'Weight','weight','Mass','الوزن'}); local size=stat(e.m,{'Size','size','Scale','الحجم'});
@@ -190,11 +218,30 @@ local function closestCar()
  return best,dist
 end
 local pLook=page('☼ المظهر')
-local original={FogEnd=Lighting.FogEnd,FogStart=Lighting.FogStart,Brightness=Lighting.Brightness,ClockTime=Lighting.ClockTime,GlobalShadows=Lighting.GlobalShadows,Ambient=Lighting.Ambient,OutdoorAmbient=Lighting.OutdoorAmbient}
-toggle(pLook,'إزالة الضباب','يحسن وضوح الرؤية محلياً','fog',function(on) Lighting.FogEnd=on and 100000 or original.FogEnd; Lighting.FogStart=on and 0 or original.FogStart end)
-toggle(pLook,'إضاءة كاملة','رفع الإضاءة وتعطيل الظلال محلياً','light',function(on)
- Lighting.Brightness=on and 4 or original.Brightness; Lighting.ClockTime=on and 12 or original.ClockTime; Lighting.GlobalShadows=on and false or original.GlobalShadows; Lighting.Ambient=on and Color3.new(1,1,1) or original.Ambient; Lighting.OutdoorAmbient=on and Color3.new(1,1,1) or original.OutdoorAmbient
-end)
+local original={FogEnd=Lighting.FogEnd,FogStart=Lighting.FogStart,Brightness=Lighting.Brightness,ClockTime=Lighting.ClockTime,GlobalShadows=Lighting.GlobalShadows,Ambient=Lighting.Ambient,OutdoorAmbient=Lighting.OutdoorAmbient,ExposureCompensation=Lighting.ExposureCompensation}
+local atmospheric={}
+for _,obj in ipairs(Lighting:GetChildren()) do
+ if obj:IsA('Atmosphere') then atmospheric[obj]={Density=obj.Density,Haze=obj.Haze,Glare=obj.Glare} end
+end
+local function applyFog(on)
+ Lighting.FogEnd=on and 100000 or original.FogEnd
+ Lighting.FogStart=on and 0 or original.FogStart
+ for obj,props in pairs(atmospheric) do if obj.Parent then
+  obj.Density=on and 0 or props.Density
+  obj.Haze=on and 0 or props.Haze
+  obj.Glare=on and 0 or props.Glare
+ end end
+end
+local function applyLight(on)
+ Lighting.Brightness=on and 5 or original.Brightness
+ Lighting.ClockTime=on and 12 or original.ClockTime
+ Lighting.GlobalShadows=on and false or original.GlobalShadows
+ Lighting.Ambient=on and Color3.new(1,1,1) or original.Ambient
+ Lighting.OutdoorAmbient=on and Color3.new(1,1,1) or original.OutdoorAmbient
+ Lighting.ExposureCompensation=on and 1 or original.ExposureCompensation
+end
+toggle(pLook,'إزالة الضباب','يشمل Fog و Atmosphere الموجودين','fog',applyFog)
+toggle(pLook,'إضاءة كاملة','رفع الإضاءة والسطوع وإيقاف الظلال محلياً','light',applyLight)
 local pExtra=page('⚙ أدوات إضافية')
 toggle(pExtra,'مانع الخمول','يستخدم VirtualUser إن كان متاحاً','afk')
 action(pExtra,'إعادة الاتصال','طلب إعادة الدخول إلى نفس مكان اللعبة',function()
@@ -203,7 +250,7 @@ end)
 local pMove=page('◎ الانتقال')
 action(pMove,'الانتقال لأقرب ضب','محاولة واحدة دون تكرار أو تعليق',function()
  scan(); local e=nearest(); local me=root(); if not e or belongsToPlayer(e.m) or not me then msg('لا يوجد ضب متاح'); return end
- me.CFrame=e.p.CFrame*CFrame.new(0,0,6); msg('تم طلب الانتقال للضب: '..e.m.Name..' (قد يصححه السيرفر)')
+ me.CFrame=e.p.CFrame*CFrame.new(0,0,6); msg('محاولة انتقال إلى '..e.m.Name..'؛ قد يمنعها السيرفر')
 end)
 action(pMove,'الانتقال لأقرب سيارة','ينقلك إلى المقعد الأقرب الظاهر',function()
  local s=closestCar(); local me=root(); if not s or not me then msg('لا توجد سيارة متاحة'); return end
@@ -219,8 +266,9 @@ action(pMove,'العودة للديرة','فقط إذا كان مكان الدي
  for _,o in ipairs(WS:GetDescendants()) do if o:IsA('BasePart') and (o.Name=='HomeSpawn' or o.Name=='BaseSpawn' or o.Name=='ديرة' or o.Name=='Home') then me.CFrame=o.CFrame*CFrame.new(0,5,0); msg('تم طلب العودة إلى '..o.Name); return end end
  msg('لم يُعثر على موقع ديرة موثوق؛ لم يتم الانتقال')
 end)
-local pInfo=page('ⓘ معلومات')
-local small=new('TextLabel',{Size=UDim2.new(1,-2,0,140),BackgroundColor3=palette.card,TextColor3=palette.text,TextSize=12,TextWrapped=true,Font=Enum.Font.Gotham,Text='X | Zyphora Hub v26\nالرادار والتصويب للحيوانات المطابقة فقط.\nالندرات مبنية على قيم يتيحها الماب.\nالتلفيل التلقائي يتطلب نظام الماب ولا يمكن تعميمه.\nسحب سيارات الآخرين وبيانات الشراء لا يمكن ضمانهما محلياً.'},pInfo); rounded(small,9)
+-- Information and diagnostics live in Extra Tools, not a separate decorative tab.
+local pInfo=pExtra
+local small=new('TextLabel',{Size=UDim2.new(1,-2,0,140),BackgroundColor3=palette.card,TextColor3=palette.text,TextSize=12,TextWrapped=true,Font=Enum.Font.Gotham,Text='X | Zyphora Hub v27\nالرادار والتصويب للحيوانات المطابقة فقط.\nالندرات مبنية على قيم يتيحها الماب.\nالتلفيل التلقائي يتطلب نظام الماب ولا يمكن تعميمه.\nسحب سيارات الآخرين وبيانات الشراء لا يمكن ضمانهما محلياً.'},pInfo); rounded(small,9)
 local sidePanel=new('Frame',{Size=UDim2.fromOffset(215,120),Position=UDim2.new(1,-228,0,10),BackgroundColor3=palette.bg,BackgroundTransparency=.13,Visible=false},gui); rounded(sidePanel,10)
 local sideText=new('TextLabel',{Size=UDim2.new(1,-14,1,-10),Position=UDim2.fromOffset(7,5),BackgroundTransparency=1,TextColor3=palette.text,TextSize=12,Font=Enum.Font.GothamBold,TextWrapped=true,Text='رادار الضبان النادرة'},sidePanel)
 local accum=0; local camAccum=0
@@ -267,7 +315,7 @@ con(UIS.InputChanged,function(i) if dragging and i.UserInputType==Enum.UserInput
 con(UIS.InputEnded,function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
 local function stop()
  if not active then return end; active=false; clearMarkers()
- Lighting.FogEnd=original.FogEnd; Lighting.FogStart=original.FogStart; Lighting.Brightness=original.Brightness; Lighting.ClockTime=original.ClockTime; Lighting.GlobalShadows=original.GlobalShadows; Lighting.Ambient=original.Ambient; Lighting.OutdoorAmbient=original.OutdoorAmbient
+ applyFog(false); applyLight(false)
  for _,c in ipairs(cons) do c:Disconnect() end; table.clear(cons)
  if _G.ZyphoraXStop==stop then _G.ZyphoraXStop=nil end
  gui:Destroy()
@@ -275,4 +323,4 @@ end
 _G.ZyphoraXStop=stop
 con(close.MouseButton1Click,stop)
 con(gui.Destroying,stop)
-print('ZYPHORA HUB v25 loaded')
+print('X | ZYPHORA HUB v27 loaded')
