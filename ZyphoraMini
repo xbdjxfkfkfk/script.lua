@@ -1,4 +1,4 @@
--- X | ZYPHORA HUB v33 | single-file Luau client utility
+-- Lx NEXUS PRO | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
 local Players=game:GetService('Players')
 local RunService=game:GetService('RunService')
@@ -6,13 +6,13 @@ local UIS=game:GetService('UserInputService')
 local WS=game:GetService('Workspace')
 local Lighting=game:GetService('Lighting')
 local LP=Players.LocalPlayer
-if not LP then warn('X Hub: no LocalPlayer');return end
+if not LP then warn('Lx NEXUS: no LocalPlayer');return end
 local PG=LP:WaitForChild('PlayerGui',12)
-if not PG then warn('X Hub: PlayerGui unavailable');return end
+if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
 local env=_G
 if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
 if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
-for _,name in ipairs({'X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+for _,name in ipairs({'Lx_NexusV35','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
  local old=PG:FindFirstChild(name)
  if old then old:Destroy() end
 end
@@ -25,20 +25,34 @@ local function root() return LP.Character and LP.Character:FindFirstChild('Human
 local function hum() return LP.Character and LP.Character:FindFirstChildOfClass('Humanoid') end
 local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
-local C={bg=Color3.fromRGB(17,18,24),card=Color3.fromRGB(37,38,45),muted=Color3.fromRGB(170,175,185),white=Color3.fromRGB(246,246,250),purple=Color3.fromRGB(160,100,235),green=Color3.fromRGB(68,211,136)}
-local gui=inst('ScreenGui',{Name='X_ZyphoraHubV33',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
-local main=inst('Frame',{Size=UDim2.fromOffset(590,460),Position=UDim2.new(.5,-295,.5,-230),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,12)
-local head=inst('Frame',{Size=UDim2.new(1,0,0,47),BackgroundColor3=C.card,BorderSizePixel=0,Active=true},main);round(head,12)
-inst('TextLabel',{Size=UDim2.new(1,-120,1,0),Position=UDim2.fromOffset(14,0),BackgroundTransparency=1,Text='X | ZYPHORA HUB v33',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=16,TextXAlignment=Enum.TextXAlignment.Left},head)
-local function smallBtn(text,x) local b=inst('TextButton',{Size=UDim2.fromOffset(31,29),Position=UDim2.new(1,x,0,9),Text=text,Font=Enum.Font.GothamBold,TextSize=16,TextColor3=C.white,BackgroundColor3=C.bg},head);round(b,7);return b end
+local C={bg=Color3.fromRGB(9,11,20),card=Color3.fromRGB(25,28,43),muted=Color3.fromRGB(150,160,186),white=Color3.fromRGB(248,249,255),purple=Color3.fromRGB(153,101,255),green=Color3.fromRGB(68,211,136)}
+for _,oldName in ipairs({'Lx_NexusV35','Lx_NexusFOV_V35','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
+local gui=inst('ScreenGui',{Name='Lx_NexusV35',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
+inst('UIStroke',{Color=Color3.fromRGB(70,51,108),Thickness=1.4,Transparency=.12},main)
+local scale=inst('UIScale',{Scale=1},main)
+local function fitScreen()
+ local cam=WS.CurrentCamera
+ if cam then local v=cam.ViewportSize;scale.Scale=math.min(1,math.max(.55,math.min((v.X-24)/650,(v.Y-24)/500))) end
+end
+fitScreen()
+local head=inst('Frame',{Size=UDim2.new(1,0,0,66),BackgroundColor3=Color3.fromRGB(18,19,33),BorderSizePixel=0,Active=true},main);round(head,16)
+inst('Frame',{Size=UDim2.new(1,-30,0,2),Position=UDim2.new(0,15,1,-2),BackgroundColor3=C.purple,BorderSizePixel=0},head)
+local brand=inst('Frame',{Size=UDim2.fromOffset(44,44),Position=UDim2.fromOffset(12,11),BackgroundColor3=Color3.fromRGB(91,48,175),BorderSizePixel=0},head);round(brand,12)
+inst('UIStroke',{Color=Color3.fromRGB(185,145,255),Thickness=1},brand)
+inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text='Lx',Font=Enum.Font.GothamBlack,TextSize=22,TextColor3=C.white},brand)
+inst('TextLabel',{Size=UDim2.fromOffset(270,17),Position=UDim2.fromOffset(70,39),BackgroundTransparency=1,Text='NEXUS  •  PREMIUM CONTROL SYSTEM',TextColor3=C.muted,Font=Enum.Font.GothamMedium,TextSize=9,TextXAlignment=Enum.TextXAlignment.Left},head)
+inst('TextLabel',{Size=UDim2.fromOffset(330,30),Position=UDim2.fromOffset(70,9),BackgroundTransparency=1,Text='Lx  NEXUS PRO',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=19,TextXAlignment=Enum.TextXAlignment.Left},head)
+local function smallBtn(text,x) local b=inst('TextButton',{Size=UDim2.fromOffset(31,29),Position=UDim2.new(1,x,0,19),Text=text,Font=Enum.Font.GothamBold,TextSize=16,TextColor3=C.white,BackgroundColor3=C.bg},head);round(b,7);return b end
 local mini=smallBtn('−',-78);local close=smallBtn('×',-39)
-local side=inst('ScrollingFrame',{Size=UDim2.new(0,170,1,-85),Position=UDim2.fromOffset(10,53),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},main)
+local side=inst('ScrollingFrame',{Size=UDim2.new(0,188,1,-111),Position=UDim2.fromOffset(12,76),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},main)
 inst('UIListLayout',{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},side)
-local area=inst('Frame',{Size=UDim2.new(1,-194,1,-89),Position=UDim2.fromOffset(184,53),BackgroundTransparency=1,ClipsDescendants=true},main)
-status=inst('TextLabel',{Size=UDim2.new(1,-20,0,25),Position=UDim2.new(0,10,1,-28),BackgroundTransparency=1,Text='جاهز | الميزات المحلية تعتمد على صلاحيات الماب',TextColor3=C.muted,TextSize=11,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},main)
+local area=inst('Frame',{Size=UDim2.new(1,-222,1,-114),Position=UDim2.fromOffset(210,76),BackgroundTransparency=1,ClipsDescendants=true},main)
+status=inst('TextLabel',{Size=UDim2.new(1,-24,0,25),Position=UDim2.new(0,12,1,-31),BackgroundTransparency=1,Text='جاهز | الميزات المحلية تعتمد على صلاحيات الماب',TextColor3=C.muted,TextSize=11,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},main)
 local tabs={};local pageButtons={}
 local function tab(name)
- local b=inst('TextButton',{Size=UDim2.new(1,-5,0,37),Text=name,TextSize=12,Font=Enum.Font.GothamBold,TextColor3=C.white,BackgroundColor3=C.card},side);round(b,8)
+ local b=inst('TextButton',{Size=UDim2.new(1,-6,0,44),Text=name,TextSize=12,Font=Enum.Font.GothamBold,TextColor3=C.white,BackgroundColor3=C.card},side);round(b,11)
+ inst('UIStroke',{Color=Color3.fromRGB(60,53,90),Thickness=1,Transparency=.45},b)
  local p=inst('ScrollingFrame',{Size=UDim2.fromScale(1,1),Visible=false,BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=4,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},area)
  inst('UIListLayout',{Padding=UDim.new(0,9),SortOrder=Enum.SortOrder.LayoutOrder},p)
  inst('UIPadding',{PaddingTop=UDim.new(0,3),PaddingBottom=UDim.new(0,12),PaddingRight=UDim.new(0,8)},p)
@@ -49,22 +63,24 @@ local function tab(name)
 end
 local function label(p,title,desc)
  local h=desc and 54 or 27
- local f=inst('Frame',{Size=UDim2.new(1,-2,0,h),BackgroundColor3=C.card,BorderSizePixel=0},p);round(f,9)
+ local f=inst('Frame',{Size=UDim2.new(1,-2,0,h),BackgroundColor3=C.card,BorderSizePixel=0},p);round(f,11);inst('UIStroke',{Color=Color3.fromRGB(54,58,80),Thickness=1,Transparency=.5},f)
  inst('TextLabel',{Size=UDim2.new(1,-20,0,25),Position=UDim2.fromOffset(10,3),BackgroundTransparency=1,Text=title,Font=Enum.Font.GothamBold,TextSize=12,TextColor3=C.white,TextXAlignment=Enum.TextXAlignment.Left},f)
  if desc then inst('TextLabel',{Size=UDim2.new(1,-20,0,22),Position=UDim2.fromOffset(10,27),BackgroundTransparency=1,Text=desc,Font=Enum.Font.Gotham,TextSize=10,TextColor3=C.muted,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left},f) end
  return f
 end
 local function action(p,title,fn)
- local b=inst('TextButton',{Size=UDim2.new(1,-2,0,41),Text=title,TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,BackgroundColor3=C.card},p);round(b,9)
- conn(b.MouseButton1Click,function() local ok,e=pcall(fn);if not ok then warn('X Hub:',e);msg('خطأ: '..tostring(e):sub(1,65)) end end);return b
+ local b=inst('TextButton',{Size=UDim2.new(1,-2,0,41),Text=title,TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,BackgroundColor3=C.card},p);round(b,11)
+ inst('UIStroke',{Color=Color3.fromRGB(60,53,90),Thickness=1,Transparency=.5},b)
+ conn(b.MouseButton1Click,function() local ok,e=pcall(fn);if not ok then warn('Lx NEXUS:',e);msg('خطأ: '..tostring(e):sub(1,65)) end end);return b
 end
 local function toggle(p,title,key,fn)
  local b=inst('TextButton',{Size=UDim2.new(1,-2,0,41),Text='',TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,BackgroundColor3=C.card},p)
- round(b,9)
+ round(b,11)
+ inst('UIStroke',{Color=Color3.fromRGB(60,53,90),Thickness=1,Transparency=.5},b)
  local function paint()
   local enabled=S[key]==true
   b.Text=title..(enabled and '  |  ON ✓' or '  |  OFF ✕')
-  b.BackgroundColor3=enabled and Color3.fromRGB(45,88,70) or C.card
+  b.BackgroundColor3=enabled and Color3.fromRGB(48,58,89) or C.card
  end
  paint()
  conn(b.MouseButton1Click,function()
@@ -75,7 +91,7 @@ local function toggle(p,title,key,fn)
   if fn then ok,err=pcall(fn,desired) end
   if not ok then
    S[key]=previous
-   warn('[X Hub] toggle failed:',err)
+   warn('[Lx NEXUS] toggle failed:',err)
    msg('تعذر تغيير الخيار: '..tostring(err):sub(1,55))
   else
    msg(title..(desired and ' : تم التشغيل ON' or ' : تم الإيقاف OFF'))
@@ -87,11 +103,26 @@ end
 
 local function number(p,title,key,min,max,step)
  local f=label(p,title)
- local value=inst('TextLabel',{Size=UDim2.fromOffset(72,27),Position=UDim2.new(1,-122,0,0),BackgroundTransparency=1,Text=tostring(S[key]),TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold},f)
+ local titleLabel=f:FindFirstChildOfClass('TextLabel')
+ if titleLabel then titleLabel.Size=UDim2.new(1,-170,0,25);titleLabel.TextTruncate=Enum.TextTruncate.AtEnd end
+ local value=inst('TextBox',{
+  Size=UDim2.fromOffset(72,26),Position=UDim2.new(1,-122,0,0),
+  BackgroundColor3=C.bg,Text=tostring(S[key]),ClearTextOnFocus=false,
+  TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold
+ },f);round(value,5)
  local minus=inst('TextButton',{Size=UDim2.fromOffset(24,25),Position=UDim2.new(1,-147,0,1),Text='−',TextColor3=C.white,BackgroundColor3=C.bg},f)
  local plus=inst('TextButton',{Size=UDim2.fromOffset(24,25),Position=UDim2.new(1,-28,0,1),Text='+',TextColor3=C.white,BackgroundColor3=C.bg},f)
- local function change(delta) S[key]=math.clamp(math.floor((S[key]+delta)*100+.5)/100,min,max);value.Text=tostring(S[key]) end
- conn(minus.MouseButton1Click,function()change(-step)end);conn(plus.MouseButton1Click,function()change(step)end)
+ local function commit(v)
+  if type(v)~='number' or v~=v or v==math.huge or v==-math.huge then
+   msg('الرقم غير صالح: '..title)
+  else
+   S[key]=math.clamp(math.floor(v*100+.5)/100,min,max)
+  end
+  value.Text=tostring(S[key])
+ end
+ conn(minus.MouseButton1Click,function()commit(S[key]-step)end)
+ conn(plus.MouseButton1Click,function()commit(S[key]+step)end)
+ conn(value.FocusLost,function()commit(tonumber(value.Text))end)
  return f
 end
 local function read(model,names)
@@ -210,7 +241,7 @@ toggle(aim,'التصويب المساعد على الضبان فقط','Aim')
 number(aim,'أقصى مسافة للتصويب','AimRange',100,2000,100)
 number(aim,'نعومة التصويب','AimSmooth',.02,1,.02)
 number(aim,'حجم دائرة FOV','FOV',40,400,10)
-label(aim,'التصويب يوجّه الكاميرا فقط','لا يستهدف شخصيات اللاعبين أو السيارات')
+label(aim,'دائرة FOV مرئية على الشاشة','الاستهداف لأقرب ضب داخل الدائرة فقط، بدون لاعبين أو سيارات')
 local vehicle=tab('السيارات')
 toggle(vehicle,'مساعد سرعة السيارة','CarSpeed')
 number(vehicle,'السرعة المستهدفة (وحدة/ثانية)','CarTarget',20,400,20)
@@ -290,26 +321,51 @@ toggle(appearance,'إضاءة كاملة بدون فلاش أبيض','Fullbright
 label(appearance,'ملاحظة','بعض المابات تعيد تطبيق إعدادات الإضاءة باستمرار؛ لا يمكن ضمان ثباتها')
 local extras=tab('أدوات إضافية')
 action(extras,'تحديث معلومات أقرب ضب',function()refreshCache();local e,d=nearest('الكل');if not e then msg('لا يوجد ضب حي قريب');return end;local m=e.model;msg(m.Name..' | '..rarity(m)..' | '..math.floor(d)..' وحدة') end)
-label(extras,'X | ZYPHORA HUB v33','المعلومات الحقيقية فقط؛ القيم غير الموجودة لا تُخترع')
+label(extras,'Lx NEXUS PRO','المعلومات الحقيقية فقط؛ القيم غير الموجودة لا تُخترع')
 local minimized=false
-conn(mini.MouseButton1Click,function()minimized=not minimized;side.Visible=not minimized;area.Visible=not minimized;status.Visible=not minimized;main.Size=minimized and UDim2.fromOffset(590,47) or UDim2.fromOffset(590,460);mini.Text=minimized and '+' or '−' end)
+conn(mini.MouseButton1Click,function()minimized=not minimized;side.Visible=not minimized;area.Visible=not minimized;status.Visible=not minimized;main.Size=minimized and UDim2.fromOffset(650,66) or UDim2.fromOffset(650,500);mini.Text=minimized and '+' or '−' end)
 local dragging,dragStart,frameStart=false,nil,nil
 conn(head.InputBegan,function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true;dragStart=i.Position;frameStart=main.Position end end)
 conn(UIS.InputChanged,function(i)if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then local d=i.Position-dragStart;main.Position=UDim2.new(frameStart.X.Scale,frameStart.X.Offset+d.X,frameStart.Y.Scale,frameStart.Y.Offset+d.Y) end end)
 conn(UIS.InputEnded,function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
+-- Visible FOV overlay. Radius is in screen pixels, not camera degrees.
+local fovGui=inst('ScreenGui',{
+ Name='Lx_NexusFOV_V35',ResetOnSpawn=false,IgnoreGuiInset=true,
+ DisplayOrder=89,ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+},PG)
+local fovCircle=inst('Frame',{
+ Name='FOVCircle',AnchorPoint=Vector2.new(.5,.5),
+ BackgroundTransparency=1,BorderSizePixel=0,Visible=false
+},fovGui)
+round(fovCircle,1000)
+inst('UIStroke',{Color=C.purple,Thickness=2,Transparency=.1},fovCircle)
+local fovDot=inst('Frame',{
+ Name='Center',Size=UDim2.fromOffset(4,4),AnchorPoint=Vector2.new(.5,.5),
+ Position=UDim2.fromScale(.5,.5),BackgroundColor3=C.purple,BorderSizePixel=0
+},fovCircle);round(fovDot,100)
+local function updateCircle(cam)
+ local enabled=S.Aim and cam~=nil
+ fovCircle.Visible=enabled
+ if not enabled then return end
+ local radius=math.clamp(S.FOV,40,400)
+ fovCircle.Size=UDim2.fromOffset(radius*2,radius*2)
+ local vp=cam.ViewportSize
+ fovCircle.Position=UDim2.fromOffset(vp.X*.5,vp.Y*.5)
+end
 local function cleanup()
  if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.Speed=false;S.Fog=false;S.Fullbright=false
- clearMarkers();applyVisuals();if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
+ clearMarkers();applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
  for _,c in ipairs(conns) do c:Disconnect() end
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV35')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
  gui:Destroy()
 end
 env.XHubCleanup=cleanup
 conn(close.MouseButton1Click,cleanup)
-local timer=0;local aimTarget=nil;local aimTimer=0
+local timer=0;local aimTarget=nil;local aimTimer=0;local fitTimer=0
 conn(RunService.Heartbeat,function(dt)
  if not alive then return end
- timer+=dt;aimTimer+=dt
+ timer+=dt;aimTimer+=dt;fitTimer+=dt;if fitTimer>=1 then fitTimer=0;fitScreen() end
  if S.Speed then local h=hum();if h then if speedHum~=h then speedHum=h;originalSpeed=h.WalkSpeed end;h.WalkSpeed=S.Walk end end
  if S.CarSpeed then
   local h=hum();local seat=h and h.SeatPart
@@ -352,21 +408,37 @@ conn(RunService.Heartbeat,function(dt)
   if S.Fog or S.Fullbright then applyVisuals() end
  end
 end)
-conn(RunService.RenderStepped,function(dt)
- if not S.Aim then return end
- local cam=WS.CurrentCamera;if not cam then return end
+-- Apply aim after Roblox's camera update, so the camera does not fight the controller.
+local aimBinding='Lx_NexusAimV35'
+RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
+ if not alive then return end
+ local cam=WS.CurrentCamera
+ updateCircle(cam)
+ if not S.Aim or not cam then return end
  local r=root();if not r then return end
- local best,bestAngle=nil,math.huge
+ local vp=cam.ViewportSize
+ local center=Vector2.new(vp.X*.5,vp.Y*.5)
+ local best,bestPixelDistance=nil,math.huge
  for _,e in ipairs(cache) do
-  if e.model.Parent and e.part.Parent and living(e.model) then
-   local v=e.part.Position-cam.CFrame.Position;local distance=v.Magnitude
-   if distance>0 and distance<=S.AimRange then
-    local angle=math.deg(math.acos(math.clamp(cam.CFrame.LookVector:Dot(v.Unit),-1,1)))
-    if angle<bestAngle and angle<=S.FOV/2 then best=e;bestAngle=angle end
+  if e.model.Parent and e.part.Parent and lizard(e.model) and living(e.model) then
+   local worldDistance=(e.part.Position-r.Position).Magnitude
+   if worldDistance<=S.AimRange then
+    local point,onScreen=cam:WorldToViewportPoint(e.part.Position)
+    if onScreen and point.Z>0 then
+     local pixelDistance=(Vector2.new(point.X,point.Y)-center).Magnitude
+     if pixelDistance<=S.FOV and pixelDistance<bestPixelDistance then
+      best=e
+      bestPixelDistance=pixelDistance
+     end
+    end
    end
   end
  end
- if best then local target=CFrame.lookAt(cam.CFrame.Position,best.part.Position);local alpha=1-math.exp(-math.max(.02,S.AimSmooth)*30*dt);cam.CFrame=cam.CFrame:Lerp(target,alpha) end
+ if best then
+  local desired=CFrame.lookAt(cam.CFrame.Position,best.part.Position)
+  local alpha=1-math.exp(-math.clamp(S.AimSmooth,.02,1)*30*math.min(dt,.1))
+  cam.CFrame=cam.CFrame:Lerp(desired,math.clamp(alpha,0,1))
+ end
 end)
-msg('X Hub v33 جاهز | ميزات السيرفر قد تكون مقيّدة')
-print('[X Zyphora Hub] v33 loaded')
+msg('Lx NEXUS v35 جاهز | FOV فعلي للضبان داخل الدائرة')
+print('[Lx NEXUS PRO] v35 loaded')
