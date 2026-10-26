@@ -12,7 +12,7 @@ local pg=LP:WaitForChild('PlayerGui',10)
 if not pg then warn('ZYPHORA: PlayerGui unavailable'); return end
 if _G.ZyphoraXStop then pcall(_G.ZyphoraXStop) end
 if _G.ZyphoraV25Stop then pcall(_G.ZyphoraV25Stop) end
-local active=true; local cons={}; local markers={}; local state={radar=false,aim=false,fog=false,light=false,afk=false,filter='الكل',range=1000,aimSmooth=0.12,aimRange=1000,carFly=false,flySpeed=100,carSpeed=false,carBoost=70}
+local active=true; local cons={}; local markers={}; local state={radar=false,aim=false,fog=false,light=false,afk=false,filter='الكل',range=1000,aimSmooth=0.12,aimRange=1000,carFly=false,flySpeed=100,carSpeed=false,carBoost=70,playerSpeed=false,walkSpeed=24}
 local palette={bg=Color3.fromRGB(13,14,18),panel=Color3.fromRGB(30,31,36),card=Color3.fromRGB(41,42,48),text=Color3.fromRGB(246,246,248),sub=Color3.fromRGB(177,180,190),accent=Color3.fromRGB(159,104,235),on=Color3.fromRGB(36,200,112)}
 local function con(s,f) local c=s:Connect(f); cons[#cons+1]=c; return c end
 local function new(k,p,par) local o=Instance.new(k); for a,b in pairs(p or {}) do o[a]=b end; o.Parent=par; return o end
@@ -26,7 +26,7 @@ local main=new('Frame',{Size=UDim2.fromOffset(610,450),Position=UDim2.new(.5,-30
 new('UIStroke',{Color=Color3.fromRGB(68,65,78),Thickness=1},main)
 local scale=new('UIScale',{Scale=1},main)
 local function resize() local cam=camera(); if cam then local v=cam.ViewportSize; scale.Scale=math.clamp(math.min(v.X/650,v.Y/490),.55,1) end end; resize()
-local title=new('TextLabel',{Size=UDim2.new(1,-40,0,48),BackgroundTransparency=1,Text='  ◈ X | ZYPHORA HUB  v26',TextColor3=palette.text,Font=Enum.Font.GothamBold,TextSize=17,TextXAlignment=Enum.TextXAlignment.Left},main)
+local title=new('TextLabel',{Size=UDim2.new(1,-40,0,48),BackgroundTransparency=1,Text='  ◈ X | ZYPHORA HUB  v28',TextColor3=palette.text,Font=Enum.Font.GothamBold,TextSize=17,TextXAlignment=Enum.TextXAlignment.Left},main)
 local close=new('TextButton',{Size=UDim2.fromOffset(32,30),Position=UDim2.new(1,-37,0,9),Text='×',TextSize=22,TextColor3=palette.text,BackgroundColor3=palette.panel},main); rounded(close,8)
 local sidebar=new('ScrollingFrame',{Position=UDim2.fromOffset(9,53),Size=UDim2.fromOffset(175,387),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},main)
 new('UIListLayout',{Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder},sidebar)
@@ -192,16 +192,45 @@ local filters={'الكل','عادي','مميز','نادر','فاخر','أسطو�
 con(filterBtn.MouseButton1Click,function() local idx=table.find(filters,state.filter) or 1; state.filter=filters[idx%#filters+1]; filterBtn.Text=state.filter end)
 local infoPanel=new('TextLabel',{Size=UDim2.new(1,-2,0,105),BackgroundColor3=palette.card,TextColor3=palette.text,TextSize=12,TextWrapped=true,Font=Enum.Font.Gotham,Text='أقرب ضب: لم يتم البحث بعد'},pReveal); rounded(infoPanel,9)
 action(pReveal,'معلومات أقرب ضب','يعرض المعلومات الحقيقية المتاحة فقط',function()
- scan(); local e,d=nearest(); if not e or belongsToPlayer(e.m) then infoPanel.Text='لم يُعثر على ضب مطابق محمّل'; return end
+ scan(); local e,d=nearest(state.range); if not e or belongsToPlayer(e.m) then infoPanel.Text='لم يُعثر على ضب مطابق محمّل'; return end
  local r=rarity(e.m); infoPanel.Text='الاسم: '..e.m.Name..'\nالندرة: '..r..' | المسافة: '..string.format('%.0f',d)..'\nالوزن: '..compact(stat(e.m,{'Weight','Mass','الوزن'}))..' | الحجم: '..compact(stat(e.m,{'Size','Scale','الحجم'}))..'\nالقوة: '..compact(stat(e.m,{'Power','Strength','القوة'}))
 end)
-action(pReveal,'كاشف التاجر','يبحث عن نماذج التاجر الظاهرة للعميل',function()
- local count=0; for _,o in ipairs(WS:GetDescendants()) do if o:IsA('Model') and (o.Name:lower():find('merchant') or o.Name:lower():find('trader') or o.Name:find('تاجر')) then count+=1 end end; msg('عدد نماذج التجار المكتشفة: '..count)
+local traderInfo=new('TextLabel',{Size=UDim2.new(1,-2,0,82),BackgroundColor3=palette.card,TextColor3=palette.text,TextSize=11,Font=Enum.Font.Gotham,TextWrapped=true,Text='التجار: اضغط تحديث'},pReveal); rounded(traderInfo,9)
+action(pReveal,'كاشف التاجر','يعرض التجار الموجودين فعلاً ضمن العناصر المحمّلة',function()
+ local me=root(); local found={}
+ for _,o in ipairs(WS:GetDescendants()) do
+  if o:IsA('Model') and not belongsToPlayer(o) and not vehicleAncestor(o) then
+   local n=o.Name:lower()
+   if n:find('merchant',1,true) or n:find('trader',1,true) or n:find('تاجر',1,true) then
+    local p=part(o)
+    if p and me then found[#found+1]={name=o.Name,dist=(p.Position-me.Position).Magnitude} end
+   end
+  end
+ end
+ table.sort(found,function(a,b) return a.dist<b.dist end)
+ local lines={}
+ for i=1,math.min(3,#found) do lines[#lines+1]=found[i].name..' • '..string.format('%.0f',found[i].dist)..' وحدة' end
+ traderInfo.Text=#lines>0 and table.concat(lines,'\n') or 'لم يُعثر على تاجر محمّل في الماب'
+ msg('التجار المكتشفون: '..#found)
 end)
 local pAim=page('⊕ التصويب')
 toggle(pAim,'التصويب على الضبان فقط','يتجاهل شخصيات اللاعبين','aim',function(on) if on then scan() end end)
 number(pAim,'نعومة حركة الكاميرا','aimSmooth',.02,.5,.02)
 number(pAim,'أقصى مسافة للتصويب','aimRange',100,3000,100)
+local pSpeed=page('⚡ سرعة اللاعب')
+local originalSpeed=nil; local speedHum=nil
+local function setPlayerSpeed(on)
+ local h=hum()
+ if not h then return end
+ if on then
+  if speedHum~=h then speedHum=h; originalSpeed=h.WalkSpeed end
+  h.WalkSpeed=state.walkSpeed
+ elseif speedHum==h and originalSpeed then
+  h.WalkSpeed=originalSpeed; speedHum=nil; originalSpeed=nil
+ end
+end
+toggle(pSpeed,'تفعيل سرعة اللاعب','تشغيل وإيقاف مع حفظ السرعة الأصلية','playerSpeed',setPlayerSpeed)
+number(pSpeed,'سرعة المشي','walkSpeed',8,100,4)
 local pCar=page('♧ طيران السيارة')
 toggle(pCar,'تفعيل طيران السيارة','أثناء الجلوس في VehicleSeat','carFly')
 number(pCar,'سرعة طيران السيارة','flySpeed',20,400,20)
@@ -220,9 +249,14 @@ end
 local pLook=page('☼ المظهر')
 local original={FogEnd=Lighting.FogEnd,FogStart=Lighting.FogStart,Brightness=Lighting.Brightness,ClockTime=Lighting.ClockTime,GlobalShadows=Lighting.GlobalShadows,Ambient=Lighting.Ambient,OutdoorAmbient=Lighting.OutdoorAmbient,ExposureCompensation=Lighting.ExposureCompensation}
 local atmospheric={}
-for _,obj in ipairs(Lighting:GetChildren()) do
- if obj:IsA('Atmosphere') then atmospheric[obj]={Density=obj.Density,Haze=obj.Haze,Glare=obj.Glare} end
+local function rememberAtmosphere(obj)
+ if obj:IsA('Atmosphere') and not atmospheric[obj] then atmospheric[obj]={Density=obj.Density,Haze=obj.Haze,Glare=obj.Glare,Offset=obj.Offset} end
 end
+for _,obj in ipairs(Lighting:GetDescendants()) do rememberAtmosphere(obj) end
+con(Lighting.DescendantAdded,function(obj)
+ rememberAtmosphere(obj)
+ if state.fog and obj:IsA('Atmosphere') then obj.Density=0; obj.Haze=0; obj.Glare=0; obj.Offset=0 end
+end)
 local function applyFog(on)
  Lighting.FogEnd=on and 100000 or original.FogEnd
  Lighting.FogStart=on and 0 or original.FogStart
@@ -230,6 +264,7 @@ local function applyFog(on)
   obj.Density=on and 0 or props.Density
   obj.Haze=on and 0 or props.Haze
   obj.Glare=on and 0 or props.Glare
+  obj.Offset=on and 0 or props.Offset
  end end
 end
 local function applyLight(on)
@@ -238,7 +273,7 @@ local function applyLight(on)
  Lighting.GlobalShadows=on and false or original.GlobalShadows
  Lighting.Ambient=on and Color3.new(1,1,1) or original.Ambient
  Lighting.OutdoorAmbient=on and Color3.new(1,1,1) or original.OutdoorAmbient
- Lighting.ExposureCompensation=on and 1 or original.ExposureCompensation
+ Lighting.ExposureCompensation=on and 1.5 or original.ExposureCompensation
 end
 toggle(pLook,'إزالة الضباب','يشمل Fog و Atmosphere الموجودين','fog',applyFog)
 toggle(pLook,'إضاءة كاملة','رفع الإضاءة والسطوع وإيقاف الظلال محلياً','light',applyLight)
@@ -250,25 +285,33 @@ end)
 local pMove=page('◎ الانتقال')
 action(pMove,'الانتقال لأقرب ضب','محاولة واحدة دون تكرار أو تعليق',function()
  scan(); local e=nearest(); local me=root(); if not e or belongsToPlayer(e.m) or not me then msg('لا يوجد ضب متاح'); return end
- me.CFrame=e.p.CFrame*CFrame.new(0,0,6); msg('محاولة انتقال إلى '..e.m.Name..'؛ قد يمنعها السيرفر')
+ local dest=e.p.Position + Vector3.new(0,3,6)
+ local ch=LP.Character; if ch then ch:PivotTo(CFrame.new(dest)) end
+ msg('تم طلب الانتقال إلى '..e.m.Name..'؛ جار التحقق')
+ task.delay(1,function() if active and root() then local delta=(root().Position-dest).Magnitude; if delta>30 then msg('السيرفر أعاد موقعك؛ الانتقال غير مسموح بهذا الماب') else msg('الانتقال مستقر قرب '..e.m.Name) end end end)
 end)
 action(pMove,'الانتقال لأقرب سيارة','ينقلك إلى المقعد الأقرب الظاهر',function()
  local s=closestCar(); local me=root(); if not s or not me then msg('لا توجد سيارة متاحة'); return end
- me.CFrame=s.CFrame*CFrame.new(0,3,5); msg('تم طلب الانتقال للسيارة')
+ local dest=s.Position+Vector3.new(0,4,5)
+ if LP.Character then LP.Character:PivotTo(CFrame.new(dest)) end
+ msg('طلب الانتقال للسيارة؛ إذا أعادك السيرفر فالنقل محظور')
 end)
 local playerName=entry(pMove,'اسم اللاعب المطلوب')
 action(pMove,'الانتقال إلى لاعب','اكتب اسم اللاعب في الخانة أعلاه',function()
  local query=playerName.Text:lower(); if query=='' then msg('اكتب اسم اللاعب'); return end
- for _,p in ipairs(Players:GetPlayers()) do if p~=LP and (p.Name:lower():find(query,1,true) or p.DisplayName:lower():find(query,1,true)) then local t=p.Character and p.Character:FindFirstChild('HumanoidRootPart'); local me=root(); if t and me then me.CFrame=t.CFrame*CFrame.new(0,0,5); msg('تم طلب الانتقال إلى '..p.Name) else msg('اللاعب غير محمّل') end; return end end; msg('اللاعب غير موجود')
+ for _,p in ipairs(Players:GetPlayers()) do if p~=LP and (p.Name:lower():find(query,1,true) or p.DisplayName:lower():find(query,1,true)) then local t=p.Character and p.Character:FindFirstChild('HumanoidRootPart'); local me=root(); if t and me then local dest=t.Position+Vector3.new(0,3,5)
+ if LP.Character then LP.Character:PivotTo(CFrame.new(dest)) end
+ msg('طلب الانتقال إلى '..p.Name..'؛ قد يعيدك السيرفر') else msg('اللاعب غير محمّل') end; return end end; msg('اللاعب غير موجود')
 end)
 action(pMove,'العودة للديرة','فقط إذا كان مكان الديرة معروفاً داخل الماب',function()
  local me=root(); if not me then return end
- for _,o in ipairs(WS:GetDescendants()) do if o:IsA('BasePart') and (o.Name=='HomeSpawn' or o.Name=='BaseSpawn' or o.Name=='ديرة' or o.Name=='Home') then me.CFrame=o.CFrame*CFrame.new(0,5,0); msg('تم طلب العودة إلى '..o.Name); return end end
+ for _,o in ipairs(WS:GetDescendants()) do if o:IsA('BasePart') and (o.Name=='HomeSpawn' or o.Name=='BaseSpawn' or o.Name=='ديرة' or o.Name=='Home') then if LP.Character then LP.Character:PivotTo(o.CFrame*CFrame.new(0,5,0)) end
+ msg('طلب العودة إلى '..o.Name..'؛ قد يعيدك السيرفر'); return end end
  msg('لم يُعثر على موقع ديرة موثوق؛ لم يتم الانتقال')
 end)
 -- Information and diagnostics live in Extra Tools, not a separate decorative tab.
 local pInfo=pExtra
-local small=new('TextLabel',{Size=UDim2.new(1,-2,0,140),BackgroundColor3=palette.card,TextColor3=palette.text,TextSize=12,TextWrapped=true,Font=Enum.Font.Gotham,Text='X | Zyphora Hub v27\nالرادار والتصويب للحيوانات المطابقة فقط.\nالندرات مبنية على قيم يتيحها الماب.\nالتلفيل التلقائي يتطلب نظام الماب ولا يمكن تعميمه.\nسحب سيارات الآخرين وبيانات الشراء لا يمكن ضمانهما محلياً.'},pInfo); rounded(small,9)
+local small=new('TextLabel',{Size=UDim2.new(1,-2,0,140),BackgroundColor3=palette.card,TextColor3=palette.text,TextSize=12,TextWrapped=true,Font=Enum.Font.Gotham,Text='X | Zyphora Hub v28\nالرادار والتصويب للحيوانات المطابقة فقط.\nالندرات مبنية على قيم يتيحها الماب.\nالتلفيل التلقائي يتطلب نظام الماب ولا يمكن تعميمه.\nسحب سيارات الآخرين وبيانات الشراء لا يمكن ضمانهما محلياً.'},pInfo); rounded(small,9)
 local sidePanel=new('Frame',{Size=UDim2.fromOffset(215,120),Position=UDim2.new(1,-228,0,10),BackgroundColor3=palette.bg,BackgroundTransparency=.13,Visible=false},gui); rounded(sidePanel,10)
 local sideText=new('TextLabel',{Size=UDim2.new(1,-14,1,-10),Position=UDim2.fromOffset(7,5),BackgroundTransparency=1,TextColor3=palette.text,TextSize=12,Font=Enum.Font.GothamBold,TextWrapped=true,Text='رادار الضبان النادرة'},sidePanel)
 local accum=0; local camAccum=0
@@ -298,6 +341,9 @@ con(RS.Heartbeat,function(dt)
   sidePanel.Visible=state.radar
   if state.radar then local e,d=nearest(state.range); if e and not belongsToPlayer(e.m) then local r=rarity(e.m); sideText.Text='🦎 أقرب ضب\n'..e.m.Name..'\nالندرة: '..r..'\nالمسافة: '..string.format('%.0f',d)..' وحدة' else sideText.Text='🦎 رادار الضبان\nلا يوجد ضب مطابق في المدى' end end
   resize()
+  if state.playerSpeed then setPlayerSpeed(true) end
+  if state.fog then applyFog(true) end
+  if state.light then applyLight(true) end
  end
  if state.aim and camAccum>=.03 then
   camAccum=0; local e=nearest(state.aimRange); local cam=camera()
@@ -315,7 +361,7 @@ con(UIS.InputChanged,function(i) if dragging and i.UserInputType==Enum.UserInput
 con(UIS.InputEnded,function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
 local function stop()
  if not active then return end; active=false; clearMarkers()
- applyFog(false); applyLight(false)
+ applyFog(false); applyLight(false); setPlayerSpeed(false)
  for _,c in ipairs(cons) do c:Disconnect() end; table.clear(cons)
  if _G.ZyphoraXStop==stop then _G.ZyphoraXStop=nil end
  gui:Destroy()
@@ -323,4 +369,4 @@ end
 _G.ZyphoraXStop=stop
 con(close.MouseButton1Click,stop)
 con(gui.Destroying,stop)
-print('X | ZYPHORA HUB v27 loaded')
+print('X | ZYPHORA HUB v28 loaded')
