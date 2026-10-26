@@ -1,4 +1,4 @@
--- Lx NEXUS PRO v49 | vehicle ancestor ESP isolation
+-- Lx NEXUS PRO v50 | rare resource alerts and stable lighting
 -- Loaded client objects only; server-streamed distant objects cannot be detected.
 -- Lx NEXUS PRO v47 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
@@ -15,12 +15,12 @@ if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
 local env=_G
 if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
 if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
-for _,name in ipairs({'Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+for _,name in ipairs({'Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
  local old=PG:FindFirstChild(name)
  if old then old:Destroy() end
 end
 local alive=true;local conns={};local markers={};local lightSaved={};local atmoSaved={};local originalSpeed=nil;local speedHum=nil
-local S={Radar=false,RadarRange=3000,Aim=false,AimRange=800,AimSmooth=.14,FOV=160,Speed=false,Walk=32,CarSpeed=false,CarTarget=200,CarDirection=1,CarFly=false,FlySpeed=100,Fog=false,Fullbright=false,Merchant=false,ResourceESP=false,RareAlert=true,Filter='الكل'}
+local S={Radar=false,RadarRange=3000,Aim=false,AimRange=800,AimSmooth=.14,FOV=160,Speed=false,Walk=32,CarSpeed=false,CarTarget=200,CarDirection=1,CarFly=false,FlySpeed=100,Fog=false,Fullbright=false,Merchant=false,ResourceESP=false,RareAlert=true,ResourceAlert=true,Filter='الكل'}
 local function conn(signal,fn) local c=signal:Connect(fn);conns[#conns+1]=c;return c end
 local function inst(typ,props,parent) local x=Instance.new(typ);for k,v in pairs(props or {}) do x[k]=v end;x.Parent=parent;return x end
 local function round(x,r) inst('UICorner',{CornerRadius=UDim.new(0,r or 9)},x) end
@@ -29,8 +29,8 @@ local function hum() return LP.Character and LP.Character:FindFirstChildOfClass(
 local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(9,11,20),card=Color3.fromRGB(25,28,43),muted=Color3.fromRGB(150,160,186),white=Color3.fromRGB(248,249,255),purple=Color3.fromRGB(153,101,255),green=Color3.fromRGB(68,211,136)}
-for _,oldName in ipairs({'Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local gui=inst('ScreenGui',{Name='Lx_NexusV49',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+for _,oldName in ipairs({'Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
+local gui=inst('ScreenGui',{Name='Lx_NexusV50',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 inst('UIStroke',{Color=Color3.fromRGB(70,51,108),Thickness=1.4,Transparency=.12},main)
 local scale=inst('UIScale',{Scale=1},main)
@@ -366,7 +366,8 @@ end
 action(merchant,'تحديد اتجاه أقرب تاجر',function() local p,d=findMerchant();if not p then msg('التاجر غير محمّل أو غير معروف');return end;selectedMerchant=p;local cam=WS.CurrentCamera;if cam then cam.CFrame=CFrame.lookAt(cam.CFrame.Position,p.Position) end;msg('اتجاه التاجر | '..math.floor(d)..' وحدة') end)
 local loot=tab('النوادر والبيع')
 toggle(loot,'ESP النوادر: الياقوت والتبر وغيرها','ResourceESP',function(on)if not on then clearResourceMarkers() end end)
-toggle(loot,'تنبيه ظهور ضب نادر على الشاشة','RareAlert',function(on)if not on then rareBanner.Visible=false end end)
+toggle(loot,'تنبيه ظهور ضب نادر على الشاشة','RareAlert',function(on)if not on and rareBanner then rareBanner.Visible=false end end)
+toggle(loot,'تنبيه ظهور ياقوت أو تبر أو مورد نادر','ResourceAlert')
 label(loot,'كشف النوادر','يكشف العناصر المحمّلة ذات الأسماء المعروفة فقط؛ لا يختلق أماكن أو أسماء')
 action(loot,'الذهاب لأقرب مورد نادر (مع السيارة)',function()
  local r=root();if not r then return end
@@ -415,7 +416,7 @@ local function moveTo(pos)
 end
 -- Rare resources, sale-point navigation, and rare-spawn notifications.
 -- Detection uses only objects replicated by the current game; names are heuristics.
-local resourceWords={'ياقوت','ruby','تبر','gold nugget','goldnugget','gold ore','gem','جوهرة','emerald','زمرد','diamond','ألماس','الماس','sapphire','ياقوت أزرق','rare ore','خام نادر','ore','mineral','resource','nugget','خام','معدن'}
+local resourceWords={'ياقوت','ruby','تبر','gold nugget','goldnugget','gold ore','gem','جوهرة','emerald','زمرد','diamond','ألماس','الماس','sapphire','ياقوت أزرق','rare ore','خام نادر','gold nugget','قطعة ذهب','حجر كريم','precious gem'}
 saleWords={'بيع','sell','sale','buyer','المشتري','نقطة البيع','sellpoint','sell zone','sellzone','sell npc','selling','vendor'}
 local function nameMatches(obj,words)
  local n=string.lower(obj.Name)
@@ -472,6 +473,12 @@ goToPointWithCar=function(target)
  end)
 end
 local resourceMarkers={}
+local resourceIndex={}
+local resourceKnown={}
+local resourceReady=false
+local resourceScanCursor=1
+local resourceScanQueue={}
+local resourceAlertCooldown=0
 local merchantMarker=nil
 local knownRare={}
 local rareInitialized=false
@@ -480,6 +487,9 @@ round(rareBanner,12)
 inst('UIStroke',{Color=C.purple,Thickness=1.5},rareBanner)
 local rareBannerText=inst('TextLabel',{Size=UDim2.new(1,-16,1,-8),Position=UDim2.fromOffset(8,4),BackgroundTransparency=1,TextColor3=C.white,TextSize=14,Font=Enum.Font.GothamBold,TextWrapped=true},rareBanner)
 local bannerUntil=0
+local resourceAlertText=inst('TextLabel',{Size=UDim2.fromOffset(360,58),Position=UDim2.new(.5,-180,0,93),BackgroundColor3=Color3.fromRGB(42,30,22),BorderSizePixel=0,Visible=false,TextColor3=Color3.fromRGB(255,220,144),Font=Enum.Font.GothamBold,TextSize=14,TextWrapped=true},gui)
+round(resourceAlertText,11)
+local resourceBannerUntil=0
 local function billboardFor(target,text,color)
  local b=inst('BillboardGui',{Adornee=target,Size=UDim2.fromOffset(210,46),StudsOffsetWorldSpace=Vector3.new(0,3,0),AlwaysOnTop=true,MaxDistance=3000},gui)
  local t=inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text=text,TextColor3=color,TextStrokeTransparency=.18,Font=Enum.Font.GothamBold,TextSize=13,TextWrapped=true},b)
@@ -489,29 +499,67 @@ clearResourceMarkers=function()
  for _,b in pairs(resourceMarkers) do b:Destroy() end
  table.clear(resourceMarkers)
 end
+-- Index potential resource objects once, then update incrementally.
+-- Avoid scanning the entire Workspace every UI refresh.
+for _,obj in ipairs(WS:GetDescendants()) do
+ if (obj:IsA('Model') or obj:IsA('BasePart')) and nameMatches(obj,resourceWords) then
+  resourceScanQueue[#resourceScanQueue+1]=obj
+ end
+end
+conn(WS.DescendantAdded,function(obj)
+ if (obj:IsA('Model') or obj:IsA('BasePart')) and nameMatches(obj,resourceWords) then
+  resourceScanQueue[#resourceScanQueue+1]=obj
+ end
+end)
+local function updateResourceIndex()
+ for _=1,math.min(100,#resourceScanQueue) do
+  if resourceScanCursor>#resourceScanQueue then break end
+  local obj=resourceScanQueue[resourceScanCursor]
+  resourceScanCursor+=1
+  if obj and obj.Parent and validResource(obj) then resourceIndex[obj]=true end
+ end
+ if resourceScanCursor>#resourceScanQueue then
+  resourceScanQueue={};resourceScanCursor=1
+  if not resourceReady then
+   for obj in pairs(resourceIndex) do resourceKnown[obj]=true end
+  end
+  resourceReady=true
+ end
+end
 local function refreshExtrasESP()
+ updateResourceIndex()
  local r=root()
- if S.ResourceESP and r then
-  local count=0
-  for _,obj in ipairs(WS:GetDescendants()) do
-   if validResource(obj) then
+ local now=os.clock()
+ if resourceAlertText.Visible and now>=resourceBannerUntil then resourceAlertText.Visible=false end
+ local count=0
+ for obj in pairs(resourceIndex) do
+  local valid=validResource(obj)
+  local p=valid and resourcePart(obj) or nil
+  local d=(r and p) and (p.Position-r.Position).Magnitude or math.huge
+  if not valid or not p then
+   resourceIndex[obj]=nil
+   resourceKnown[obj]=nil
+  else
+   if resourceReady and not resourceKnown[obj] and S.ResourceAlert and d<=3000 and now>=resourceAlertCooldown then
+    resourceAlertText.Text='◆ ظهر مورد نادر: '..obj.Name..'\nالمسافة '..math.floor(d)..' وحدة'
+    resourceAlertText.Visible=true
+    resourceBannerUntil=now+5
+    resourceAlertCooldown=now+2
+   end
+   resourceKnown[obj]=true
+   if S.ResourceESP and d<=3000 and count<50 then
     count+=1
-    if count>120 then break end
-    local p=resourcePart(obj)
-    local d=(p.Position-r.Position).Magnitude
-    if d<=3000 then
-     if not resourceMarkers[obj] then resourceMarkers[obj]=billboardFor(p,'',Color3.fromRGB(255,209,95)) end
-     local b=resourceMarkers[obj];b.Adornee=p
-     local t=b:FindFirstChildOfClass('TextLabel');if t then t.Text='◆ '..obj.Name..'\n'..math.floor(d)..' وحدة' end
-    end
+    if not resourceMarkers[obj] then resourceMarkers[obj]=billboardFor(p,'',Color3.fromRGB(255,209,95)) end
+    local b=resourceMarkers[obj];b.Adornee=p
+    local t=b:FindFirstChildOfClass('TextLabel')
+    if t then t.Text='◆ '..obj.Name..'\n'..math.floor(d)..' وحدة' end
+   elseif resourceMarkers[obj] then
+    resourceMarkers[obj]:Destroy();resourceMarkers[obj]=nil
    end
   end
  end
  for obj,b in pairs(resourceMarkers) do
-  local p=resourcePart(obj)
-  if not S.ResourceESP or not validResource(obj) or not p or not r or (p.Position-r.Position).Magnitude>3000 then
-   b:Destroy();resourceMarkers[obj]=nil
-  end
+  if not S.ResourceESP or not resourceIndex[obj] then b:Destroy();resourceMarkers[obj]=nil end
  end
  local trader,d=findMerchant()
  if S.Merchant and trader and r then
@@ -592,6 +640,9 @@ local function saveLighting()
  for _,k in ipairs({'Brightness','Ambient','OutdoorAmbient','GlobalShadows','ExposureCompensation','FogEnd','FogStart'}) do lightSaved[k]=Lighting[k] end
  for _,x in ipairs(Lighting:GetChildren()) do if x:IsA('Atmosphere') then atmoSaved[x]={Density=x.Density,Haze=x.Haze,Glare=x.Glare} end end
 end
+local function setIfDifferent(obj,key,value)
+ if obj[key]~=value then obj[key]=value end
+end
 local function applyVisuals()
  if not (S.Fog or S.Fullbright) then
   for k,v in pairs(lightSaved) do pcall(function()Lighting[k]=v end) end
@@ -599,9 +650,9 @@ local function applyVisuals()
   table.clear(lightSaved);table.clear(atmoSaved);lightingCaptured=false;return
  end
  saveLighting()
- if S.Fog then Lighting.FogEnd=100000;Lighting.FogStart=0;for _,x in ipairs(Lighting:GetChildren()) do if x:IsA('Atmosphere') then if not atmoSaved[x] then atmoSaved[x]={Density=x.Density,Haze=x.Haze,Glare=x.Glare} end;x.Density=0;x.Haze=0;x.Glare=0 end end
+ if S.Fog then setIfDifferent(Lighting,'FogEnd',100000);setIfDifferent(Lighting,'FogStart',0);for _,x in ipairs(Lighting:GetChildren()) do if x:IsA('Atmosphere') then if not atmoSaved[x] then atmoSaved[x]={Density=x.Density,Haze=x.Haze,Glare=x.Glare} end;setIfDifferent(x,'Density',0);setIfDifferent(x,'Haze',0);setIfDifferent(x,'Glare',0) end end
  else Lighting.FogEnd=lightSaved.FogEnd or Lighting.FogEnd;Lighting.FogStart=lightSaved.FogStart or Lighting.FogStart;for x,vals in pairs(atmoSaved) do if x.Parent then for k,v in pairs(vals) do x[k]=v end end end end
- if S.Fullbright then Lighting.Brightness=2.5;Lighting.Ambient=Color3.fromRGB(175,175,175);Lighting.OutdoorAmbient=Color3.fromRGB(175,175,175);Lighting.GlobalShadows=false;Lighting.ExposureCompensation=0
+ if S.Fullbright then setIfDifferent(Lighting,'Brightness',2.5);setIfDifferent(Lighting,'Ambient',Color3.fromRGB(175,175,175));setIfDifferent(Lighting,'OutdoorAmbient',Color3.fromRGB(175,175,175));setIfDifferent(Lighting,'GlobalShadows',false);setIfDifferent(Lighting,'ExposureCompensation',0)
  else for _,k in ipairs({'Brightness','Ambient','OutdoorAmbient','GlobalShadows','ExposureCompensation'}) do if lightSaved[k]~=nil then Lighting[k]=lightSaved[k] end end end
 end
 toggle(appearance,'إزالة الضباب','Fog',function() applyVisuals() end)
@@ -795,18 +846,18 @@ end
 
 local function cleanup()
  if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.CarFly=false;S.Speed=false;S.Fog=false;S.Fullbright=false
- stopCarFly();clearVehicleBoost();clearMarkers();clearResourceMarkers();if merchantMarker then merchantMarker:Destroy() end;applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
+ stopCarFly();clearVehicleBoost();clearMarkers();clearResourceMarkers();resourceAlertText:Destroy();if merchantMarker then merchantMarker:Destroy() end;applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
  for _,c in ipairs(conns) do c:Disconnect() end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV47')end)
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV50')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
  gui:Destroy()
 end
 env.XHubCleanup=cleanup
 conn(close.MouseButton1Click,cleanup)
-local timer=0;local aimTarget=nil;local aimTimer=0;local fitTimer=0;local listTimer=0;local extrasTimer=0
+local timer=0;local aimTarget=nil;local aimTimer=0;local fitTimer=0;local listTimer=0;local extrasTimer=0;local visualTimer=0
 conn(RunService.Heartbeat,function(dt)
  if not alive then return end
- timer+=dt;aimTimer+=dt;fitTimer+=dt;listTimer+=dt;extrasTimer+=dt;if fitTimer>=1 then fitTimer=0;fitScreen() end
+ timer+=dt;aimTimer+=dt;fitTimer+=dt;listTimer+=dt;extrasTimer+=dt;visualTimer+=dt;if fitTimer>=1 then fitTimer=0;fitScreen() end
  if S.Speed then local h=hum();if h then if speedHum~=h then speedHum=h;originalSpeed=h.WalkSpeed end;h.WalkSpeed=S.Walk end end
  updateCarFly()
  updateVehicleBoost(dt)
@@ -849,11 +900,11 @@ conn(RunService.Heartbeat,function(dt)
   if listTimer>=2.4 then listTimer=0;rebuildAnimalList() end
   if S.Merchant then local p,d=findMerchant();merchantText.Text=p and ('أقرب تاجر: '..math.floor(d)..' وحدة') or 'أقرب تاجر: غير مكتشف' end
   if vehicleDiagnosticText then vehicleDiagnosticText.Text='التشخيص: '..(S.CarFly and flyState or vehicleState) end
-  if S.Fog or S.Fullbright then applyVisuals() end
+  if visualTimer>=2.5 then visualTimer=0;if S.Fog or S.Fullbright then applyVisuals() end end
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
-local aimBinding='Lx_NexusAimV49'
+local aimBinding='Lx_NexusAimV50'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
  local cam=WS.CurrentCamera
