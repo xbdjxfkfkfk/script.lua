@@ -1,4 +1,4 @@
--- [ ZYPHORA PRO v15.0 - ULTIMATE PERFORMANCE OPTIMIZED SUITE ]
+-- [ ZYPHORA PRO v16.0 - ULTIMATE FIXED TEXT OVERLAP & HIGH PERFORMANCE ]
 local CoreGui      = game:GetService("CoreGui")
 local Players      = game:GetService("Players")
 local RunService   = game:GetService("RunService")
@@ -31,12 +31,12 @@ pcall(function()
     elseif gethui then targetParent = gethui() end
 end)
 
-if targetParent:FindFirstChild("ZyphoraProV15") then
-    targetParent.ZyphoraProV15:Destroy()
+if targetParent:FindFirstChild("ZyphoraProV16") then
+    targetParent.ZyphoraProV16:Destroy()
 end
 
 local GUI = Instance.new("ScreenGui")
-GUI.Name = "ZyphoraProV15"
+GUI.Name = "ZyphoraProV16"
 GUI.ResetOnSpawn = false
 GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.Parent = targetParent
@@ -58,7 +58,7 @@ MS.Thickness = 1.5
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 38)
 Title.BackgroundColor3 = C.panel
-Title.Text = "  ⚡ ZYPHORA PRO v15.0 [ULTIMATE ZERO-LAG]"
+Title.Text = "  ⚡ ZYPHORA PRO v16.0 [FIXED OVERLAP SUITE]"
 Title.TextColor3 = C.text
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 12
@@ -255,9 +255,9 @@ Players.PlayerRemoving:Connect(refreshPlayers)
 mkBtn(tab2, "🔄 تحديث قائمة اللاعبين", refreshPlayers)
 refreshPlayers()
 
--- TAB 3: كشف الضبان النقي بدون لاج
+-- TAB 3: كشف الضبان النقي بدون لاج ومع حل تداخل النصوص
 local tab3 = createTab("🦎 كشف الضبان", 3)
-mkBtn(tab3, "🦎 رادار الضبان النقي (محسن بدون لاج): OFF", function(self)
+mkBtn(tab3, "🦎 رادار الضبان النقي (بدون تداخل أو لاج): OFF", function(self)
     S.LizardScan = not S.LizardScan
     self.Text = S.LizardScan and "🦎 رادار الضبان النقي: ON" or "🦎 رادار الضبان النقي: OFF"
 end)
@@ -265,7 +265,7 @@ end)
 local lizardNotice = Instance.new("TextLabel")
 lizardNotice.Size = UDim2.new(1, -4, 0, 110)
 lizardNotice.BackgroundTransparency = 1
-lizardNotice.Text = "ℹ️ مميزات رادار الضبان المحسن v15:\n• مخصص حصرياً للحيوانات والضبان (بدون أي تأثير على اللاعبين)\n• نظام تخزين مؤقت (Caching) لمنع أي تعليق أو لاج في اللعبة\n• يربط صندوق المدخلات (Input) تلقائياً لمضاعفة القوة والوزن."
+lizardNotice.Text = "ℹ️ مميزات الإصدار v16:\n• تم حل مشكلة تداخل النصوص نهائياً عبر ترتيب عمودي منظم داخل إطار مخصص\n• مخصص للحيوانات والضبان فقط دون اللاعبين\n• خفيف جداً وبدون أي تعليق (لاج) مع ربط صندوق الـ Input."
 lizardNotice.TextColor3 = Color3.fromRGB(200, 200, 220)
 lizardNotice.Font = Enum.Font.Gotham
 lizardNotice.TextSize = 11
@@ -323,7 +323,7 @@ end
 mkBtn(tab4, "🔄 تحديث سيارات الماب الفورية", refreshCars)
 refreshCars()
 
--- High Performance Throttled Engine Loop (Zero Lag / Cached Billboards)
+-- High Performance Throttled Engine Loop (Zero Lag & Zero Text Overlap)
 local throttle = 0
 RunService.RenderStepped:Connect(function()
     local char = LP.Character
@@ -375,17 +375,24 @@ RunService.RenderStepped:Connect(function()
                     local lname = obj.Name:lower()
                     if lname:find("lizard") or lname:find("ضب") or lname:find("dhab") or lname:find("reptile") or lname:find("lhib") then
                         local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-                        if primary and not obj:FindFirstChild("WildlifeProV15") then
+                        if primary and not obj:FindFirstChild("WildlifeProV16") then
                             local bb = Instance.new("BillboardGui")
-                            bb.Name = "WildlifeProV15"
-                            bb.Size = UDim2.new(0, 220, 0, 100)
-                            bb.StudsOffset = Vector3.new(0, 4, 0)
+                            bb.Name = "WildlifeProV16"
+                            bb.Size = UDim2.new(0, 240, 0, 130)
+                            bb.StudsOffset = Vector3.new(0, 4.5, 0)
                             bb.AlwaysOnTop = true
                             bb.Parent = primary
                             
-                            local vLayout = Instance.new("UIListLayout", bb)
+                            -- Container Frame to hold layout securely without text overlapping
+                            local container = Instance.new("Frame")
+                            container.Size = UDim2.new(1, 0, 1, 0)
+                            container.BackgroundTransparency = 1
+                            container.Parent = bb
+                            
+                            local vLayout = Instance.new("UIListLayout", container)
                             vLayout.SortOrder = Enum.SortOrder.LayoutOrder
-                            vLayout.Padding = UDim.new(0, 2)
+                            vLayout.Padding = UDim.new(0, 3)
+                            vLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
                             
                             local colorsList = {"رملي ذهبي براق", "بني داكن محروق", "رمادي صحراوي نقي", "زيتوني عتيق فاخر"}
                             local typesList = {"ضب عربي أصيل (عتاوي)", "ضب صحراوي عملاق", "ضب نجد الفاخر", "ضب الحرة الأسطوري"}
@@ -404,7 +411,7 @@ RunService.RenderStepped:Connect(function()
                             
                             for i, txt in ipairs(lines) do
                                 local tl = Instance.new("TextLabel")
-                                tl.Size = UDim2.new(1, 0, 0, 18)
+                                tl.Size = UDim2.new(1, 0, 0, 20)
                                 tl.BackgroundTransparency = 1
                                 tl.TextColor3 = i == 1 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 255, 255)
                                 tl.TextStrokeTransparency = 0
@@ -413,7 +420,7 @@ RunService.RenderStepped:Connect(function()
                                 tl.TextXAlignment = Enum.TextXAlignment.Center
                                 tl.Text = txt
                                 tl.LayoutOrder = i
-                                tl.Parent = bb
+                                tl.Parent = container
                             end
                         end
                     end
@@ -444,4 +451,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("✅ ZYPHORA PRO v15 ULTIMATE LOADED SUCCESSFULLY")
+print("✅ ZYPHORA PRO v16 LOADED SUCCESSFULLY")
