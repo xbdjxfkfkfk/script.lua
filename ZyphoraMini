@@ -1,133 +1,221 @@
--- ZYPHORA HUB MINI v1.0
+-- [ ZYPHORA HUB MINI - PRO EDITION ]
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
--- الإعدادات
+-- محاولة تجاوز الحماية البسيطة للعبة
+pcall(function()
+    local mt = getrawmetatable(game)
+    setreadonly(mt, false)
+    local old = mt.__namecall
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if method == "FireServer" and tostring(self) == "BanEvent" then
+            return
+        end
+        return old(self, ...)
+    end)
+end)
+
 local Settings = {
     ESP = false,
     CarFly = false,
     Speed = false,
     Noclip = false,
-    FlySpeed = 100
+    FlySpeed = 120
 }
 
--- الواجهة
+-- الواجهة الاحترافية
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ZyphoraMini"
+ScreenGui.Name = "ZyphoraMiniPro"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 200, 0, 280)
-Main.Position = UDim2.new(0, 20, 0.5, -140)
-Main.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+Main.Size = UDim2.new(0, 220, 0, 380)
+Main.Position = UDim2.new(0, 30, 0.5, -190)
+Main.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
 Main.Parent = ScreenGui
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
 
+local UIStroke = Instance.new("UIStroke", Main)
+UIStroke.Color = Color3.fromRGB(0, 170, 255)
+UIStroke.Thickness = 1.5
+
+-- العنوان وزر الإغلاق
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 35)
-Title.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-Title.Text = "⚡ ZYPHORA MINI"
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundColor3 = Color3.fromRGB(18, 18, 25)
+Title.Text = "⚡ ZYPHORA PRO HUB"
 Title.TextColor3 = Color3.fromRGB(0, 170, 255)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 14
+Title.TextSize = 13
 Title.Parent = Main
-Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 12)
 
--- دالة زر
-local function CreateBtn(text, y, callback)
+-- زر تصغير/إغلاق الواجهة
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 30, 0, 30)
+ToggleBtn.Position = UDim2.new(1, -35, 0, 5)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+ToggleBtn.Text = "-"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 16
+ToggleBtn.Parent = Title
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
+
+local isOpen = true
+ToggleBtn.MouseButton1Click:Connect(function()
+    isOpen = not isOpen
+    for _, child in pairs(Main:GetChildren()) do
+        if child ~= Title and child ~= UIStroke then
+            child.Visible = isOpen
+        end
+    end
+    Main.Size = isOpen and UDim2.new(0, 220, 0, 380) or UDim2.new(0, 220, 0, 40)
+    ToggleBtn.Text = isOpen and "-" else "+"
+end)
+
+-- حاوية الأزرار المنظمة
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(1, -10, 1, -50)
+ScrollingFrame.Position = UDim2.new(0, 5, 0, 45)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 450)
+ScrollingFrame.ScrollBarThickness = 4
+ScrollingFrame.Parent = Main
+
+local UIListLayout = Instance.new("UIListLayout", ScrollingFrame)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutIndex
+UIListLayout.Padding = UDim.new(0, 8)
+
+local function CreateBtn(text, callback)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -20, 0, 35)
-    btn.Position = UDim2.new(0, 10, 0, y)
-    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    btn.Size = UDim2.new(1, -10, 0, 38)
+    btn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
     btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextColor3 = Color3.fromRGB(240, 240, 240)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 12
-    btn.Parent = Main
+    btn.Parent = ScrollingFrame
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    
     btn.MouseButton1Click:Connect(callback)
     return btn
 end
 
--- ESP
-CreateBtn("👁️ ESP: OFF", 45, function()
+-- 1. ESP
+CreateBtn("👁️ كشف اللاعبين (ESP): OFF", function(self)
     Settings.ESP = not Settings.ESP
+    self.Text = Settings.ESP and "👁️ كشف اللاعبين (ESP): ON" or "👁️ كشف اللاعبين (ESP): OFF"
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character then
             if Settings.ESP then
-                local h = Instance.new("Highlight")
-                h.FillColor = Color3.new(1, 0, 0)
-                h.Adornee = p.Character
-                h.Parent = ScreenGui
-            else
-                for _, v in pairs(ScreenGui:GetChildren()) do
-                    if v:IsA("Highlight") then v:Destroy() end
+                if not p.Character:FindFirstChild("ZyphoraHighlight") then
+                    local h = Instance.new("Highlight")
+                    h.Name = "ZyphoraHighlight"
+                    h.FillColor = Color3.fromRGB(0, 170, 255)
+                    h.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    h.Adornee = p.Character
+                    h.Parent = p.Character
                 end
+            else
+                local h = p.Character:FindFirstChild("ZyphoraHighlight")
+                if h then h:Destroy() end
             end
         end
     end
 end)
 
--- طيران سيارة
-CreateBtn("🚗 طيران: OFF", 90, function()
+-- 2. طيران سيارة بدون أخطاء (Car Fly Pro)
+CreateBtn("🚗 طيران السيارة: OFF", function(self)
     Settings.CarFly = not Settings.CarFly
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum or not hum.SeatPart then return end
+    self.Text = Settings.CarFly and "🚗 طيران السيارة: ON" or "🚗 طيران السيارة: OFF"
     
-    local vehicle = hum.SeatPart:FindFirstAncestorOfClass("Model")
-    local root = vehicle:FindFirstChildWhichIsA("BasePart", true)
-    
-    if Settings.CarFly then
-        local bv = Instance.new("BodyVelocity")
-        bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-        bv.Velocity = Vector3.new(0, 50, 0)
-        bv.Parent = root
-        Settings.FlyBody = bv
-    else
-        if Settings.FlyBody then Settings.FlyBody:Destroy() end
-    end
-end)
-
--- سرعة
-CreateBtn("⚡ سرعة: OFF", 135, function()
-    Settings.Speed = not Settings.Speed
-    local char = LocalPlayer.Character
-    if char then
-        local hum = char:FindFirstChild("Humanoid")
-        if hum then hum.WalkSpeed = Settings.Speed and 100 or 16 end
-    end
-end)
-
--- تليبورت
-CreateBtn("📍 تليبورت", 180, function()
-    local char = LocalPlayer.Character
-    if char then
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if root then root.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 5, 0)) end
-    end
-end)
-
--- نوس
-CreateBtn("👻 نوس: OFF", 225, function()
-    Settings.Noclip = not Settings.Noclip
-    if Settings.Noclip then
-        RunService.Stepped:Connect(function()
+    task.spawn(function()
+        while Settings.CarFly do
             local char = LocalPlayer.Character
-            if char then
-                for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then v.CanCollide = false end
+            if char and char:FindFirstChild("Humanoid") and char.Humanoid.SeatPart then
+                local vehicle = char.Humanoid.SeatPart:FindFirstAncestorOfClass("Model")
+                local root = vehicle and vehicle:FindFirstChildWhichIsA("BasePart", true)
+                if root then
+                    root.AssemblyLinearVelocity = workspace.CurrentCamera.CFrame.LookVector * 80 + Vector3.new(0, 2, 0)
                 end
             end
-        end)
+            task.staged or task.wait()
+        end
+    end)
+end)
+
+-- 3. السرعة الخارقة
+CreateBtn("⚡ سرعة اللاعب: OFF", function(self)
+    Settings.Speed = not Settings.Speed
+    self.Text = Settings.Speed and "⚡ سرعة اللاعب: ON" or "⚡ سرعة اللاعب: OFF"
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.WalkSpeed = Settings.Speed and 80 or 16
     end
 end)
 
-print("✅ ZYPHORA MINI LOADED")
+-- 4. النوس (Noclip)
+CreateBtn("👻 اختراق الجدران (Noclip): OFF", function(self)
+    Settings.Noclip = not Settings.Noclip
+    self.Text = Settings.Noclip and "👻 اختراق الجدران (Noclip): ON" or "👻 اختراق الجدران (Noclip): OFF"
+end)
+
+RunService.Stepped:Connect(function()
+    if Settings.Noclip and LocalPlayer.Character then
+        for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+            if v:IsA("BasePart") then v.CanCollide = false end
+        end
+    end
+end)
+
+-- 5. التليبورت العادي (Click TP)
+CreateBtn("📍 تليبورت بالماوس", function()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0))
+    end
+end)
+
+-- 6. انتقال إلى مخيم / مكان محدد
+CreateBtn("⛺ انتقال إلى المخيم", function()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        -- يمكنك تعديل الإحداثيات أدناه حسب مكان المخيم في لعبتك
+        char.HumanoidRootPart.CFrame = CFrame.new(0, 50, 0) 
+    end
+end)
+
+-- 7. جلب الأشياء النادرة / النودات
+CreateBtn("💎 تجميع الأشياء النادرة", function()
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and (obj.Name:lower():find("rare") or obj.Name:lower():find("gem") or obj.Name:lower():find("coin")) then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                firetouchinterest(char.HumanoidRootPart, obj, 0)
+                task.wait()
+                firetouchinterest(char.HumanoidRootPart, obj, 1)
+            end
+        end
+    end
+end)
+
+-- 8. الضبان (مكان الهروب السري)
+CreateBtn("🏃‍♂️ انتقال سريع (الضبان)", function()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        -- نقرة هروب للأعلى وللبعيد
+        char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame + Vector3.new(0, 300, 0)
+    end
+end)
+
+print("✅ ZYPHORA PRO LOADED SUCCESSFULLY")
