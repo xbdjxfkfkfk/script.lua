@@ -1,426 +1,175 @@
--- ZYPHORA PRO v21 | Single-file Roblox Luau client script
--- Client effects depend on replication and game permissions.
+-- ZYPHORA PRO v22 | Single-file client UI
+-- The server can reject movement, teleportation and vehicle physics changes.
 local Players=game:GetService('Players')
 local RunService=game:GetService('RunService')
 local UIS=game:GetService('UserInputService')
 local WS=game:GetService('Workspace')
 local LP=Players.LocalPlayer
-if not LP then return end
+if not LP then warn('ZYPHORA: LocalPlayer unavailable'); return end
+local PG=LP:WaitForChild('PlayerGui',12)
+if not PG then warn('ZYPHORA: PlayerGui unavailable'); return end
 local env=_G
-if type(getgenv)=='function' then local ok,v=pcall(getgenv); if ok and type(v)=='table' then env=v end end
-if type(env.ZyphoraV21Cleanup)=='function' then pcall(env.ZyphoraV21Cleanup) end
-local parent=LP:WaitForChild('PlayerGui',12)
-if not parent then return end
-if type(gethui)=='function' then local ok,v=pcall(gethui); if ok and typeof(v)=='Instance' then parent=v end end
-local old=parent:FindFirstChild('ZyphoraProV21'); if old then old:Destroy() end
-local alive=true
-local connections={}
-local esp={}
-local markers={}
-local vis={}
-local originalSpeed=nil
-local trackedHum=nil
-local S={ESP=false,Speed=false,Invis=false,Radar=false,Aim=false,CarSpeed=false,CarFly=false,Walk=32,Car=90,Target='',AimMode='Nearest'}
-local C={bg=Color3.fromRGB(12,14,21),panel=Color3.fromRGB(25,29,42),panel2=Color3.fromRGB(37,43,60),cyan=Color3.fromRGB(0,198,255),white=Color3.fromRGB(245,247,255),muted=Color3.fromRGB(172,181,197),green=Color3.fromRGB(44,214,135),red=Color3.fromRGB(221,72,90)}
-local function on(sig,fn) local c=sig:Connect(fn); connections[#connections+1]=c; return c end
-local function new(class,props,parentObj) local o=Instance.new(class); for k,v in pairs(props or {}) do o[k]=v end; o.Parent=parentObj; return o end
-local function corner(o,r) new('UICorner',{CornerRadius=UDim.new(0,r or 8)},o) end
-local function root() local ch=LP.Character; return ch and ch:FindFirstChild('HumanoidRootPart') end
-local function hum() local ch=LP.Character; return ch and ch:FindFirstChildOfClass('Humanoid') end
-local gui=new('ScreenGui',{Name='ZyphoraProV21',ResetOnSpawn=false,DisplayOrder=110,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},parent)
-local main=new('Frame',{Size=UDim2.fromOffset(540,470),Position=UDim2.new(.5,-270,.5,-235),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true,ClipsDescendants=true},gui);corner(main,12)
-new('UIStroke',{Color=C.cyan,Thickness=1.3},main)
-local scale=new('UIScale',{Scale=1},main)
-local function resize() local cam=WS.CurrentCamera;if cam then scale.Scale=math.clamp(math.min(cam.ViewportSize.X/575,cam.ViewportSize.Y/510),.5,1) end end
-resize()
-local header=new('Frame',{Size=UDim2.new(1,0,0,48),BackgroundColor3=C.panel,BorderSizePixel=0,Active=true},main)
-new('TextLabel',{Size=UDim2.new(1,-100,1,0),Position=UDim2.fromOffset(14,0),BackgroundTransparency=1,Text='⚡ ZYPHORA PRO  v20',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=16,TextXAlignment=Enum.TextXAlignment.Left},header)
-local minimize=new('TextButton',{Size=UDim2.fromOffset(30,30),Position=UDim2.new(1,-77,0,9),BackgroundColor3=C.panel2,Text='−',TextColor3=C.white,TextSize=18},header);corner(minimize)
-local close=new('TextButton',{Size=UDim2.fromOffset(30,30),Position=UDim2.new(1,-40,0,9),BackgroundColor3=C.red,Text='×',TextColor3=C.white,TextSize=18},header);corner(close)
-local tabsBar=new('Frame',{Size=UDim2.new(1,-16,0,36),Position=UDim2.fromOffset(8,55),BackgroundTransparency=1},main)
-new('UIListLayout',{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,5)},tabsBar)
-local content=new('Frame',{Size=UDim2.new(1,-16,1,-138),Position=UDim2.fromOffset(8,98),BackgroundTransparency=1},main)
-local footer=new('TextLabel',{Size=UDim2.new(1,-16,0,27),Position=UDim2.new(0,8,1,-33),BackgroundColor3=C.panel,Text='● READY',TextColor3=C.green,Font=Enum.Font.GothamBold,TextSize=11,TextTruncate=Enum.TextTruncate.AtEnd},main);corner(footer)
-local function status(t) if alive then footer.Text='● '..tostring(t) end end
-local pages,tabBtns={},{}
-local function tab(name,index)
- local b=new('TextButton',{Size=UDim2.new(0,100,1,0),BackgroundColor3=index==1 and C.cyan or C.panel,Text=name,TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=11,LayoutOrder=index},tabsBar);corner(b)
- local p=new('ScrollingFrame',{Size=UDim2.fromScale(1,1),Visible=index==1,BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,0),ScrollBarThickness=4,ScrollBarImageColor3=C.cyan},content)
- local lay=new('UIListLayout',{Padding=UDim.new(0,7),SortOrder=Enum.SortOrder.LayoutOrder},p)
- new('UIPadding',{PaddingTop=UDim.new(0,5),PaddingLeft=UDim.new(0,4),PaddingRight=UDim.new(0,9),PaddingBottom=UDim.new(0,10)},p)
- on(lay:GetPropertyChangedSignal('AbsoluteContentSize'),function() p.CanvasSize=UDim2.fromOffset(0,lay.AbsoluteContentSize.Y+20) end)
- on(b.MouseButton1Click,function() for _,v in ipairs(pages) do v.Visible=false end; for _,v in ipairs(tabBtns) do v.BackgroundColor3=C.panel end; p.Visible=true;b.BackgroundColor3=C.cyan end)
- pages[#pages+1]=p;tabBtns[#tabBtns+1]=b;return p
+if type(getgenv)=='function' then local ok,e=pcall(getgenv); if ok and type(e)=='table' then env=e end end
+if type(env.ZyphoraCleanup)=='function' then pcall(env.ZyphoraCleanup) end
+local old=PG:FindFirstChild('ZyphoraV22'); if old then old:Destroy() end
+local live=true
+local cons,marks,highlights,visCache={},{},{},{}
+local state={radar=false,aim=false,esp=false,speed=false,invis=false,carSpeed=false,carFly=false,walk=32,car=85,filter=''}
+local col={bg=Color3.fromRGB(12,15,23),panel=Color3.fromRGB(25,31,45),accent=Color3.fromRGB(24,198,250),text=Color3.fromRGB(245,248,255),muted=Color3.fromRGB(166,180,196),green=Color3.fromRGB(46,225,155)}
+local function on(sig,fn) local c=sig:Connect(fn); table.insert(cons,c); return c end
+local function obj(kind,props,parent) local x=Instance.new(kind); for k,v in pairs(props or {}) do x[k]=v end; x.Parent=parent; return x end
+local function round(x,r) obj('UICorner',{CornerRadius=UDim.new(0,r or 8)},x) end
+local function root() local c=LP.Character; return c and c:FindFirstChild('HumanoidRootPart') end
+local function hum() local c=LP.Character; return c and c:FindFirstChildOfClass('Humanoid') end
+local function number(n) n=tonumber(n); if not n then return nil end; if n>=1e6 then return string.format('%.1fM',n/1e6) elseif n>=1e3 then return string.format('%.1fK',n/1e3) else return string.format('%.2f',n):gsub('%.?0+$','') end end
+local function stat(m,names) for _,name in ipairs(names) do local v=m:GetAttribute(name); if v~=nil then return v end; local item=m:FindFirstChild(name,true); if item and (item:IsA('StringValue') or item:IsA('NumberValue') or item:IsA('IntValue')) then return item.Value end end end
+local rarityNames={T1='عادي',T2='أخضر',T3='أزرق',T4='بنفسجي',T5='ذهبي',T6='خرافي',T7='أسطوري'}
+local rarityColors={['عادي']=Color3.fromRGB(235,240,245),['أخضر']=Color3.fromRGB(62,225,132),['أزرق']=Color3.fromRGB(61,159,255),['بنفسجي']=Color3.fromRGB(182,98,255),['ذهبي']=Color3.fromRGB(255,204,61),['خرافي']=Color3.fromRGB(255,68,99),['أسطوري']=Color3.fromRGB(255,68,99)}
+local function rarity(m)
+ local raw=stat(m,{'Rarity','Tier','Grade','Quality','ندرة'})
+ if raw==nil then return 'غير محدد',col.muted end
+ local s=tostring(raw); local normalized=rarityNames[s:upper()] or s
+ local low=normalized:lower()
+ if low:find('common',1,true) then normalized='عادي' elseif low:find('uncommon',1,true) then normalized='أخضر' elseif low:find('legendary',1,true) then normalized='ذهبي' elseif low:find('mythic',1,true) then normalized='خرافي' elseif low:find('epic',1,true) then normalized='بنفسجي' elseif low:find('rare',1,true) then normalized='أزرق' end
+ return normalized,rarityColors[normalized] or col.muted
 end
-local function label(parentObj,t,h) return new('TextLabel',{Size=UDim2.new(1,-4,0,h or 25),BackgroundTransparency=1,Text=t,TextColor3=C.cyan,TextSize=12,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left,TextWrapped=true},parentObj) end
-local function btn(parentObj,t,fn,flag)
- local b=new('TextButton',{Size=UDim2.new(1,-4,0,39),BackgroundColor3=C.panel,Text='',BorderSizePixel=0},parentObj);corner(b)
- new('TextLabel',{Size=UDim2.new(1,-83,1,0),Position=UDim2.fromOffset(12,0),BackgroundTransparency=1,Text=t,TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamMedium,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},b)
- local state=new('TextLabel',{Size=UDim2.fromOffset(52,24),Position=UDim2.new(1,-62,.5,-12),BackgroundColor3=C.panel2,Text=flag and 'OFF' or 'RUN',TextColor3=C.muted,TextSize=10,Font=Enum.Font.GothamBold},b);corner(state,6)
- on(b.MouseButton1Click,function() local ok,err=pcall(fn);if not ok then warn('[ZYPHORA]',err);status('ERROR - SEE CONSOLE') end;if flag then local yes=S[flag];state.Text=yes and 'ON' or 'OFF';state.BackgroundColor3=yes and C.green or C.panel2;state.TextColor3=yes and C.bg or C.muted end end)
- return b
-end
-local function input(parentObj,placeholder,initial) local b=new('TextBox',{Size=UDim2.new(1,-4,0,39),BackgroundColor3=C.panel2,Text=initial or '',PlaceholderText=placeholder or '',PlaceholderColor3=C.muted,TextColor3=C.white,TextSize=13,Font=Enum.Font.Gotham,ClearTextOnFocus=false},parentObj);corner(b);return b end
-local function speedEditor(page,title,key,minv,maxv,step)
- label(page,title)
- local frame=new('Frame',{Size=UDim2.new(1,-4,0,40),BackgroundTransparency=1},page)
- local minus=new('TextButton',{Size=UDim2.fromOffset(60,40),BackgroundColor3=C.panel,Text='−',TextColor3=C.white,TextSize=21},frame);corner(minus)
- local box=new('TextBox',{Size=UDim2.new(1,-136,0,40),Position=UDim2.fromOffset(68,0),BackgroundColor3=C.panel2,Text=tostring(S[key]),TextColor3=C.white,TextSize=14,Font=Enum.Font.GothamBold,ClearTextOnFocus=false},frame);corner(box)
- local plus=new('TextButton',{Size=UDim2.fromOffset(60,40),Position=UDim2.new(1,-60,0,0),BackgroundColor3=C.panel,Text='+',TextColor3=C.white,TextSize=20},frame);corner(plus)
- local function set(v) if v and v==v then S[key]=math.clamp(math.floor(v+.5),minv,maxv) end;box.Text=tostring(S[key]);status(title..': '..S[key]) end
- on(minus.MouseButton1Click,function()set(S[key]-step)end)
- on(plus.MouseButton1Click,function()set(S[key]+step)end)
- on(box.FocusLost,function()set(tonumber(box.Text))end)
-end
--- Model metadata is game-specific. Never invent rarity/power.
--- Metadata is specific to each experience; read replicated attributes/values only.
-local keywords={'ضب','lizard','dhab','reptile','lhib','uromastyx'}
-local function stat(m,names)
- for _,container in ipairs({m,m:FindFirstChild('Config'),m:FindFirstChild('Stats'),m:FindFirstChild('Data')}) do
-  if container then
-   for _,n in ipairs(names) do
-    local a=container:GetAttribute(n)
-    if a~=nil then return a end
-    local v=container:FindFirstChild(n)
-    if v and (v:IsA('StringValue') or v:IsA('NumberValue') or v:IsA('IntValue')) then return v.Value end
-   end
-  end
- end
- for _,n in ipairs(names) do
-  local v=m:FindFirstChild(n,true)
-  if v and (v:IsA('StringValue') or v:IsA('NumberValue') or v:IsA('IntValue')) then return v.Value end
- end
- return nil
-end
-local function info(m)
- return {rarity=stat(m,{'Rarity','Tier','Grade','Rank','الندرة'}),power=stat(m,{'Power','Strength','Damage','قوة'}),size=stat(m,{'Size','Scale','Weight','حجم','وزن'}),kind=stat(m,{'Type','Species','Kind','نوع'})}
-end
-local function isLizard(m)
+local function isAnimal(m)
  if not m:IsA('Model') or Players:GetPlayerFromCharacter(m) then return false end
- for _,player in ipairs(Players:GetPlayers()) do
-  if player.Character and (m==player.Character or m:IsDescendantOf(player.Character)) then return false end
- end
- local n=string.lower(m.Name)
- for _,word in ipairs(keywords) do if n:find(word,1,true) then return true end end
- local kind=stat(m,{'Type','Species','Kind','نوع'})
- if kind then
-  local k=string.lower(tostring(kind))
-  for _,word in ipairs(keywords) do if k:find(word,1,true) then return true end end
- end
- return false
+ local c=m; while c and c~=WS do if c:IsA('Model') and Players:GetPlayerFromCharacter(c) then return false end; c=c.Parent end
+ local name=m.Name:lower()
+ return name:find('dhab',1,true)~=nil or name:find('lizard',1,true)~=nil or name:find('reptile',1,true)~=nil or name:find('ضب',1,true)~=nil
 end
 local function part(m) return m.PrimaryPart or m:FindFirstChildWhichIsA('BasePart',true) end
-local function rarityColor(value)
- local t=string.lower(tostring(value or ''))
- if t:find('خرافي',1,true) or t:find('mythic',1,true) or t:find('divine',1,true) or t:find('red',1,true) or t:find('أحمر',1,true) then return Color3.fromRGB(255,62,72) end
- if t:find('ذهبي',1,true) or t:find('gold',1,true) or t:find('legendary',1,true) then return Color3.fromRGB(255,200,45) end
- if t:find('بنفسجي',1,true) or t:find('purple',1,true) or t:find('epic',1,true) then return Color3.fromRGB(171,94,255) end
- if t:find('أزرق',1,true) or t:find('blue',1,true) or t=='rare' then return Color3.fromRGB(53,165,255) end
- if t:find('أخضر',1,true) or t:find('green',1,true) or t=='uncommon' then return Color3.fromRGB(51,223,123) end
- return Color3.fromRGB(235,237,244)
+local animals={}; local lastScan=0
+local function scanAnimals()
+ table.clear(animals)
+ for _,m in ipairs(WS:GetDescendants()) do if isAnimal(m) then local p=part(m); if p then table.insert(animals,{model=m,part=p}) end end end
 end
-local lizards={}
-local function scanLizards()
- table.clear(lizards)
- for _,obj in ipairs(WS:GetDescendants()) do
-  if isLizard(obj) then
-   local p=part(obj)
-   if p then lizards[#lizards+1]={model=obj,root=p} end
-  end
- end
+local function nearest(filter)
+ local r=root(); if not r then return nil end
+ local best,dist=nil,math.huge; filter=(filter or ''):lower()
+ for _,a in ipairs(animals) do if a.model.Parent and a.part.Parent and (filter=='' or a.model.Name:lower():find(filter,1,true)) then local d=(a.part.Position-r.Position).Magnitude; if d<dist then best=a; dist=d end end end
+ return best
 end
-local function targetLizard(query)
- local me=root();if not me then return nil end
- local chosen,best=nil,math.huge;query=string.lower(query or '')
- for _,e in ipairs(lizards) do
-  if e.model.Parent and e.root.Parent and (query=='' or string.lower(e.model.Name):find(query,1,true)) then
-   local d=(e.root.Position-me.Position).Magnitude
-   if d<best then best=d;chosen=e end
-  end
- end
- return chosen
+local function clearMarks() for _,m in pairs(marks) do pcall(function() m:Destroy() end) end; table.clear(marks) end
+local function marker(a)
+ if marks[a.model] then return end
+ local rar,color=rarity(a.model)
+ local power=stat(a.model,{'Power','Strength','Damage','قوة'})
+ local size=stat(a.model,{'Size','Scale','Weight','حجم'})
+ local species=stat(a.model,{'Species','Type','AnimalType','نوع'})
+ local rawName=a.model.Name:gsub('_[%da-fA-F]+$',''):gsub('_',' ')
+ local lines={rawName,'الندرة: '..rar}
+ if species~=nil then table.insert(lines,'النوع: '..tostring(species)) end
+ if power~=nil then table.insert(lines,'القوة: '..(number(power) or tostring(power))) end
+ if size~=nil then table.insert(lines,'الحجم: '..(number(size) or tostring(size))) end
+ local height=16+#lines*20
+ local bb=obj('BillboardGui',{Name='ZyphoraAnimalMarker',Adornee=a.part,AlwaysOnTop=true,Size=UDim2.fromOffset(200,height),StudsOffsetWorldSpace=Vector3.new(0,3.7,0),MaxDistance=300},PG)
+ local box=obj('Frame',{Size=UDim2.fromScale(1,1),BackgroundColor3=col.bg,BackgroundTransparency=.12,BorderSizePixel=0},bb); round(box,9)
+ obj('UIStroke',{Color=color,Thickness=2},box)
+ obj('UIListLayout',{SortOrder=Enum.SortOrder.LayoutOrder,HorizontalAlignment=Enum.HorizontalAlignment.Center,Padding=UDim.new(0,1)},box)
+ obj('UIPadding',{PaddingTop=UDim.new(0,5),PaddingLeft=UDim.new(0,5),PaddingRight=UDim.new(0,5)},box)
+ for i,t in ipairs(lines) do obj('TextLabel',{Size=UDim2.new(1,0,0,19),BackgroundTransparency=1,Text=t,TextColor3=i<=2 and color or col.text,Font=Enum.Font.GothamBold,TextSize=11,TextTruncate=Enum.TextTruncate.AtEnd,LayoutOrder=i},box) end
+ marks[a.model]=bb
 end
-local function clearRadar() for _,v in pairs(markers) do if v.gui then v.gui:Destroy() end end;table.clear(markers) end
-local function refreshRadar()
- if not S.Radar then clearRadar();return end
- local present={}
- for _,e in ipairs(lizards) do
-  local m,p=e.model,e.root
-  if m.Parent and p.Parent then
-   present[m]=true
-   local data=info(m);local color=rarityColor(data.rarity)
-   local lines={'🦎 '..m.Name,'الندرة: '..tostring(data.rarity or 'غير متاحة'),'النوع: '..tostring(data.kind or 'غير متاح'),'القوة: '..tostring(data.power or 'غير متاحة')..'  |  الحجم: '..tostring(data.size or 'غير متاح')}
-   local item=markers[m]
-   if not item then
-    local bb=new('BillboardGui',{Name='ZyphoraLizardHead',Adornee=p,Size=UDim2.fromOffset(265,104),StudsOffsetWorldSpace=Vector3.new(0,4,0),AlwaysOnTop=true,MaxDistance=350},gui)
-    local bg=new('Frame',{Size=UDim2.fromScale(1,1),BackgroundColor3=C.bg,BackgroundTransparency=.12,BorderSizePixel=0},bb);corner(bg)
-    local stroke=new('UIStroke',{Color=color,Thickness=1.6},bg)
-    local layout=new('UIListLayout',{Padding=UDim.new(0,1),SortOrder=Enum.SortOrder.LayoutOrder},bg)
-    new('UIPadding',{PaddingTop=UDim.new(0,4),PaddingLeft=UDim.new(0,5),PaddingRight=UDim.new(0,5)},bg)
-    local labels={}
-    for i=1,4 do labels[i]=new('TextLabel',{Size=UDim2.new(1,0,0,23),BackgroundTransparency=1,TextColor3=C.white,TextSize=11,Font=Enum.Font.GothamBold,TextTruncate=Enum.TextTruncate.AtEnd,LayoutOrder=i},bg) end
-    item={gui=bb,stroke=stroke,labels=labels};markers[m]=item
-   end
-   item.gui.Adornee=p;item.stroke.Color=color
-   for i,v in ipairs(lines) do item.labels[i].Text=v;item.labels[i].TextColor3=(i==1 or i==2) and color or C.white end
-  end
- end
- for m,item in pairs(markers) do if not present[m] then item.gui:Destroy();markers[m]=nil end end
+local gui=obj('ScreenGui',{Name='ZyphoraV22',ResetOnSpawn=false,DisplayOrder=150,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+local main=obj('Frame',{Size=UDim2.fromOffset(520,460),Position=UDim2.new(.5,-260,.5,-230),BackgroundColor3=col.bg,Active=true,ClipsDescendants=true},gui); round(main,12)
+obj('UIStroke',{Color=col.accent,Thickness=1.4},main)
+local scale=obj('UIScale',{Scale=1},main)
+local function resize() local cam=WS.CurrentCamera; if cam then scale.Scale=math.clamp(math.min(cam.ViewportSize.X/550,cam.ViewportSize.Y/490),.5,1) end end; resize()
+local header=obj('Frame',{Size=UDim2.new(1,0,0,48),BackgroundColor3=col.panel,Active=true},main)
+obj('TextLabel',{Size=UDim2.new(1,-95,1,0),Position=UDim2.fromOffset(14,0),BackgroundTransparency=1,Text='⚡ ZYPHORA PRO v22',TextColor3=col.text,Font=Enum.Font.GothamBold,TextSize=16,TextXAlignment=Enum.TextXAlignment.Left},header)
+local close=obj('TextButton',{Size=UDim2.fromOffset(32,30),Position=UDim2.new(1,-40,0,9),BackgroundColor3=Color3.fromRGB(190,57,75),Text='X',TextColor3=col.text,Font=Enum.Font.GothamBold,TextSize=13},header); round(close,7)
+local tabs=obj('Frame',{Size=UDim2.new(1,-16,0,38),Position=UDim2.fromOffset(8,55),BackgroundTransparency=1},main)
+obj('UIListLayout',{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,4)},tabs)
+local body=obj('Frame',{Size=UDim2.new(1,-16,1,-137),Position=UDim2.fromOffset(8,99),BackgroundTransparency=1},main)
+local footer=obj('TextLabel',{Size=UDim2.new(1,-16,0,27),Position=UDim2.new(0,8,1,-32),BackgroundColor3=col.panel,Text='● جاهز',TextColor3=col.green,Font=Enum.Font.GothamBold,TextSize=11,TextTruncate=Enum.TextTruncate.AtEnd},main); round(footer,7)
+local function msg(s) if live then footer.Text='● '..tostring(s) end end
+local pages,tabBtns={},{}
+local function page(title)
+ local idx=#pages+1
+ local b=obj('TextButton',{Size=UDim2.new(0,95,1,0),BackgroundColor3=idx==1 and col.accent or col.panel,Text=title,TextColor3=col.text,Font=Enum.Font.GothamBold,TextSize=11},tabs); round(b,7)
+ local p=obj('ScrollingFrame',{Size=UDim2.fromScale(1,1),Visible=idx==1,BackgroundTransparency=1,CanvasSize=UDim2.fromOffset(0,0),ScrollBarThickness=4,ScrollBarImageColor3=col.accent,BorderSizePixel=0},body)
+ local lay=obj('UIListLayout',{Padding=UDim.new(0,7)},p)
+ obj('UIPadding',{PaddingTop=UDim.new(0,5),PaddingLeft=UDim.new(0,4),PaddingRight=UDim.new(0,9),PaddingBottom=UDim.new(0,8)},p)
+ on(lay:GetPropertyChangedSignal('AbsoluteContentSize'),function() p.CanvasSize=UDim2.fromOffset(0,lay.AbsoluteContentSize.Y+18) end)
+ on(b.MouseButton1Click,function() for _,v in ipairs(pages) do v.Visible=false end; for _,v in ipairs(tabBtns) do v.BackgroundColor3=col.panel end; p.Visible=true; b.BackgroundColor3=col.accent end)
+ table.insert(pages,p); table.insert(tabBtns,b); return p
 end
-local function clearESP()for _,v in pairs(esp) do v:Destroy() end;table.clear(esp)end
-local function refreshESP()
- if not S.ESP then clearESP();return end
- for _,p in ipairs(Players:GetPlayers()) do if p~=LP then
-  local ch=p.Character;local v=esp[p]
-  if ch and (not v or v.Adornee~=ch) then if v then v:Destroy() end;esp[p]=new('Highlight',{Adornee=ch,FillColor=C.cyan,FillTransparency=.72,OutlineColor=C.white,DepthMode=Enum.HighlightDepthMode.AlwaysOnTop},gui)
-  elseif not ch and v then v:Destroy();esp[p]=nil end
- end end
- for p,v in pairs(esp) do if p.Parent~=Players then v:Destroy();esp[p]=nil end end
+local function label(p,text,height) return obj('TextLabel',{Size=UDim2.new(1,-4,0,height or 26),BackgroundTransparency=1,Text=text,TextWrapped=true,TextColor3=col.accent,Font=Enum.Font.GothamBold,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left},p) end
+local function button(p,title,fn)
+ local b=obj('TextButton',{Size=UDim2.new(1,-4,0,39),BackgroundColor3=col.panel,Text=title,TextColor3=col.text,Font=Enum.Font.GothamMedium,TextSize=12,TextTruncate=Enum.TextTruncate.AtEnd},p); round(b,8)
+ on(b.MouseButton1Click,function() local ok,e=pcall(fn,b); if not ok then warn('ZYPHORA:',e); msg('خطأ: '..tostring(e):sub(1,70)) end end)
+ return b
 end
-local function restoreVis()for obj,v in pairs(vis) do if obj.Parent then if obj:IsA('BasePart') then obj.LocalTransparencyModifier=v else obj.Transparency=v end end end;table.clear(vis)end
-local function applyVis()
- if not S.Invis then return end
- local ch=LP.Character;if not ch then return end
- for _,o in ipairs(ch:GetDescendants()) do
-  if o:IsA('BasePart') then if vis[o]==nil then vis[o]=o.LocalTransparencyModifier end;o.LocalTransparencyModifier=1
-  elseif o:IsA('Decal') then if vis[o]==nil then vis[o]=o.Transparency end;o.Transparency=1 end
- end
+local function input(p,placeholder,value)
+ local t=obj('TextBox',{Size=UDim2.new(1,-4,0,38),BackgroundColor3=col.panel,Text=tostring(value or ''),PlaceholderText=placeholder,PlaceholderColor3=col.muted,TextColor3=col.text,ClearTextOnFocus=false,Font=Enum.Font.Gotham,TextSize=12},p); round(t,8); return t
 end
-local function stopSpeed()if trackedHum and trackedHum.Parent and originalSpeed then trackedHum.WalkSpeed=originalSpeed end;trackedHum=nil;originalSpeed=nil end
-local function applySpeed()
- if not S.Speed then return end
- local h=hum();if not h then return end
- if trackedHum~=h then trackedHum=h;originalSpeed=h.WalkSpeed end
- h.WalkSpeed=S.Walk
+local function toggle(p,title,key,callback)
+ local b; b=button(p,title..' : OFF',function() state[key]=not state[key]; if callback then callback(state[key]) end; b.Text=title..(state[key] and ' : ON' or ' : OFF') end); return b
 end
-local function seatRoot()
- local h=hum();local seat=h and h.SeatPart
- if not seat or not seat:IsA('VehicleSeat') then return nil end
- local m=seat:FindFirstAncestorOfClass('Model');return (m and m.PrimaryPart) or seat
+local function adjust(p,title,key,min,max,step)
+ label(p,title)
+ local t=input(p,'أدخل القيمة',state[key]); local row=obj('Frame',{Size=UDim2.new(1,-4,0,36),BackgroundTransparency=1},p)
+ local minus=obj('TextButton',{Size=UDim2.new(.49,0,1,0),BackgroundColor3=col.panel,Text='− تقليل',TextColor3=col.text,Font=Enum.Font.GothamBold,TextSize=12},row); round(minus,7)
+ local plus=obj('TextButton',{Size=UDim2.new(.49,0,1,0),Position=UDim2.new(.51,0,0,0),BackgroundColor3=col.panel,Text='+ زيادة',TextColor3=col.text,Font=Enum.Font.GothamBold,TextSize=12},row); round(plus,7)
+ local function set(v) if not v or v~=v then return end; state[key]=math.clamp(v,min,max); t.Text=tostring(state[key]); msg(title..': '..state[key]) end
+ on(t.FocusLost,function() set(tonumber(t.Text)); t.Text=tostring(state[key]) end)
+ on(minus.MouseButton1Click,function() set(state[key]-step) end)
+ on(plus.MouseButton1Click,function() set(state[key]+step) end)
 end
--- tabs
-local playerPage=tab('⚡ اللاعب',1)
-local teleportPage=tab('🎯 الانتقال',2)
-local lizardPage=tab('🦎 الضبان',3)
-local aimPage=tab('🎯 AIMBOT',4)
-local carPage=tab('🚗 السيارات',5)
-btn(playerPage,'كشف اللاعبين ESP',function()S.ESP=not S.ESP;refreshESP()end,'ESP')
-btn(playerPage,'سرعة اللاعب',function()S.Speed=not S.Speed;if S.Speed then applySpeed() else stopSpeed() end end,'Speed')
-speedEditor(playerPage,'سرعة اللاعب', 'Walk', 8,250,8)
-btn(playerPage,'اختفاء محلي (لن يخفيك عن الآخرين)',function()S.Invis=not S.Invis;if S.Invis then applyVis()else restoreVis()end end,'Invis')
-label(teleportPage,'الانتقال إلى لاعب متصل')
-local playerList=new('Frame',{Size=UDim2.new(1,-4,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},teleportPage)
-new('UIListLayout',{Padding=UDim.new(0,5)},playerList)
-local function playersRefresh()
- for _,c in ipairs(playerList:GetChildren()) do if c:IsA('TextButton') then c:Destroy() end end
- for _,p in ipairs(Players:GetPlayers()) do if p~=LP then btn(playerList,p.DisplayName,function()local r=root();local t=p.Character and p.Character:FindFirstChild('HumanoidRootPart');if r and t then local ch=LP.Character;local ok,err=pcall(function() if ch then ch:PivotTo(t.CFrame*CFrame.new(0,4,5)) end end);status(ok and ('طلب انتقال: '..p.Name) or ('تعذر الانتقال: '..tostring(err))) else status('اللاعب غير متاح') end end) end end
-end
-btn(teleportPage,'تحديث اللاعبين',playersRefresh);playersRefresh()
-on(Players.PlayerAdded,playersRefresh)
-on(Players.PlayerRemoving,function()task.defer(function()if alive then playersRefresh()end end)end)
-btn(lizardPage,'رادار فوق رأس الضبان',function()S.Radar=not S.Radar;if S.Radar then scanLizards();refreshRadar()else clearRadar()end end,'Radar')
-local infoPanel=new('TextLabel',{Size=UDim2.new(1,-4,0,115),BackgroundColor3=C.panel2,Text='معلومات الضب ستظهر هنا بعد الضغط على عرض المعلومات',TextColor3=C.white,TextSize=12,Font=Enum.Font.Gotham,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center},lizardPage);corner(infoPanel,8)
-label(lizardPage,'اسم الضب (اتركه فارغاً لاختيار الأقرب)')
-local targetInput=input(lizardPage,'اكتب اسم الضب','')
-on(targetInput.FocusLost,function()S.Target=targetInput.Text end)
-btn(lizardPage,'انتقال مباشر إلى الضب مرة واحدة',function()
- S.Target=targetInput.Text;scanLizards();local e=targetLizard(S.Target);local r=root()
- if not e or not r then status('لم يتم العثور على ضب مطابق');return end
- local dest=e.root.Position+Vector3.new(0,5,6)
- -- One-time pivot instead of a continuous teleport loop.
- local ch=LP.Character;if ch then local ok,err=pcall(function()ch:PivotTo(CFrame.new(dest))end);if not ok then status('فشل الانتقال: '..tostring(err));return end end
- status('طلب الانتقال إلى '..e.model.Name)
-end)
-btn(lizardPage,'عرض معلومات أقرب ضب',function()
- scanLizards();local e=targetLizard(targetInput.Text)
- if not e then infoPanel.Text='لم يتم العثور على ضب مطابق في العناصر المحمّلة حالياً';status('لا يوجد ضب مطابق');return end
- local d=info(e.model)
- infoPanel.Text='الاسم: '..e.model.Name..'\nالندرة: '..tostring(d.rarity or 'غير متاحة')..'  |  النوع: '..tostring(d.kind or 'غير متاح')..'\nالقوة: '..tostring(d.power or 'غير متاحة')..'  |  الحجم: '..tostring(d.size or 'غير متاح');status('تم تحديث معلومات الضب')
-end)
-label(lizardPage,'الألوان من الندرة الفعلية إن كانت متاحة. القوة والحجم لا يتم اختلاقهما.',56)
-label(aimPage,'توجيه الكاميرا نحو الضب - قسم مستقل')
-btn(aimPage,'AIMBOT - توجيه الكاميرا',function()S.Aim=not S.Aim;if S.Aim then scanLizards() end end,'Aim')
-label(aimPage,'اسم الهدف (فارغ = أقرب ضب)')
-local aimInput=input(aimPage,'اسم الضب','')
-on(aimInput.FocusLost,function()S.Target=aimInput.Text end)
-btn(aimPage,'تحديث هدف التصويب',function()S.Target=aimInput.Text;scanLizards();local e=targetLizard(S.Target);status(e and ('الهدف: '..e.model.Name) or 'لا يوجد هدف') end)
-label(aimPage,'يوجه الكاميرا فقط. لا يطلق أو يصيب تلقائياً.',40)
-btn(carPage,'زيادة سرعة السيارة أثناء القيادة',function()S.CarSpeed=not S.CarSpeed end,'CarSpeed')
-speedEditor(carPage,'الحد المستهدف لسرعة السيارة', 'Car', 20,350,10)
-btn(carPage,'طيران السيارة (WASD / Space / Shift)',function()S.CarFly=not S.CarFly end,'CarFly')
-label(carPage,'السيارات المحمّلة في جهازك (قد لا تظهر السيارات البعيدة بسبب Streaming)')
-local cars=new('Frame',{Size=UDim2.new(1,-4,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},carPage)
-new('UIListLayout',{Padding=UDim.new(0,5)},cars)
-local function vehicleModels()
- local results,seen={},{}
- local names={'car','vehicle','truck','bike','sedan','suv','سيارة','مركبة'}
- for _,o in ipairs(WS:GetDescendants()) do
-  if o:IsA('VehicleSeat') then
-   local m=o:FindFirstAncestorOfClass('Model')
-   if m and not seen[m] then seen[m]=true;results[#results+1]=m end
-  end
- end
- for _,o in ipairs(WS:GetDescendants()) do
-  if o:IsA('Model') and not seen[o] and part(o) then
-   local name=string.lower(o.Name)
-   for _,word in ipairs(names) do
-    if name:find(word,1,true) then
-     seen[o]=true;results[#results+1]=o;break
-    end
-   end
-  end
- end
- table.sort(results,function(a,b)return a.Name<b.Name end)
- return results
-end
-local function refreshCars()
- for _,c in ipairs(cars:GetChildren()) do if c:IsA('TextButton') then c:Destroy() end end
- local found=vehicleModels()
- for i,m in ipairs(found) do
-  btn(cars,m.Name..' ['..i..']',function()
-   local r=root()
-   if not r then status('شخصيتك غير جاهزة');return end
-   if not m.Parent then status('السيارة غير موجودة حالياً');return end
-   local ok,err=pcall(function()m:PivotTo(r.CFrame*CFrame.new(9,3,0))end)
-   status(ok and ('محاولة سحب: '..m.Name..' (قد يمنعها السيرفر)') or ('فشل السحب: '..tostring(err)))
-  end)
- end
- status('السيارات المحملة: '..#found)
-end
-btn(carPage,'تحديث السيارات',refreshCars);refreshCars()
--- Purchased cars: these are readable records, not guessed from spawned models.
--- Only attributes / ValueBase instances replicated under the local player are accessible.
-label(carPage,'سياراتي المشتراة (من بيانات اللاعب المتاحة فقط)',42)
-local ownedList=new('Frame',{Size=UDim2.new(1,-4,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},carPage)
-new('UIListLayout',{Padding=UDim.new(0,5)},ownedList)
-local function refreshOwned()
- for _,child in ipairs(ownedList:GetChildren()) do if child:IsA('TextLabel') then child:Destroy() end end
- local names,seen={},{}
- local function add(name)
-  name=tostring(name)
-  if name~='' and not seen[name] then seen[name]=true;names[#names+1]=name end
- end
- local containers={'OwnedCars','PurchasedCars','Garage','Vehicles','CarInventory','Cars'}
- for _,containerName in ipairs(containers) do
-  local container=LP:FindFirstChild(containerName,true)
-  if container then
-   if container:IsA('Folder') or container:IsA('Configuration') then
-    for _,item in ipairs(container:GetChildren()) do
-     if item:IsA('BoolValue') then if item.Value then add(item.Name) end
-     elseif item:IsA('StringValue') then add(item.Value~='' and item.Value or item.Name)
-     elseif item:IsA('NumberValue') or item:IsA('IntValue') then if item.Value>0 then add(item.Name) end
-     elseif item:IsA('Folder') or item:IsA('Model') or item:IsA('Configuration') then add(item.Name) end
-    end
-   elseif container:IsA('StringValue') then add(container.Value) end
-  end
- end
- table.sort(names)
- if #names==0 then names={'لا توجد قائمة ملكية مكشوفة للعميل في هذا الماب'} end
- for _,name in ipairs(names) do
-  local t=new('TextLabel',{Size=UDim2.new(1,-4,0,30),BackgroundColor3=C.panel2,Text='  🚘 '..name,TextColor3=C.white,TextSize=12,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},ownedList);corner(t,6)
- end
- status('سجلات السيارات المقروءة: '..(#names==1 and names[1]:find('لا توجد') and 0 or #names))
-end
-btn(carPage,'تحديث قائمة سياراتي المشتراة',refreshOwned)
-refreshOwned()
--- periodic loops: no GetDescendants on each frame
-local tickFast,tickScan,tickUi=0,0,0
-on(RunService.Heartbeat,function(dt)
- if not alive then return end
- tickFast+=dt;tickScan+=dt;tickUi+=dt
- if tickFast>=.25 then tickFast=0;applySpeed();applyVis();refreshESP() end
- if tickScan>=2.5 then tickScan=0;if S.Radar or S.Aim then scanLizards() end;if S.Radar then refreshRadar()end end
- -- Camera tracking runs after the Roblox camera update (RenderStepped below).
- if tickUi>=2 then tickUi=0;resize()end
- local vr=seatRoot()
- if vr and S.CarFly then
-  local cam=WS.CurrentCamera
-  if cam then
-   local d=Vector3.zero;local cf=cam.CFrame
-   if UIS:IsKeyDown(Enum.KeyCode.W) then d+=cf.LookVector end
-   if UIS:IsKeyDown(Enum.KeyCode.S) then d-=cf.LookVector end
-   if UIS:IsKeyDown(Enum.KeyCode.A) then d-=cf.RightVector end
-   if UIS:IsKeyDown(Enum.KeyCode.D) then d+=cf.RightVector end
-   if UIS:IsKeyDown(Enum.KeyCode.Space) then d+=Vector3.yAxis end
-   if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then d-=Vector3.yAxis end
-   vr.AssemblyLinearVelocity=d.Magnitude>.01 and d.Unit*S.Car or Vector3.zero
-  end
- elseif vr and S.CarSpeed then
-  -- Only increase forward motion while accelerating; steering remains native.
-  local h=hum();local seat=h and h.SeatPart
-  if seat and seat:IsA('VehicleSeat') and seat.ThrottleFloat>.05 then
-   local velocity=vr.AssemblyLinearVelocity
-   local flat=Vector3.new(velocity.X,0,velocity.Z)
-   if flat.Magnitude>1 and flat.Magnitude<S.Car then
-    local newSpeed=math.min(S.Car,flat.Magnitude+dt*45)
-    local nextFlat=flat.Unit*newSpeed
-    vr.AssemblyLinearVelocity=Vector3.new(nextFlat.X,velocity.Y,nextFlat.Z)
-   end
-  end
- end
-end)
-on(RunService.RenderStepped,function()
- if not alive or not S.Aim then return end
- local e=targetLizard(aimInput.Text)
- local cam=WS.CurrentCamera
- if e and cam and e.root.Parent then
-  local pos=cam.CFrame.Position
-  local dest=e.root.Position
-  if (dest-pos).Magnitude>.1 then
-   cam.CFrame=cam.CFrame:Lerp(CFrame.lookAt(pos,dest),.32)
-  end
- end
-end)
-on(LP.CharacterAdded,function()restoreVis();trackedHum=nil;originalSpeed=nil end)
-local dragging=false;local dragStart;local startPos
-on(header.InputBegan,function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true;dragStart=i.Position;startPos=main.Position end end)
-on(UIS.InputChanged,function(i)if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then local d=(i.Position-dragStart)/scale.Scale;main.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)end end)
-on(UIS.InputEnded,function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
-local minimized=false
-on(minimize.MouseButton1Click,function()minimized=not minimized;tabsBar.Visible=not minimized;content.Visible=not minimized;footer.Visible=not minimized;main.Size=minimized and UDim2.fromOffset(540,48) or UDim2.fromOffset(540,470);minimize.Text=minimized and '+' or '−' end)
-local function cleanup()
- if not alive then return end
- alive=false;S.Aim=false;S.CarSpeed=false;S.CarFly=false
- clearESP();clearRadar();restoreVis();stopSpeed()
- for _,c in ipairs(connections) do c:Disconnect() end;table.clear(connections)
- if env.ZyphoraV21Cleanup==cleanup then env.ZyphoraV21Cleanup=nil end
- if gui.Parent then gui:Destroy() end
-end
-env.ZyphoraV21Cleanup=cleanup
-on(close.MouseButton1Click,cleanup)
-on(gui.Destroying,cleanup)
-status('ZYPHORA PRO v21 READY')
-print('[ZYPHORA] v21 loaded')
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-
-local old = playerGui:FindFirstChild("ZyphoraTest")
-if old then old:Destroy() end
-
-local gui = Instance.new("ScreenGui")
-gui.Name = "ZyphoraTest"
-gui.ResetOnSpawn = false
-gui.DisplayOrder = 999
-gui.Parent = playerGui
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.fromOffset(320, 130)
-frame.Position = UDim2.new(0.5, -160, 0.5, -65)
-frame.BackgroundColor3 = Color3.fromRGB(15, 20, 30)
-frame.Parent = gui
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
-corner.Parent = frame
-
-local label = Instance.new("TextLabel")
-label.Size = UDim2.fromScale(1, 1)
-label.BackgroundTransparency = 1
-label.Text = "ZYPHORA TEST - GUI WORKING"
-label.TextColor3 = Color3.fromRGB(0, 220, 255)
-label.Font = Enum.Font.GothamBold
-label.TextSize = 17
-label.Parent = frame
-
-print("ZYPHORA GUI TEST SUCCESS")
+local pPlayer=page('⚡ اللاعب'); local pLizard=page('🦎 الضبان'); local pAim=page('🎯 AIMBOT'); local pTeleport=page('👥 انتقال'); local pCar=page('🚗 السيارات')
+local trackedHum,originalSpeed
+local function restoreSpeed() if trackedHum and trackedHum.Parent and originalSpeed then pcall(function() trackedHum.WalkSpeed=originalSpeed end) end; trackedHum=nil; originalSpeed=nil end
+local function restoreVis() for o,v in pairs(visCache) do if o.Parent then pcall(function() if o:IsA('BasePart') then o.LocalTransparencyModifier=v else o.Transparency=v end end) end end; table.clear(visCache) end
+local function applyVis() local c=LP.Character; if not c then return end; for _,o in ipairs(c:GetDescendants()) do if o:IsA('BasePart') or o:IsA('Decal') then if visCache[o]==nil then visCache[o]=o:IsA('BasePart') and o.LocalTransparencyModifier or o.Transparency end; if o:IsA('BasePart') then o.LocalTransparencyModifier=1 else o.Transparency=1 end end end end
+local function clearESP() for _,v in pairs(highlights) do v:Destroy() end; table.clear(highlights) end
+local function updateESP() if not state.esp then return end; for _,pl in ipairs(Players:GetPlayers()) do if pl~=LP and pl.Character then if highlights[pl] and highlights[pl].Adornee~=pl.Character then highlights[pl]:Destroy(); highlights[pl]=nil end; if not highlights[pl] then highlights[pl]=obj('Highlight',{Adornee=pl.Character,FillColor=col.accent,FillTransparency=.8,OutlineColor=col.text,DepthMode=Enum.HighlightDepthMode.AlwaysOnTop},gui) end end end; for pl,v in pairs(highlights) do if not pl.Parent or not pl.Character then v:Destroy(); highlights[pl]=nil end end end
+ toggle(pPlayer,'كشف اللاعبين','esp',function(v) if not v then clearESP() else updateESP() end end)
+ toggle(pPlayer,'سرعة اللاعب','speed',function(v) if not v then restoreSpeed() end end)
+ adjust(pPlayer,'سرعة المشي','walk',8,250,8)
+ toggle(pPlayer,'الاختفاء المحلي','invis',function(v) if v then applyVis() else restoreVis() end end)
+ toggle(pLizard,'الرادار فوق رأس الضب','radar',function(v) if v then scanAnimals(); for _,a in ipairs(animals) do marker(a) end else clearMarks() end end)
+ label(pLizard,'الندرة تُقرأ من Tier/Rarity في الماب. T3 يعرض أزرق وفق سلم افتراضي؛ ترتيب الرتب قد يختلف بين المابات.',66)
+ local info=label(pLizard,'اضغط عرض معلومات أقرب ضب',90)
+ button(pLizard,'🔄 تحديث الضبان',function() scanAnimals(); clearMarks(); if state.radar then for _,a in ipairs(animals) do marker(a) end end; msg('تم اكتشاف '..#animals..' ضب') end)
+ button(pLizard,'📋 معلومات أقرب ضب',function() scanAnimals(); local a=nearest(''); if not a then info.Text='لا يوجد ضب مطابق محمّل حاليًا'; return end; local m=a.model; local rar=rarity(m); local power=stat(m,{'Power','Strength','Damage','قوة'}); local size=stat(m,{'Size','Scale','Weight','حجم'}); local species=stat(m,{'Species','Type','AnimalType','نوع'}); info.Text='الاسم: '..m.Name..'\nالندرة: '..rar..' | النوع: '..tostring(species or 'غير مكشوف')..'\nالقوة: '..tostring(number(power) or power or 'غير مكشوف')..' | الحجم: '..tostring(number(size) or size or 'غير مكشوف') end)
+ local targetInput=input(pAim,'اسم الضب (اتركه فارغًا للأقرب)','')
+ toggle(pAim,'AIMBOT للضبان فقط','aim',function(v) if v then scanAnimals() end end)
+ button(pAim,'🎯 اختيار الضب من Input',function() state.filter=targetInput.Text; scanAnimals(); local a=nearest(state.filter); msg(a and ('الهدف: '..a.model.Name) or 'لم أجد ضبًا بهذا الاسم') end)
+ button(pAim,'📍 انتقال واحد إلى الضب',function() state.filter=targetInput.Text; scanAnimals(); local a=nearest(state.filter); local r=root(); if not a or not r then msg('الضب غير موجود أو شخصيتك غير جاهزة'); return end; local dest=a.part.Position; if not a.part.Parent then msg('الضب اختفى'); return end; local ok,e=pcall(function() r.CFrame=CFrame.new(dest+Vector3.new(0,4,5),dest) end); msg(ok and 'تم طلب الانتقال؛ قد يرفضه السيرفر' or tostring(e)) end)
+ label(pAim,'AIMBOT هنا توجيه للكاميرا فقط، ولا يستهدف أي لاعب.',45)
+ local playerList=obj('Frame',{Size=UDim2.new(1,-4,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},pTeleport)
+ obj('UIListLayout',{Padding=UDim.new(0,5)},playerList)
+ local function refreshPlayers() for _,ch in ipairs(playerList:GetChildren()) do if ch:IsA('TextButton') then ch:Destroy() end end; for _,pl in ipairs(Players:GetPlayers()) do if pl~=LP then button(playerList,'انتقال: '..pl.DisplayName..' (@'..pl.Name..')',function() local r=root(); local t=pl.Character and pl.Character:FindFirstChild('HumanoidRootPart'); if not r or not t then msg('الهدف غير جاهز'); return end; local ok,e=pcall(function() r.CFrame=t.CFrame*CFrame.new(0,0,5) end); msg(ok and 'تم طلب الانتقال؛ السيرفر قد يصححه' or tostring(e)) end) end end end
+ button(pTeleport,'🔄 تحديث اللاعبين',refreshPlayers); refreshPlayers()
+ on(Players.PlayerAdded,refreshPlayers); on(Players.PlayerRemoving,function() task.defer(function() if live then refreshPlayers() end end) end)
+ local function carRoot() local h=hum(); local seat=h and h.SeatPart; if not seat or not seat:IsA('VehicleSeat') then return nil end; local model=seat:FindFirstAncestorOfClass('Model'); return model and (model.PrimaryPart or seat) or seat end
+ toggle(pCar,'زيادة سرعة السيارة','carSpeed')
+ adjust(pCar,'سرعة السيارة المستهدفة','car',20,350,10)
+ toggle(pCar,'طيران السيارة','carFly')
+ local carList=obj('Frame',{Size=UDim2.new(1,-4,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},pCar); obj('UIListLayout',{Padding=UDim.new(0,5)},carList)
+ local function refreshCars() for _,ch in ipairs(carList:GetChildren()) do if ch:IsA('TextButton') then ch:Destroy() end end; local count=0; for _,m in ipairs(WS:GetDescendants()) do if m:IsA('Model') and m:FindFirstChildWhichIsA('VehicleSeat',true) then count+=1; button(carList,'🚙 '..m.Name,function() local r=root(); if not r or not m.Parent then msg('السيارة غير متاحة'); return end; local ok,e=pcall(function() m:PivotTo(r.CFrame*CFrame.new(7,2,0)) end); msg(ok and 'تم طلب سحب السيارة (حسب صلاحيات السيرفر)' or tostring(e)) end); if count>=60 then break end end end; msg('السيارات المحمّلة: '..count) end
+ button(pCar,'🔄 تحديث السيارات الموجودة',refreshCars)
+ label(pCar,'السيارات المشتراة غير المستدعاة لا يمكن كشفها دون بيانات ملكية يتيحها الماب.',55)
+ local elapsed=0; local aimElapsed=0; local scanElapsed=0
+ on(RunService.Heartbeat,function(dt)
+ if not live then return end
+ elapsed+=dt; aimElapsed+=dt; scanElapsed+=dt
+ if elapsed>=.25 then elapsed=0; if state.speed then local h=hum(); if h then if trackedHum~=h then trackedHum=h; originalSpeed=h.WalkSpeed end; h.WalkSpeed=state.walk end end; if state.invis then applyVis() end; if state.esp then updateESP() end end
+ if scanElapsed>=3 then scanElapsed=0; if state.radar or state.aim then scanAnimals() end; if state.radar then for _,a in ipairs(animals) do marker(a) end; for m,b in pairs(marks) do if not m.Parent then b:Destroy(); marks[m]=nil end end end end
+ if state.aim and aimElapsed>=.1 then aimElapsed=0; local a=nearest(state.filter); local cam=WS.CurrentCamera; if a and cam then cam.CFrame=CFrame.lookAt(cam.CFrame.Position,a.part.Position) end end
+ local vr=carRoot(); if vr and state.carFly then local cam=WS.CurrentCamera; if cam then local d=Vector3.zero; if UIS:IsKeyDown(Enum.KeyCode.W) then d+=cam.CFrame.LookVector end; if UIS:IsKeyDown(Enum.KeyCode.S) then d-=cam.CFrame.LookVector end; if UIS:IsKeyDown(Enum.KeyCode.A) then d-=cam.CFrame.RightVector end; if UIS:IsKeyDown(Enum.KeyCode.D) then d+=cam.CFrame.RightVector end; if UIS:IsKeyDown(Enum.KeyCode.Space) then d+=Vector3.yAxis end; if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then d-=Vector3.yAxis end; if d.Magnitude>0 then vr.AssemblyLinearVelocity=d.Unit*state.car end end
+ elseif vr and state.carSpeed then local v=vr.AssemblyLinearVelocity; local flat=Vector3.new(v.X,0,v.Z); if flat.Magnitude>1 then local speed=math.min(state.car,flat.Magnitude+dt*state.car*.7); local n=flat.Unit*speed; vr.AssemblyLinearVelocity=Vector3.new(n.X,v.Y,n.Z) end end
+ end)
+ local dragging,dragStart,origin=false,nil,nil
+ on(header.InputBegan,function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true; dragStart=i.Position; origin=main.Position end end)
+ on(UIS.InputChanged,function(i) if dragging and i.UserInputType==Enum.UserInputType.MouseMovement and dragStart then local d=(i.Position-dragStart)/scale.Scale; main.Position=UDim2.new(origin.X.Scale,origin.X.Offset+d.X,origin.Y.Scale,origin.Y.Offset+d.Y) end end)
+ on(UIS.InputEnded,function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
+ local function cleanup() if not live then return end; live=false; clearMarks(); clearESP(); restoreVis(); restoreSpeed(); for _,c in ipairs(cons) do pcall(function() c:Disconnect() end) end; table.clear(cons); if env.ZyphoraCleanup==cleanup then env.ZyphoraCleanup=nil end; if gui.Parent then gui:Destroy() end end
+ env.ZyphoraCleanup=cleanup
+ on(close.MouseButton1Click,cleanup)
+ on(gui.Destroying,cleanup)
+ on(LP.CharacterAdded,function() restoreVis(); trackedHum=nil; originalSpeed=nil end)
+ msg('ZYPHORA v22 جاهز — افتح رادار الضبان')
+ print('[ZYPHORA] v22 UI ready')
