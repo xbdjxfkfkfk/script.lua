@@ -12,7 +12,7 @@ if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
 local env=_G
 if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
 if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
-for _,name in ipairs({'Lx_NexusV35','Lx_NexusV36','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+for _,name in ipairs({'Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
  local old=PG:FindFirstChild(name)
  if old then old:Destroy() end
 end
@@ -26,8 +26,8 @@ local function hum() return LP.Character and LP.Character:FindFirstChildOfClass(
 local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(9,11,20),card=Color3.fromRGB(25,28,43),muted=Color3.fromRGB(150,160,186),white=Color3.fromRGB(248,249,255),purple=Color3.fromRGB(153,101,255),green=Color3.fromRGB(68,211,136)}
-for _,oldName in ipairs({'Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusFOV_V36','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local gui=inst('ScreenGui',{Name='Lx_NexusV36',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+for _,oldName in ipairs({'Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusFOV_V36','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
+local gui=inst('ScreenGui',{Name='Lx_NexusV37',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 inst('UIStroke',{Color=Color3.fromRGB(70,51,108),Thickness=1.4,Transparency=.12},main)
 local scale=inst('UIScale',{Scale=1},main)
@@ -298,7 +298,7 @@ label(aim,'دائرة FOV مرئية على الشاشة','الاستهداف ل
 local vehicle=tab('السيارات')
 toggle(vehicle,'مساعد سرعة السيارة','CarSpeed')
 number(vehicle,'السرعة المستهدفة (وحدة/ثانية)','CarTarget',20,400,20)
-label(vehicle,'السرعة لا تعني تعديل عداد اللعبة','يعمل فقط عندما تكون السيارة تحت تحكم العميل؛ الفرامل توقفها')
+label(vehicle,'مساعد السرعة مع المقطورة','يدعم تسارع السيارة وهي تسحب القلص قدر ما تسمح به فيزياء الماب وملكية الشبكة؛ لا يضمن نفس السرعة في كل سيرفر')
 local carList=inst('Frame',{Size=UDim2.new(1,-2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},vehicle)
 inst('UIListLayout',{Padding=UDim.new(0,6)},carList)
 local function moveTo(pos)
@@ -405,11 +405,46 @@ local function updateCircle(cam)
  local vp=cam.ViewportSize
  fovCircle.Position=UDim2.fromOffset(vp.X*.5,vp.Y*.5)
 end
+-- Vehicle assist: physics-based forward force. Avoids directly overwriting the
+-- vehicle velocity every frame (which causes severe hitch/trailer jitter).
+local boostAttachment,boostForce,boostRoot
+local function clearVehicleBoost()
+ if boostForce then boostForce:Destroy();boostForce=nil end
+ if boostAttachment then boostAttachment:Destroy();boostAttachment=nil end
+ boostRoot=nil
+end
+local function updateVehicleBoost(dt)
+ local h=hum();local seat=h and h.SeatPart
+ if not S.CarSpeed or not seat or not seat:IsA('VehicleSeat') then clearVehicleBoost();return end
+ local rootPart=seat.AssemblyRootPart or seat
+ if not rootPart or not rootPart:IsA('BasePart') or rootPart.Anchored then clearVehicleBoost();return end
+ if rootPart~=boostRoot then
+  clearVehicleBoost()
+  boostRoot=rootPart
+  boostAttachment=inst('Attachment',{Name='Lx_VehicleBoostAttachment'},rootPart)
+  boostForce=inst('VectorForce',{Name='Lx_VehicleBoostForce',Attachment0=boostAttachment,RelativeTo=Enum.ActuatorRelativeTo.World,ApplyAtCenterOfMass=true,Force=Vector3.zero},rootPart)
+ end
+ local throttle=seat.ThrottleFloat
+ if throttle<=0.05 then boostForce.Force=Vector3.zero;return end
+ local forward=seat.CFrame.LookVector
+ local flat=Vector3.new(forward.X,0,forward.Z)
+ if flat.Magnitude<0.01 then boostForce.Force=Vector3.zero;return end
+ flat=flat.Unit
+ local speed=rootPart.AssemblyLinearVelocity:Dot(flat)
+ local errorSpeed=math.max(0,S.CarTarget-speed)
+ if errorSpeed<0.5 then boostForce.Force=Vector3.zero;return end
+ -- Proportional force respects braking, steering, and towing physics.
+ -- Force cap prevents explosive acceleration and unstable trailer joints.
+ local mass=rootPart.AssemblyMass
+ local acceleration=math.clamp(errorSpeed*1.8,0,90)
+ boostForce.Force=flat*(mass*acceleration)
+end
+
 local function cleanup()
  if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.Speed=false;S.Fog=false;S.Fullbright=false
- clearMarkers();applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
+ clearVehicleBoost();clearMarkers();applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
  for _,c in ipairs(conns) do c:Disconnect() end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV36')end)
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV37')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
  gui:Destroy()
 end
@@ -420,19 +455,7 @@ conn(RunService.Heartbeat,function(dt)
  if not alive then return end
  timer+=dt;aimTimer+=dt;fitTimer+=dt;if fitTimer>=1 then fitTimer=0;fitScreen() end
  if S.Speed then local h=hum();if h then if speedHum~=h then speedHum=h;originalSpeed=h.WalkSpeed end;h.WalkSpeed=S.Walk end end
- if S.CarSpeed then
-  local h=hum();local seat=h and h.SeatPart
-  if seat and seat:IsA('VehicleSeat') then
-   local p=seat.AssemblyRootPart or seat
-   local v=p.AssemblyLinearVelocity;local horiz=Vector3.new(v.X,0,v.Z)
-   local throttle=seat.ThrottleFloat
-   if throttle>.05 and horiz.Magnitude>1 then
-    local desired=math.min(S.CarTarget,horiz.Magnitude+math.max(1,S.CarTarget*.35)*dt)
-    local nv=horiz.Unit*desired;p.AssemblyLinearVelocity=Vector3.new(nv.X,v.Y,nv.Z)
-   end
-   -- Brake/reverse inputs remain controlled by the game's vehicle system.
-  end
- end
+ updateVehicleBoost(dt)
  if timer>=1 then
   timer=0
   if S.Radar or S.Aim then refreshCache() end
@@ -463,7 +486,7 @@ conn(RunService.Heartbeat,function(dt)
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
-local aimBinding='Lx_NexusAimV36'
+local aimBinding='Lx_NexusAimV37'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
  local cam=WS.CurrentCamera
