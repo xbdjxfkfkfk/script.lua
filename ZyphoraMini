@@ -12,7 +12,7 @@ if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
 local env=_G
 if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
 if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
-for _,name in ipairs({'Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV38','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+for _,name in ipairs({'Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
  local old=PG:FindFirstChild(name)
  if old then old:Destroy() end
 end
@@ -26,8 +26,8 @@ local function hum() return LP.Character and LP.Character:FindFirstChildOfClass(
 local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(9,11,20),card=Color3.fromRGB(25,28,43),muted=Color3.fromRGB(150,160,186),white=Color3.fromRGB(248,249,255),purple=Color3.fromRGB(153,101,255),green=Color3.fromRGB(68,211,136)}
-for _,oldName in ipairs({'Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV38','Lx_NexusFOV_V36','Lx_NexusFOV_V38','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local gui=inst('ScreenGui',{Name='Lx_NexusV38',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+for _,oldName in ipairs({'Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
+local gui=inst('ScreenGui',{Name='Lx_NexusV39',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 inst('UIStroke',{Color=Color3.fromRGB(70,51,108),Thickness=1.4,Transparency=.12},main)
 local scale=inst('UIScale',{Scale=1},main)
@@ -298,8 +298,8 @@ label(aim,'دائرة FOV مرئية على الشاشة','الاستهداف ل
 local vehicle=tab('السيارات')
 toggle(vehicle,'مساعد سرعة السيارة','CarSpeed')
 number(vehicle,'السرعة المستهدفة (وحدة/ثانية)','CarTarget',20,400,20)
-label(vehicle,'تنبيه مهم','التسارع المحلي لا يتجاوز حدود السرعة التي يفرضها سيرفر الماب. شغّل التشخيص لمعرفة سبب عدم التأثير.')
-local vehicleDiagnostic=label(vehicle,'التشخيص: لم يبدأ','الحالة الحقيقية لمقعد السائق والسرعة')
+label(vehicle,'معلومة مهمة','التسارع المحلي لا يضمن زيادة السرعة في ماب لا يمنح العميل تحكم المركبة. التشخيص يوضح الحالة الفعلية.')
+local vehicleDiagnostic=label(vehicle,'التشخيص: لم يبدأ','مقعد السائق والسرعة الفعلية؛ قد يمنع السيرفر التعديل')
 local vehicleDiagnosticText=vehicleDiagnostic:FindFirstChildOfClass('TextLabel')
 local carList=inst('Frame',{Size=UDim2.new(1,-2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},vehicle)
 inst('UIListLayout',{Padding=UDim.new(0,6)},carList)
@@ -384,7 +384,7 @@ conn(UIS.InputChanged,function(i)if dragging and i.UserInputType==Enum.UserInput
 conn(UIS.InputEnded,function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
 -- Visible FOV overlay. Radius is in screen pixels, not camera degrees.
 local fovGui=inst('ScreenGui',{
- Name='Lx_NexusFOV_V38',ResetOnSpawn=false,IgnoreGuiInset=true,
+ Name='Lx_NexusFOV_V39',ResetOnSpawn=false,IgnoreGuiInset=true,
  DisplayOrder=89,ZIndexBehavior=Enum.ZIndexBehavior.Sibling
 },PG)
 local fovCircle=inst('Frame',{
@@ -408,11 +408,13 @@ local function updateCircle(cam)
 end
 -- Vehicle assist: best effort ONLY. Do not claim a server-enforced speed cap can be bypassed.
 local boostAttachment,boostForce,boostRoot
+local lastVehicleSpeed,vehicleSpeedStuckFor=0,0
 local vehicleState='بانتظار فحص السيارة'
 local function clearVehicleBoost()
  if boostForce then pcall(function()boostForce:Destroy()end);boostForce=nil end
  if boostAttachment then pcall(function()boostAttachment:Destroy()end);boostAttachment=nil end
  boostRoot=nil
+ lastVehicleSpeed=0;vehicleSpeedStuckFor=0
 end
 local function updateVehicleBoost(dt)
  local h=hum()
@@ -447,13 +449,30 @@ local function updateVehicleBoost(dt)
  flat=flat.Unit
  local speed=rootPart.AssemblyLinearVelocity:Dot(flat)
  local throttle=seat.ThrottleFloat
- vehicleState=string.format('VehicleSeat | W=%.2f | السرعة=%.1f | الهدف=%.0f',throttle,speed,S.CarTarget)
- if throttle<=.05 then boostForce.Force=Vector3.zero;return end
+ -- Some vehicle systems drive with custom controls; never assume W equals ThrottleFloat.
+ local pressingW=UIS:IsKeyDown(Enum.KeyCode.W) or UIS:IsKeyDown(Enum.KeyCode.Up)
+ local accelerating=(throttle>.05 or pressingW)
+ local ownerText='غير معروف'
+ local okOwner,owner=pcall(function()return rootPart:GetNetworkOwner()end)
+ if okOwner and owner then ownerText=owner.Name elseif not okOwner then ownerText='غير متاح للعميل' end
+ if not accelerating then
+  vehicleState=string.format('المقعد معروف | W غير مرصود | السرعة %.1f | الهدف %.0f',speed,S.CarTarget)
+  boostForce.Force=Vector3.zero;vehicleSpeedStuckFor=0;lastVehicleSpeed=speed;return
+ end
+ if math.abs(speed-lastVehicleSpeed)<.25 and speed<S.CarTarget-5 then
+  vehicleSpeedStuckFor+=math.min(dt,.1)
+ else vehicleSpeedStuckFor=0 end
+ lastVehicleSpeed=speed
+ vehicleState=string.format('قيادة: %s | السرعة %.1f / %.0f | الشبكة: %s',pressingW and 'W' or 'Throttle',speed,S.CarTarget,ownerText)
+ if vehicleSpeedStuckFor>3 then
+  vehicleState='السرعة لا تستجيب؛ قد يمنع نظام السيارة/السيرفر التأثير المحلي | '..string.format('%.1f',speed)
+ end
  local errorSpeed=math.max(0,S.CarTarget-speed)
  if errorSpeed<.5 then boostForce.Force=Vector3.zero;return end
  -- Uses actual assembly mass, not only the mass of one vehicle part.
  -- This is still client-local; server-side controllers may override it.
  local mass=rootPart.AssemblyMass
+ if mass<=0 or mass~=mass then vehicleState='كتلة المركبة غير صالحة';boostForce.Force=Vector3.zero;return end
  local acceleration=math.clamp(errorSpeed*1.8,0,60)
  boostForce.Force=flat*(mass*acceleration)
 end
@@ -462,7 +481,7 @@ local function cleanup()
  if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.Speed=false;S.Fog=false;S.Fullbright=false
  clearVehicleBoost();clearMarkers();applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
  for _,c in ipairs(conns) do c:Disconnect() end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV38')end)
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV39')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
  gui:Destroy()
 end
@@ -505,7 +524,7 @@ conn(RunService.Heartbeat,function(dt)
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
-local aimBinding='Lx_NexusAimV38'
+local aimBinding='Lx_NexusAimV39'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
  local cam=WS.CurrentCamera
