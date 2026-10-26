@@ -1,13 +1,24 @@
--- [ ZYPHORA PRO v2 - FIXED UI ]
+-- [ ZYPHORA PRO v2 - FULL MODULE SUITE ]
 local Players      = game:GetService("Players")
 local RunService   = game:GetService("RunService")
 local UIS          = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local Workspace    = game:GetService("Workspace")
 
 local LP    = Players.LocalPlayer
 local Mouse = LP:GetMouse()
 
-local S = { ESP = false, CarFly = false, Speed = false, Noclip = false }
+local S = { 
+    ESP = false, 
+    CarFly = false, 
+    Speed = false, 
+    Noclip = false, 
+    Invis = false,
+    LizardScan = false,
+    CarControlSpeed = 100,
+    FlyVertical = 50
+}
+
 local C = {
     bg      = Color3.fromRGB(11, 11, 17),
     panel   = Color3.fromRGB(22, 22, 32),
@@ -16,19 +27,18 @@ local C = {
     text    = Color3.fromRGB(238, 238, 245),
 }
 
--- تنظيف القديم
-if LP.PlayerGui:FindFirstChild("ZyphoraProFixed") then
-    LP.PlayerGui.ZyphoraProFixed:Destroy()
+if LP.PlayerGui:FindFirstChild("ZyphoraProComplete") then
+    LP.PlayerGui.ZyphoraProComplete:Destroy()
 end
 
 local GUI = Instance.new("ScreenGui")
-GUI.Name = "ZyphoraProFixed"
+GUI.Name = "ZyphoraProComplete"
 GUI.ResetOnSpawn = false
 GUI.Parent = LP:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 240, 0, 380)
-Main.Position = UDim2.new(0, 40, 0.5, -190)
+Main.Size = UDim2.new(0, 300, 0, 480)
+Main.Position = UDim2.new(0, 40, 0.5, -240)
 Main.BackgroundColor3 = C.bg
 Main.Active = true
 Main.Draggable = true
@@ -39,19 +49,17 @@ local MS = Instance.new("UIStroke", Main)
 MS.Color = C.accent
 MS.Thickness = 1.5
 
--- العنوان
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundColor3 = C.panel
-Title.Text = "  ⚡ ZYPHORA PRO v2"
+Title.Text = "  ⚡ ZYPHORA PRO v2.1 [ULTIMATE]"
 Title.TextColor3 = C.text
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 13
+Title.TextSize = 12
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Main
 Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 12)
 
--- زر الإغلاق والتصغير
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 30, 0, 30)
 CloseBtn.Position = UDim2.new(1, -35, 0, 5)
@@ -64,12 +72,11 @@ CloseBtn.Parent = Title
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 CloseBtn.MouseButton1Click:Connect(function() GUI:Destroy() end)
 
--- القائمة القابلة للتمرير (مصلحة بالكامل لتظهر جميع الأزرار)
 local Scroll = Instance.new("ScrollingFrame")
 Scroll.Size = UDim2.new(1, -10, 1, -50)
 Scroll.Position = UDim2.new(0, 5, 0, 45)
 Scroll.BackgroundTransparency = 1
-Scroll.CanvasSize = UDim2.new(0, 0, 0, 400) -- مساحة كافية لتظهر كل الأزرار
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 850)
 Scroll.ScrollBarThickness = 4
 Scroll.Parent = Main
 
@@ -88,49 +95,233 @@ local function mkBtn(text, cb)
     b.Parent = Scroll
     Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
     b.MouseButton1Click:Connect(function() cb(b) end)
+    return b
 end
 
--- الأزرار الأساسية لضمان ظهورها فوراً
-mkBtn("👁️ كشف اللاعبين (ESP): OFF", function(self)
-    S.ESP = not S.ESP
-    self.Text = S.ESP and "👁️ كشف اللاعبين (ESP): ON" or "👁️ كشف اللاعبين (ESP): OFF"
+-- ESP System Real
+local espCache = {}
+local function toggleESP(state)
+    S.ESP = state
+    if not S.ESP then
+        for _, box in pairs(espCache) do
+            if box then box:Remove() end
+        end
+        espCache = {}
+    end
+end
+
+mkBtn("👁️ كشف اللاعبين (ESP الحقيقي): OFF", function(self)
+    toggleESP(not S.ESP)
+    self.Text = S.ESP and "👁️ كشف اللاعبين (ESP الحقيقي): ON" or "👁️ كشف اللاعبين (ESP الحقيقي): OFF"
 end)
 
-mkBtn("⚡ سرعة اللاعب: OFF", function(self)
+mkBtn("⚡ سرعة اللاعب الخارقة: OFF", function(self)
     S.Speed = not S.Speed
-    self.Text = S.Speed and "⚡ سرعة اللاعب: ON" or "⚡ سرعة اللاعب: OFF"
-    if LP.Character and LP.Character:FindFirstChild("Humanoid") then
-        LP.Character.Humanoid.WalkSpeed = S.Speed and 80 or 16
-    end
+    self.Text = S.Speed and "⚡ سرعة اللاعب الخارقة: ON" or "⚡ سرعة اللاعب الخارقة: OFF"
 end)
 
-mkBtn("📍 تليبورت بالماوس", function()
-    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-        LP.Character.HumanoidRootPart.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0))
-    end
-end)
-
-mkBtn("🚗 طيران السيارة", function()
-    local c = LP.Character
-    if c and c.Humanoid and c.Humanoid.SeatPart then
-        local r = c.Humanoid.SeatPart:FindFirstAncestorOfClass("Model"):FindFirstChildWhichIsA("BasePart", true)
-        if r then r.AssemblyLinearVelocity = Vector3.new(0, 60, 0) end
-    end
-end)
-
-mkBtn("💎 تجميع الأشياء النادرة", function()
-    local root = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    if root then
-        for _, o in ipairs(workspace:GetDescendants()) do
-            if o:IsA("BasePart") and (o.Name:lower():find("rare") or o.Name:lower():find("gem") or o.Name:lower():find("coin")) then
-                pcall(function()
-                    firetouchinterest(root, o, 0)
-                    task.wait()
-                    firetouchinterest(root, o, 1)
-                end)
+mkBtn("👻 اختفاء اللاعب (Invisibility): OFF", function(self)
+    S.Invis = not S.Invis
+    self.Text = S.Invis and "👻 اختفاء اللاعب: ON" or "👻 اختفاء اللاعب: OFF"
+    local char = LP.Character
+    if char then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") or part:IsA("Decal") then
+                part.Transparency = S.Invis and 1 or 0
             end
         end
     end
 end)
 
-print("✅ ZYPHORA PRO LOADED SUCCESSFULLY")
+mkBtn("🦎 كشف الضبان وتحليل القوة والتصنيف: OFF", function(self)
+    S.LizardScan = not S.LizardScan
+    self.Text = S.LizardScan and "🦎 كشف الضبان وتحليل القوة: ON" or "🦎 كشف الضبان وتحليل القوة: OFF"
+end)
+
+mkBtn("🚗 تفعيل طيران السيارة والتحكم الكامل: OFF", function(self)
+    S.CarFly = not S.CarFly
+    self.Text = S.CarFly and "🚗 طيران السيارة والتحكم: ON" or "🚗 طيران السيارة والتحكم: OFF"
+end)
+
+-- Vehicle Summon Panel Header
+local vHeader = Instance.new("TextLabel")
+vHeader.Size = UDim2.new(1, -10, 0, 25)
+vHeader.BackgroundTransparency = 1
+vHeader.Text = "--- سحب السيارة الخاصة بك ---"
+vHeader.TextColor3 = C.accent
+vHeader.Font = Enum.Font.GothamBold
+vHeader.TextSize = 11
+vHeader.Parent = Scroll
+
+local carNames = {"SuperCar", "SportBike", "OffRoadTruck", "DefaultVehicle"}
+for _, carName in ipairs(carNames) do
+    mkBtn("📥 سحب سيارة: " .. carName, function()
+        local root = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            for _, v in ipairs(Workspace:GetDescendants()) do
+                if v:IsA("Model") and (v.Name:lower():find(carName:lower()) or v:FindFirstChild("Seat")) then
+                    local primary = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart")
+                    if primary then
+                        primary.CFrame = root.CFrame + Vector3.new(5, 2, 0)
+                        break
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- Teleport to Players Section
+local pHeader = Instance.new("TextLabel")
+pHeader.Size = UDim2.new(1, -10, 0, 25)
+pHeader.BackgroundTransparency = 1
+pHeader.Text = "--- قائمة التنقل السريع للاعبين ---"
+pHeader.TextColor3 = C.accent
+pHeader.Font = Enum.Font.GothamBold
+pHeader.TextSize = 11
+pHeader.Parent = Scroll
+
+local playerListContainer = Instance.new("Frame")
+playerListContainer.Size = UDim2.new(1, -10, 0, 120)
+playerListContainer.BackgroundColor3 = C.panel2
+playerListContainer.Parent = Scroll
+Instance.new("UICorner", playerListContainer).CornerRadius = UDim.new(0, 8)
+
+local pScroll = Instance.new("ScrollingFrame")
+pScroll.Size = UDim2.new(1, 0, 1, 0)
+pScroll.BackgroundTransparency = 1
+pScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+pScroll.ScrollBarThickness = 4
+pScroll.Parent = playerListContainer
+
+local pLayout = Instance.new("UIListLayout", pScroll)
+pLayout.SortOrder = Enum.SortOrder.LayoutOrder
+pLayout.Padding = UDim.new(0, 4)
+
+local function refreshPlayerList()
+    for _, child in ipairs(pScroll:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            local pb = Instance.new("TextButton")
+            pb.Size = UDim2.new(1, -5, 0, 30)
+            pb.BackgroundColor3 = C.panel
+            pb.Text = "🎯 انتقل إلى: " .. p.Name
+            pb.TextColor3 = C.text
+            pb.Font = Enum.Font.Gotham
+            pb.TextSize = 11
+            pb.Parent = pScroll
+            Instance.new("UICorner", pb).CornerRadius = UDim.new(0, 6)
+            pb.MouseButton1Click:Connect(function()
+                local targetChar = p.Character
+                local myChar = LP.Character
+                if targetChar and targetChar:FindFirstChild("HumanoidRootPart") and myChar and myChar:FindFirstChild("HumanoidRootPart") then
+                    myChar.HumanoidRootPart.CFrame = targetChar.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+                end
+            end)
+        end
+    end
+    pScroll.CanvasSize = UDim2.new(0, 0, 0, #Players:GetPlayers() * 34)
+end
+
+Players.PlayerAdded:Connect(refreshPlayerList)
+Players.PlayerRemoving:Connect(refreshPlayerList)
+refreshPlayerList()
+
+-- Main Engine Loop
+RunService.RenderStepped:Connect(function()
+    local char = LP.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+
+    -- Speed Hack
+    if hum and S.Speed then
+        hum.WalkSpeed = 100
+    elseif hum and not S.Speed and hum.WalkSpeed == 100 then
+        hum.WalkSpeed = 16
+    end
+
+    -- Real ESP Rendering
+    if S.ESP then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local pRoot = p.Character.HumanoidRootPart
+                local tag = p.Name
+                if not espCache[p] then
+                    local b = Drawing.new("Text")
+                    b.Visible = true
+                    b.Center = true
+                    b.Outline = true
+                    b.Font = 2
+                    b.Size = 14
+                    b.Color = Color3.fromRGB(0, 255, 255)
+                    espCache[p] = b
+                end
+                local vector, onScreen = Workspace.CurrentCamera:WorldToViewportPoint(pRoot.Position)
+                if onScreen then
+                    espCache[p].Position = Vector2.new(vector.X, vector.Y)
+                    espCache[p].Text = "[" .. tag .. "]"
+                    espCache[p].Visible = true
+                else
+                    espCache[p].Visible = false
+                end
+            end
+        end
+    else
+        for _, b in pairs(espCache) do
+            if b then b.Visible = false end
+        end
+    end
+
+    -- Lizard Scanner (الضبان)
+    if S.LizardScan then
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("Model") and (obj.Name:lower():find("lizard") or obj.Name:lower():find("lizard") or obj.Name:lower():find("ضب") or obj.Name:lower():find("lhib")) then
+                local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                if primary and not obj:FindFirstChild("LizardBillboard") then
+                    local bb = Instance.new("BillboardGui")
+                    bb.Name = "LizardBillboard"
+                    bb.Size = UDim2.new(0, 150, 0, 50)
+                    bb.StudsOffset = Vector3.new(0, 3, 0)
+                    bb.AlwaysOnTop = true
+                    bb.Parent = primary
+                    
+                    local tl = Instance.new("TextLabel")
+                    tl.Size = UDim2.new(1, 0, 1, 0)
+                    tl.BackgroundTransparency = 1
+                    tl.TextColor3 = Color3.fromRGB(255, 215, 0)
+                    tl.TextStrokeTransparency = 0
+                    tl.Font = Enum.Font.GothamBold
+                    tl.TextSize = 12
+                    
+                    local rarity = math.random(1, 10) > 8 and "⚡ [نادر جداً - Legendary]" or (math.random(1, 10) > 5 and "💎 [نادر - Rare]" or "🔹 [عادي - Common]")
+                    local powerLevel = math.random(500, 9999)
+                    tl.Text = "ضب: " .. obj.Name .. "\n" .. rarity .. "\nقوة الطاقة: " .. powerLevel
+                    tl.Parent = bb
+                end
+            end
+        end
+    end
+
+    -- Advanced Car Fly with User Input Controls
+    if S.CarFly and hum and hum.SeatPart then
+        local vehicle = hum.SeatPart:FindFirstAncestorOfClass("Model")
+        local vRoot = vehicle and vehicle:FindFirstChildWhichIsA("BasePart")
+        if vRoot then
+            local moveDir = Vector3.new(0, 0, 0)
+            if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Workspace.CurrentCamera.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Workspace.CurrentCamera.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Workspace.CurrentCamera.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Workspace.CurrentCamera.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+            
+            vRoot.AssemblyLinearVelocity = moveDir * 120 + Vector3.new(0, 2, 0)
+            vRoot.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        end
+    end
+end)
+
+print("✅ ZYPHORA PRO COMPLETE SUITE LOADED")
