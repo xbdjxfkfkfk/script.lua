@@ -1,4 +1,4 @@
--- ZYPHORA PRO v20 | Single-file Roblox Luau client script
+-- ZYPHORA PRO v21 | Single-file Roblox Luau client script
 -- Client effects depend on replication and game permissions.
 local Players=game:GetService('Players')
 local RunService=game:GetService('RunService')
@@ -8,11 +8,11 @@ local LP=Players.LocalPlayer
 if not LP then return end
 local env=_G
 if type(getgenv)=='function' then local ok,v=pcall(getgenv); if ok and type(v)=='table' then env=v end end
-if type(env.ZyphoraV20Cleanup)=='function' then pcall(env.ZyphoraV20Cleanup) end
+if type(env.ZyphoraV21Cleanup)=='function' then pcall(env.ZyphoraV21Cleanup) end
 local parent=LP:WaitForChild('PlayerGui',12)
 if not parent then return end
 if type(gethui)=='function' then local ok,v=pcall(gethui); if ok and typeof(v)=='Instance' then parent=v end end
-local old=parent:FindFirstChild('ZyphoraProV20'); if old then old:Destroy() end
+local old=parent:FindFirstChild('ZyphoraProV21'); if old then old:Destroy() end
 local alive=true
 local connections={}
 local esp={}
@@ -27,7 +27,7 @@ local function new(class,props,parentObj) local o=Instance.new(class); for k,v i
 local function corner(o,r) new('UICorner',{CornerRadius=UDim.new(0,r or 8)},o) end
 local function root() local ch=LP.Character; return ch and ch:FindFirstChild('HumanoidRootPart') end
 local function hum() local ch=LP.Character; return ch and ch:FindFirstChildOfClass('Humanoid') end
-local gui=new('ScreenGui',{Name='ZyphoraProV20',ResetOnSpawn=false,DisplayOrder=110,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},parent)
+local gui=new('ScreenGui',{Name='ZyphoraProV21',ResetOnSpawn=false,DisplayOrder=110,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},parent)
 local main=new('Frame',{Size=UDim2.fromOffset(540,470),Position=UDim2.new(.5,-270,.5,-235),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true,ClipsDescendants=true},gui);corner(main,12)
 new('UIStroke',{Color=C.cyan,Thickness=1.3},main)
 local scale=new('UIScale',{Scale=1},main)
@@ -97,6 +97,9 @@ local function info(m)
 end
 local function isLizard(m)
  if not m:IsA('Model') or Players:GetPlayerFromCharacter(m) then return false end
+ for _,player in ipairs(Players:GetPlayers()) do
+  if player.Character and (m==player.Character or m:IsDescendantOf(player.Character)) then return false end
+ end
  local n=string.lower(m.Name)
  for _,word in ipairs(keywords) do if n:find(word,1,true) then return true end end
  local kind=stat(m,{'Type','Species','Kind','نوع'})
@@ -213,6 +216,8 @@ local function playersRefresh()
  for _,p in ipairs(Players:GetPlayers()) do if p~=LP then btn(playerList,p.DisplayName,function()local r=root();local t=p.Character and p.Character:FindFirstChild('HumanoidRootPart');if r and t then local ch=LP.Character;local ok,err=pcall(function() if ch then ch:PivotTo(t.CFrame*CFrame.new(0,4,5)) end end);status(ok and ('طلب انتقال: '..p.Name) or ('تعذر الانتقال: '..tostring(err))) else status('اللاعب غير متاح') end end) end end
 end
 btn(teleportPage,'تحديث اللاعبين',playersRefresh);playersRefresh()
+on(Players.PlayerAdded,playersRefresh)
+on(Players.PlayerRemoving,function()task.defer(function()if alive then playersRefresh()end end)end)
 btn(lizardPage,'رادار فوق رأس الضبان',function()S.Radar=not S.Radar;if S.Radar then scanLizards();refreshRadar()else clearRadar()end end,'Radar')
 local infoPanel=new('TextLabel',{Size=UDim2.new(1,-4,0,115),BackgroundColor3=C.panel2,Text='معلومات الضب ستظهر هنا بعد الضغط على عرض المعلومات',TextColor3=C.white,TextSize=12,Font=Enum.Font.Gotham,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center},lizardPage);corner(infoPanel,8)
 label(lizardPage,'اسم الضب (اتركه فارغاً لاختيار الأقرب)')
@@ -283,14 +288,49 @@ local function refreshCars()
  status('السيارات المحملة: '..#found)
 end
 btn(carPage,'تحديث السيارات',refreshCars);refreshCars()
+-- Purchased cars: these are readable records, not guessed from spawned models.
+-- Only attributes / ValueBase instances replicated under the local player are accessible.
+label(carPage,'سياراتي المشتراة (من بيانات اللاعب المتاحة فقط)',42)
+local ownedList=new('Frame',{Size=UDim2.new(1,-4,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},carPage)
+new('UIListLayout',{Padding=UDim.new(0,5)},ownedList)
+local function refreshOwned()
+ for _,child in ipairs(ownedList:GetChildren()) do if child:IsA('TextLabel') then child:Destroy() end end
+ local names,seen={},{}
+ local function add(name)
+  name=tostring(name)
+  if name~='' and not seen[name] then seen[name]=true;names[#names+1]=name end
+ end
+ local containers={'OwnedCars','PurchasedCars','Garage','Vehicles','CarInventory','Cars'}
+ for _,containerName in ipairs(containers) do
+  local container=LP:FindFirstChild(containerName,true)
+  if container then
+   if container:IsA('Folder') or container:IsA('Configuration') then
+    for _,item in ipairs(container:GetChildren()) do
+     if item:IsA('BoolValue') then if item.Value then add(item.Name) end
+     elseif item:IsA('StringValue') then add(item.Value~='' and item.Value or item.Name)
+     elseif item:IsA('NumberValue') or item:IsA('IntValue') then if item.Value>0 then add(item.Name) end
+     elseif item:IsA('Folder') or item:IsA('Model') or item:IsA('Configuration') then add(item.Name) end
+    end
+   elseif container:IsA('StringValue') then add(container.Value) end
+  end
+ end
+ table.sort(names)
+ if #names==0 then names={'لا توجد قائمة ملكية مكشوفة للعميل في هذا الماب'} end
+ for _,name in ipairs(names) do
+  local t=new('TextLabel',{Size=UDim2.new(1,-4,0,30),BackgroundColor3=C.panel2,Text='  🚘 '..name,TextColor3=C.white,TextSize=12,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},ownedList);corner(t,6)
+ end
+ status('سجلات السيارات المقروءة: '..(#names==1 and names[1]:find('لا توجد') and 0 or #names))
+end
+btn(carPage,'تحديث قائمة سياراتي المشتراة',refreshOwned)
+refreshOwned()
 -- periodic loops: no GetDescendants on each frame
-local tickFast,tickScan,tickAim,tickUi=0,0,0,0
+local tickFast,tickScan,tickUi=0,0,0
 on(RunService.Heartbeat,function(dt)
  if not alive then return end
- tickFast+=dt;tickScan+=dt;tickAim+=dt;tickUi+=dt
+ tickFast+=dt;tickScan+=dt;tickUi+=dt
  if tickFast>=.25 then tickFast=0;applySpeed();applyVis();refreshESP() end
  if tickScan>=2.5 then tickScan=0;if S.Radar or S.Aim then scanLizards() end;if S.Radar then refreshRadar()end end
- if S.Aim and tickAim>=.12 then tickAim=0;local e=targetLizard(S.Target);local cam=WS.CurrentCamera;if e and cam then local pos=cam.CFrame.Position;cam.CFrame=cam.CFrame:Lerp(CFrame.lookAt(pos,e.root.Position),.55)end end
+ -- Camera tracking runs after the Roblox camera update (RenderStepped below).
  if tickUi>=2 then tickUi=0;resize()end
  local vr=seatRoot()
  if vr and S.CarFly then
@@ -319,6 +359,18 @@ on(RunService.Heartbeat,function(dt)
   end
  end
 end)
+on(RunService.RenderStepped,function()
+ if not alive or not S.Aim then return end
+ local e=targetLizard(aimInput.Text)
+ local cam=WS.CurrentCamera
+ if e and cam and e.root.Parent then
+  local pos=cam.CFrame.Position
+  local dest=e.root.Position
+  if (dest-pos).Magnitude>.1 then
+   cam.CFrame=cam.CFrame:Lerp(CFrame.lookAt(pos,dest),.32)
+  end
+ end
+end)
 on(LP.CharacterAdded,function()restoreVis();trackedHum=nil;originalSpeed=nil end)
 local dragging=false;local dragStart;local startPos
 on(header.InputBegan,function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true;dragStart=i.Position;startPos=main.Position end end)
@@ -331,11 +383,11 @@ local function cleanup()
  alive=false;S.Aim=false;S.CarSpeed=false;S.CarFly=false
  clearESP();clearRadar();restoreVis();stopSpeed()
  for _,c in ipairs(connections) do c:Disconnect() end;table.clear(connections)
- if env.ZyphoraV20Cleanup==cleanup then env.ZyphoraV20Cleanup=nil end
+ if env.ZyphoraV21Cleanup==cleanup then env.ZyphoraV21Cleanup=nil end
  if gui.Parent then gui:Destroy() end
 end
-env.ZyphoraV20Cleanup=cleanup
+env.ZyphoraV21Cleanup=cleanup
 on(close.MouseButton1Click,cleanup)
 on(gui.Destroying,cleanup)
-status('ZYPHORA PRO v20 READY')
-print('[ZYPHORA] v20 loaded')
+status('ZYPHORA PRO v21 READY')
+print('[ZYPHORA] v21 loaded')
