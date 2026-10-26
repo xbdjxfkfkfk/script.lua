@@ -1,4 +1,4 @@
--- ZYPHORA HUB v25 | Single-file Roblox Luau client UI
+-- X | ZYPHORA HUB v26 | Single-file Roblox Luau client UI
 -- Features depend on objects replicated to this client. No server bypass is implied.
 local Players=game:GetService('Players')
 local RS=game:GetService('RunService')
@@ -10,6 +10,7 @@ local LP=Players.LocalPlayer
 if not LP then warn('ZYPHORA: LocalPlayer unavailable'); return end
 local pg=LP:WaitForChild('PlayerGui',10)
 if not pg then warn('ZYPHORA: PlayerGui unavailable'); return end
+if _G.ZyphoraXStop then pcall(_G.ZyphoraXStop) end
 if _G.ZyphoraV25Stop then pcall(_G.ZyphoraV25Stop) end
 local active=true; local cons={}; local markers={}; local state={radar=false,aim=false,fog=false,light=false,afk=false,filter='الكل',range=1000,aimSmooth=0.12,aimRange=1000,carFly=false,flySpeed=100,carSpeed=false,carBoost=70}
 local palette={bg=Color3.fromRGB(13,14,18),panel=Color3.fromRGB(30,31,36),card=Color3.fromRGB(41,42,48),text=Color3.fromRGB(246,246,248),sub=Color3.fromRGB(177,180,190),accent=Color3.fromRGB(159,104,235),on=Color3.fromRGB(36,200,112)}
@@ -19,13 +20,13 @@ local function rounded(o,r) new('UICorner',{CornerRadius=UDim.new(0,r or 10)},o)
 local function hum() local c=LP.Character; return c and c:FindFirstChildOfClass('Humanoid') end
 local function root() local c=LP.Character; return c and c:FindFirstChild('HumanoidRootPart') end
 local function camera() return WS.CurrentCamera end
-local old=pg:FindFirstChild('ZyphoraHubV25'); if old then old:Destroy() end
-local gui=new('ScreenGui',{Name='ZyphoraHubV25',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},pg)
+local old=pg:FindFirstChild('ZyphoraHubX'); if old then old:Destroy() end
+local gui=new('ScreenGui',{Name='ZyphoraHubX',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},pg)
 local main=new('Frame',{Size=UDim2.fromOffset(610,450),Position=UDim2.new(.5,-305,.5,-225),BackgroundColor3=palette.bg,BorderSizePixel=0,Active=true},gui); rounded(main,13)
 new('UIStroke',{Color=Color3.fromRGB(68,65,78),Thickness=1},main)
 local scale=new('UIScale',{Scale=1},main)
 local function resize() local cam=camera(); if cam then local v=cam.ViewportSize; scale.Scale=math.clamp(math.min(v.X/650,v.Y/490),.55,1) end end; resize()
-local title=new('TextLabel',{Size=UDim2.new(1,-40,0,48),BackgroundTransparency=1,Text='  ◈ Zyphora Hub | زيفورا  v25',TextColor3=palette.text,Font=Enum.Font.GothamBold,TextSize=17,TextXAlignment=Enum.TextXAlignment.Left},main)
+local title=new('TextLabel',{Size=UDim2.new(1,-40,0,48),BackgroundTransparency=1,Text='  ◈ X | ZYPHORA HUB  v26',TextColor3=palette.text,Font=Enum.Font.GothamBold,TextSize=17,TextXAlignment=Enum.TextXAlignment.Left},main)
 local close=new('TextButton',{Size=UDim2.fromOffset(32,30),Position=UDim2.new(1,-37,0,9),Text='×',TextSize=22,TextColor3=palette.text,BackgroundColor3=palette.panel},main); rounded(close,8)
 local sidebar=new('ScrollingFrame',{Position=UDim2.fromOffset(9,53),Size=UDim2.fromOffset(175,387),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},main)
 new('UIListLayout',{Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder},sidebar)
@@ -83,15 +84,39 @@ local function rarity(m)
  for _,d in ipairs(defs) do for _,term in ipairs(d[3]) do if s==term then return d[1],d[2] end end end
  return tostring(r),palette.sub
 end
-local function animal(m)
- if not m:IsA('Model') or Players:GetPlayerFromCharacter(m) then return false end
- local n=m.Name:lower(); return n:find('dhab',1,true)~=nil or n:find('lizard',1,true)~=nil or n:find('ضب',1,true)~=nil or n:find('reptile',1,true)~=nil
+-- Strict animal recognition: never mark a player character or anything inside it.
+local function belongsToPlayer(model)
+ local node=model
+ while node and node~=WS do
+  if node:IsA('Model') then
+   if Players:GetPlayerFromCharacter(node) then return true end
+   local h=node:FindFirstChildOfClass('Humanoid')
+   if h and (node==LP.Character or Players:GetPlayerFromCharacter(node)) then return true end
+  end
+  node=node.Parent
+ end
+ return false
 end
-local function part(m) return m.PrimaryPart or m:FindFirstChildWhichIsA('BasePart',true) end
+local function animal(m)
+ if not m:IsA('Model') or belongsToPlayer(m) then return false end
+ if m:FindFirstChildOfClass('Humanoid') and not (m.Name:lower():find('dhab',1,true) or m.Name:find('ضب',1,true)) then return false end
+ local n=m.Name:lower()
+ return n:find('dhab',1,true)~=nil or n:find('lizard',1,true)~=nil or n:find('ضب',1,true)~=nil or n:find('reptile',1,true)~=nil
+end
+local function part(m)
+ return m.PrimaryPart or m:FindFirstChild('Head',true) or m:FindFirstChildWhichIsA('BasePart',true)
+end
 local animals={}; local lastScan=0
 local function scan()
  table.clear(animals)
- for _,m in ipairs(WS:GetDescendants()) do if animal(m) then local p=part(m); if p then animals[#animals+1]={m=m,p=p} end end end
+ for _,m in ipairs(WS:GetDescendants()) do
+  if animal(m) then
+   local p=part(m)
+   if p and p:IsDescendantOf(m) and not belongsToPlayer(m) then
+    animals[#animals+1]={m=m,p=p}
+   end
+  end
+ end
 end
 local function matches(e)
  if state.filter=='الكل' then return true end
@@ -100,18 +125,18 @@ end
 local function nearest(filterRange)
  local me=root(); if not me then return nil end
  local best,bestDist=nil,math.huge
- for _,e in ipairs(animals) do if e.m.Parent and e.p.Parent and matches(e) then local d=(e.p.Position-me.Position).Magnitude; if d<bestDist and d<=(filterRange or math.huge) then best,bestDist=e,d end end end
+ for _,e in ipairs(animals) do if e.m.Parent and e.p.Parent and not belongsToPlayer(e.m) and matches(e) then local d=(e.p.Position-me.Position).Magnitude; if d<bestDist and d<=(filterRange or math.huge) then best,bestDist=e,d end end end
  return best,bestDist
 end
 local function compact(v)
- if v==nil then return 'غير متاح' end
+ if v==nil then return '—' end
  if type(v)=='number' then return string.format('%.1f',v) end
  return tostring(v)
 end
 local function clearMarkers() for _,v in pairs(markers) do v.gui:Destroy() end; table.clear(markers) end
 local function marker(e)
  if markers[e.m] then return end
- local bill=new('BillboardGui',{Adornee=e.p,Size=UDim2.fromOffset(225,52),StudsOffsetWorldSpace=Vector3.new(0,3.5,0),AlwaysOnTop=true,MaxDistance=state.range},gui)
+ local bill=new('BillboardGui',{Adornee=e.p,Size=UDim2.fromOffset(240,52),StudsOffsetWorldSpace=Vector3.new(0,3.5,0),AlwaysOnTop=true,MaxDistance=state.range},gui)
  local top=new('TextLabel',{Size=UDim2.new(1,0,0,25),BackgroundTransparency=1,TextColor3=palette.accent,TextStrokeTransparency=.3,TextSize=16,Font=Enum.Font.GothamBold},bill)
  local bottom=new('TextLabel',{Position=UDim2.fromOffset(0,25),Size=UDim2.new(1,0,0,24),BackgroundTransparency=1,TextColor3=palette.text,TextStrokeTransparency=.3,TextSize=12,Font=Enum.Font.GothamBold},bill)
  markers[e.m]={gui=bill,top=top,bottom=bottom}
@@ -119,12 +144,12 @@ end
 local function updateMarkers()
  local me=root(); if not me then return end
  local seen={}
- for _,e in ipairs(animals) do if e.m.Parent and e.p.Parent and matches(e) then
+ for _,e in ipairs(animals) do if e.m.Parent and e.p.Parent and not belongsToPlayer(e.m) and matches(e) then
   local d=(e.p.Position-me.Position).Magnitude
   if d<=state.range then
    marker(e); local o=markers[e.m]; local r,c=rarity(e.m); local weight=stat(e.m,{'Weight','weight','Mass','الوزن'}); local size=stat(e.m,{'Size','size','Scale','الحجم'});
-   o.top.Text=r; o.top.TextColor3=c
-   o.bottom.Text=compact(weight)..' كجم  •  '..compact(size)..' م  •  '..string.format('%.0f',d)..' وحدة'
+   o.top.Text=r; o.top.TextColor3=c; o.gui.Adornee=e.p
+   o.bottom.Text=(weight~=nil and compact(weight)..' كجم  •  ' or '')..(size~=nil and compact(size)..' م  •  ' or '')..string.format('%.0f',d)..' وحدة'
    o.gui.MaxDistance=state.range; seen[e.m]=true
   end
  end end
@@ -139,7 +164,7 @@ local filters={'الكل','عادي','مميز','نادر','فاخر','أسطو�
 con(filterBtn.MouseButton1Click,function() local idx=table.find(filters,state.filter) or 1; state.filter=filters[idx%#filters+1]; filterBtn.Text=state.filter end)
 local infoPanel=new('TextLabel',{Size=UDim2.new(1,-2,0,105),BackgroundColor3=palette.card,TextColor3=palette.text,TextSize=12,TextWrapped=true,Font=Enum.Font.Gotham,Text='أقرب ضب: لم يتم البحث بعد'},pReveal); rounded(infoPanel,9)
 action(pReveal,'معلومات أقرب ضب','يعرض المعلومات الحقيقية المتاحة فقط',function()
- scan(); local e,d=nearest(); if not e then infoPanel.Text='لم يُعثر على ضب مطابق محمّل'; return end
+ scan(); local e,d=nearest(); if not e or belongsToPlayer(e.m) then infoPanel.Text='لم يُعثر على ضب مطابق محمّل'; return end
  local r=rarity(e.m); infoPanel.Text='الاسم: '..e.m.Name..'\nالندرة: '..r..' | المسافة: '..string.format('%.0f',d)..'\nالوزن: '..compact(stat(e.m,{'Weight','Mass','الوزن'}))..' | الحجم: '..compact(stat(e.m,{'Size','Scale','الحجم'}))..'\nالقوة: '..compact(stat(e.m,{'Power','Strength','القوة'}))
 end)
 action(pReveal,'كاشف التاجر','يبحث عن نماذج التاجر الظاهرة للعميل',function()
@@ -177,7 +202,7 @@ action(pExtra,'إعادة الاتصال','طلب إعادة الدخول إلى
 end)
 local pMove=page('◎ الانتقال')
 action(pMove,'الانتقال لأقرب ضب','محاولة واحدة دون تكرار أو تعليق',function()
- scan(); local e=nearest(); local me=root(); if not e or not me then msg('لا يوجد ضب متاح'); return end
+ scan(); local e=nearest(); local me=root(); if not e or belongsToPlayer(e.m) or not me then msg('لا يوجد ضب متاح'); return end
  me.CFrame=e.p.CFrame*CFrame.new(0,0,6); msg('تم طلب الانتقال للضب: '..e.m.Name..' (قد يصححه السيرفر)')
 end)
 action(pMove,'الانتقال لأقرب سيارة','ينقلك إلى المقعد الأقرب الظاهر',function()
@@ -195,7 +220,7 @@ action(pMove,'العودة للديرة','فقط إذا كان مكان الدي
  msg('لم يُعثر على موقع ديرة موثوق؛ لم يتم الانتقال')
 end)
 local pInfo=page('ⓘ معلومات')
-local small=new('TextLabel',{Size=UDim2.new(1,-2,0,140),BackgroundColor3=palette.card,TextColor3=palette.text,TextSize=12,TextWrapped=true,Font=Enum.Font.Gotham,Text='Zyphora Hub v25\nالرادار والتصويب للحيوانات المطابقة فقط.\nالندرات مبنية على قيم يتيحها الماب.\nالتلفيل التلقائي يتطلب نظام الماب ولا يمكن تعميمه.\nسحب سيارات الآخرين وبيانات الشراء لا يمكن ضمانهما محلياً.'},pInfo); rounded(small,9)
+local small=new('TextLabel',{Size=UDim2.new(1,-2,0,140),BackgroundColor3=palette.card,TextColor3=palette.text,TextSize=12,TextWrapped=true,Font=Enum.Font.Gotham,Text='X | Zyphora Hub v26\nالرادار والتصويب للحيوانات المطابقة فقط.\nالندرات مبنية على قيم يتيحها الماب.\nالتلفيل التلقائي يتطلب نظام الماب ولا يمكن تعميمه.\nسحب سيارات الآخرين وبيانات الشراء لا يمكن ضمانهما محلياً.'},pInfo); rounded(small,9)
 local sidePanel=new('Frame',{Size=UDim2.fromOffset(215,120),Position=UDim2.new(1,-228,0,10),BackgroundColor3=palette.bg,BackgroundTransparency=.13,Visible=false},gui); rounded(sidePanel,10)
 local sideText=new('TextLabel',{Size=UDim2.new(1,-14,1,-10),Position=UDim2.fromOffset(7,5),BackgroundTransparency=1,TextColor3=palette.text,TextSize=12,Font=Enum.Font.GothamBold,TextWrapped=true,Text='رادار الضبان النادرة'},sidePanel)
 local accum=0; local camAccum=0
@@ -223,12 +248,12 @@ con(RS.Heartbeat,function(dt)
   end
   if state.radar then updateMarkers() else if next(markers) then clearMarkers() end end
   sidePanel.Visible=state.radar
-  if state.radar then local e,d=nearest(state.range); if e then local r=rarity(e.m); sideText.Text='🦎 أقرب ضب\n'..e.m.Name..'\nالندرة: '..r..'\nالمسافة: '..string.format('%.0f',d)..' وحدة' else sideText.Text='🦎 رادار الضبان\nلا يوجد ضب مطابق في المدى' end end
+  if state.radar then local e,d=nearest(state.range); if e and not belongsToPlayer(e.m) then local r=rarity(e.m); sideText.Text='🦎 أقرب ضب\n'..e.m.Name..'\nالندرة: '..r..'\nالمسافة: '..string.format('%.0f',d)..' وحدة' else sideText.Text='🦎 رادار الضبان\nلا يوجد ضب مطابق في المدى' end end
   resize()
  end
  if state.aim and camAccum>=.03 then
   camAccum=0; local e=nearest(state.aimRange); local cam=camera()
-  if e and cam then local goal=CFrame.lookAt(cam.CFrame.Position,e.p.Position); cam.CFrame=cam.CFrame:Lerp(goal,math.clamp(state.aimSmooth,0,1)) end
+  if e and cam and not belongsToPlayer(e.m) then local goal=CFrame.lookAt(cam.CFrame.Position,e.p.Position); cam.CFrame=cam.CFrame:Lerp(goal,math.clamp(state.aimSmooth,0,1)) end
  end
 end)
 local afkVirtual=nil
@@ -244,9 +269,10 @@ local function stop()
  if not active then return end; active=false; clearMarkers()
  Lighting.FogEnd=original.FogEnd; Lighting.FogStart=original.FogStart; Lighting.Brightness=original.Brightness; Lighting.ClockTime=original.ClockTime; Lighting.GlobalShadows=original.GlobalShadows; Lighting.Ambient=original.Ambient; Lighting.OutdoorAmbient=original.OutdoorAmbient
  for _,c in ipairs(cons) do c:Disconnect() end; table.clear(cons)
- if _G.ZyphoraV25Stop==stop then _G.ZyphoraV25Stop=nil end
+ if _G.ZyphoraXStop==stop then _G.ZyphoraXStop=nil end
  gui:Destroy()
 end
-_G.ZyphoraV25Stop=stop
+_G.ZyphoraXStop=stop
 con(close.MouseButton1Click,stop)
+con(gui.Destroying,stop)
 print('ZYPHORA HUB v25 loaded')
