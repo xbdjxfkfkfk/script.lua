@@ -55,7 +55,6 @@ end
 local GUI = Instance.new("ScreenGui")
 GUI.Name = "ZyphoraPro"
 GUI.ResetOnSpawn = false
-GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.IgnoreGuiInset = true
 GUI.Parent = LP:WaitForChild("PlayerGui")
 
@@ -66,8 +65,6 @@ Main.BackgroundColor3 = C.bg
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
-Main.ClipsDescendants = true
-Main.ZIndex = 1
 Main.Parent = GUI
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
 
@@ -156,12 +153,10 @@ Scroll.Size = UDim2.new(1, -12, 1, -58)
 Scroll.Position = UDim2.new(0, 6, 0, 52)
 Scroll.BackgroundTransparency = 1
 Scroll.BorderSizePixel = 0
-Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 3000) -- Absolute static canvas prevents blank rendering
 Scroll.ScrollBarThickness = 4
 Scroll.ScrollBarImageColor3 = C.accent
-Scroll.ZIndex = 2
+Scroll.ClipsDescendants = true
 Scroll.Parent = Main
 
 local Layout = Instance.new("UIListLayout", Scroll)
@@ -171,6 +166,12 @@ Layout.Padding = UDim.new(0, 6)
 -- ═══════════════════════════════════════════════════════════════
 --   BUILDERS
 -- ═══════════════════════════════════════════════════════════════
+local order = 0
+local function getOrder()
+    order = order + 1
+    return order
+end
+
 local function mkSection(text)
     local f = Instance.new("TextLabel")
     f.Size = UDim2.new(1, -6, 0, 22)
@@ -180,8 +181,7 @@ local function mkSection(text)
     f.Font = Enum.Font.GothamBold
     f.TextSize = 10
     f.TextXAlignment = Enum.TextXAlignment.Left
-    f.LayoutOrder = #Scroll:GetChildren()
-    f.ZIndex = 3
+    f.LayoutOrder = getOrder()
     f.Parent = Scroll
     return f
 end
@@ -196,8 +196,7 @@ local function mkBtn(text, cb)
     b.Font = Enum.Font.GothamBold
     b.TextSize = 12
     b.AutoButtonColor = false
-    b.LayoutOrder = #Scroll:GetChildren()
-    b.ZIndex = 3
+    b.LayoutOrder = getOrder()
     b.Parent = Scroll
     Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
 
@@ -206,7 +205,6 @@ local function mkBtn(text, cb)
     bar.Position = UDim2.new(0, 0, 0, 4)
     bar.BackgroundColor3 = C.accent
     bar.BorderSizePixel = 0
-    bar.ZIndex = 4
     bar.Parent = b
     Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 2)
 
@@ -225,8 +223,7 @@ local function mkSlider(label, initVal, minV, maxV, step, onChanged)
     f.Size = UDim2.new(1, -6, 0, 34)
     f.BackgroundColor3 = C.panel
     f.BorderSizePixel = 0
-    f.LayoutOrder = #Scroll:GetChildren()
-    f.ZIndex = 3
+    f.LayoutOrder = getOrder()
     f.Parent = Scroll
     Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
 
@@ -239,7 +236,6 @@ local function mkSlider(label, initVal, minV, maxV, step, onChanged)
     name.Font = Enum.Font.GothamMedium
     name.TextSize = 11
     name.TextXAlignment = Enum.TextXAlignment.Left
-    name.ZIndex = 4
     name.Parent = f
 
     local val = Instance.new("TextLabel")
@@ -250,7 +246,6 @@ local function mkSlider(label, initVal, minV, maxV, step, onChanged)
     val.TextColor3 = C.accent
     val.Font = Enum.Font.GothamBold
     val.TextSize = 11
-    val.ZIndex = 4
     val.Parent = f
 
     local m = Instance.new("TextButton")
@@ -262,7 +257,6 @@ local function mkSlider(label, initVal, minV, maxV, step, onChanged)
     m.Font = Enum.Font.GothamBold
     m.TextSize = 14
     m.AutoButtonColor = false
-    m.ZIndex = 4
     m.Parent = f
     Instance.new("UICorner", m).CornerRadius = UDim.new(0, 6)
 
@@ -275,7 +269,6 @@ local function mkSlider(label, initVal, minV, maxV, step, onChanged)
     p.Font = Enum.Font.GothamBold
     p.TextSize = 14
     p.AutoButtonColor = false
-    p.ZIndex = 4
     p.Parent = f
     Instance.new("UICorner", p).CornerRadius = UDim.new(0, 6)
 
