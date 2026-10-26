@@ -1,11 +1,11 @@
--- [ ZYPHORA PRO v6.0 - MASTER TABBED ULTIMATE SUITE ]
+-- [ ZYPHORA PRO v6.1 - BULLETPROOF MASTER HUB ]
+local CoreGui      = game:GetService("CoreGui")
 local Players      = game:GetService("Players")
 local RunService   = game:GetService("RunService")
 local UIS          = game:GetService("UserInputService")
 local Workspace    = game:GetService("Workspace")
 
 local LP    = Players.LocalPlayer
-local Mouse = LP:GetMouse()
 
 local S = { 
     ESP = false, 
@@ -22,18 +22,27 @@ local C = {
     panel2  = Color3.fromRGB(30, 30, 44),
     accent  = Color3.fromRGB(0, 180, 255),
     text    = Color3.fromRGB(240, 240, 248),
-    active  = Color3.fromRGB(0, 200, 100),
-    inactive= Color3.fromRGB(50, 50, 70)
 }
 
-if LP.PlayerGui:FindFirstChild("ZyphoraProMasterHub") then
-    LP.PlayerGui.ZyphoraProMasterHub:Destroy()
+-- Safe GUI container parent (CoreGui fallback to PlayerGui)
+local targetParent = LP:WaitForChild("PlayerGui")
+pcall(function()
+    if syn and syn.protect_gui then
+        targetParent = CoreGui
+    elseif gethui then
+        targetParent = gethui()
+    end
+end)
+
+if targetParent:FindFirstChild("ZyphoraProMasterHub") then
+    targetParent.ZyphoraProMasterHub:Destroy()
 end
 
 local GUI = Instance.new("ScreenGui")
 GUI.Name = "ZyphoraProMasterHub"
 GUI.ResetOnSpawn = false
-GUI.Parent = LP:WaitForChild("PlayerGui")
+GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+GUI.Parent = targetParent
 
 -- Main Master Window
 local Main = Instance.new("Frame")
@@ -53,7 +62,7 @@ MS.Thickness = 1.8
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundColor3 = C.panel
-Title.Text = "  ⚡ ZYPHORA PRO v6.0 [MASTER HUB]"
+Title.Text = "  ⚡ ZYPHORA PRO v6.1 [FIXED HUB]"
 Title.TextColor3 = C.text
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
@@ -201,7 +210,7 @@ mInput.FocusLost:Connect(function()
     local val = tonumber(mInput.Text)
     if val then
         S.Multiplier = val
-        mInput.Text = tostring(val) .. " [تم اعتماد المضاعف بنجاح]"
+        mInput.Text = tostring(val) .. " [تم اعتماد المضاعف]"
     else
         mInput.Text = "1"
         S.Multiplier = 1
@@ -264,13 +273,13 @@ local tab3 = createTab("كشف الضبان", 3)
 
 mkBtn(tab3, "🦎 كشف الضبان المتقدم (اللون والنوع والوزن): OFF", function(self)
     S.LizardScan = not S.LizardScan
-    self.Text = S.LizardScan and "🦎 كشف الضبان المتقدم: ON" : "🦎 كشف الضبان المتقدم: OFF"
+    self.Text = S.LizardScan and "🦎 كشف الضبان المتقدم: ON" or "🦎 كشف الضبان المتقدم: OFF"
 end)
 
 local lizardNotice = Instance.new("TextLabel")
-lizardNotice.Size = UDim2.new(1, -5, 0, 100)
+lizardNotice.Size = UDim2.new(1, -5, 0, 110)
 lizardNotice.BackgroundTransparency = 1
-lizardNotice.Text = "ℹ️ عند تفعيل كشف الضبان:\nسيظهر فوق رأس كل ضب وحيوان في الماب قائمة ملونة تعرض:\n• نوع الضب (عتاوي، نجد، إلخ)\n• اللون الصحراوي الدقيق\n• الوزن الحقيقي (كغ)\n• القوة والقدرة القتالية"
+lizardNotice.Text = "ℹ️ معلومات كشف الضبان الحقيقي:\n• يظهر فوق رأس كل ضب وحيوان في الماب\n• يعرض اللون الصحراوي الدقيق والنوع (عتاوي، نجد، إلخ)\n• يعرض الوزن الحقيقي (كغ) وقوة المعركة بدقة"
 lizardNotice.TextColor3 = Color3.fromRGB(200, 200, 220)
 lizardNotice.Font = Enum.Font.Gotham
 lizardNotice.TextSize = 11
@@ -284,7 +293,7 @@ lizardNotice.Parent = tab3
 -- ==========================================
 local tab4 = createTab("السيارات والطيران", 4)
 
-mkBtn(tab4, "🚗 طيران السيارة الاحترافي الحقيقي (تحكم كاميرا كامل): OFF", function(self)
+mkBtn(tab4, "🚗 طيران السيارة الاحترافي الحقيقي: OFF", function(self)
     S.CarFly = not S.CarFly
     self.Text = S.CarFly and "🚗 طيران السيارة الاحترافي: ON" or "🚗 طيران السيارة الاحترافي: OFF"
 end)
@@ -311,7 +320,7 @@ local function refreshCars()
                 local cb = Instance.new("TextButton")
                 cb.Size = UDim2.new(1, 0, 0, 32)
                 cb.BackgroundColor3 = C.panel
-                cb.Text = "🚙 سحب سيارتك: " .. obj.Name
+                cb.Text = "🚙 سحب: " .. obj.Name
                 cb.TextColor3 = C.text
                 cb.Font = Enum.Font.Gotham
                 cb.TextSize = 11
@@ -329,7 +338,7 @@ local function refreshCars()
     carContainer.CanvasSize = UDim2.new(0, 0, 0, math.max(180, #carContainer:GetChildren() * 36))
 end
 
-mkBtn(tab4, "🔄 تحديث قائمة سيارات الماب الفورية", refreshCars)
+mkBtn(tab4, "🔄 تحديث قائمة سيارات الماب", refreshCars)
 refreshCars()
 
 
@@ -342,14 +351,12 @@ RunService.RenderStepped:Connect(function()
     local hum = char:FindFirstChildOfClass("Humanoid")
     local root = char:FindFirstChild("HumanoidRootPart")
 
-    -- Speed Hack with Multiplier
     if hum and S.Speed then
         hum.WalkSpeed = 16 * S.Multiplier
     elseif hum and not S.Speed and hum.WalkSpeed ~= 16 then
         hum.WalkSpeed = 16
     end
 
-    -- Real ESP Render
     if S.ESP then
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
@@ -378,7 +385,6 @@ RunService.RenderStepped:Connect(function()
         for _, b in pairs(espCache) do if b then b.Visible = false end end
     end
 
-    -- Advanced Lizard Biometrics Scanner (Color, Type, Weight, Power)
     if S.LizardScan then
         for _, obj in ipairs(Workspace:GetDescendants()) do
             if obj:IsA("Model") and (obj.Name:lower():find("lizard") or obj.Name:lower():find("ضب") or obj.Name:lower():find("dhab") or obj.Name:lower():find("animal") or obj:FindFirstChild("Humanoid")) then
@@ -413,7 +419,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Absolute Pro Car CFrame Flight Physics
     if S.CarFly and hum and hum.SeatPart then
         local vehicle = hum.SeatPart:FindFirstAncestorOfClass("Model")
         local vRoot = vehicle and (vehicle.PrimaryPart or vehicle:FindFirstChildWhichIsA("BasePart"))
@@ -435,4 +440,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("✅ ZYPHORA PRO v6.0 MASTER HUB LOADED SUCCESSFULLY")
+print("✅ ZYPHORA PRO v6.1 FIXED HUB LOADED")
