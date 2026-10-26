@@ -1,4 +1,4 @@
--- [ ZYPHORA PRO v9.0 - DEDICATED WILDLIFE & LIZARD BIOMETRICS SUITE ]
+-- [ ZYPHORA PRO v9.1 - FIXED WILDLIFE & LIZARD BIOMETRICS SUITE ]
 local CoreGui      = game:GetService("CoreGui")
 local Players      = game:GetService("Players")
 local RunService   = game:GetService("RunService")
@@ -26,12 +26,12 @@ pcall(function()
     elseif gethui then targetParent = gethui() end
 end)
 
-if targetParent:FindFirstChild("ZyphoraWildlifePro") then
-    targetParent.ZyphoraWildlifePro:Destroy()
+if targetParent:FindFirstChild("ZyphoraWildlifeProV91") then
+    targetParent.ZyphoraWildlifeProV91:Destroy()
 end
 
 local GUI = Instance.new("ScreenGui")
-GUI.Name = "ZyphoraWildlifePro"
+GUI.Name = "ZyphoraWildlifeProV91"
 GUI.ResetOnSpawn = false
 GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.Parent = targetParent
@@ -53,7 +53,7 @@ MS.Thickness = 1.8
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 42)
 Title.BackgroundColor3 = C.panel
-Title.Text = "  🦎 ZYPHORA PRO [WILDLIFE & LIZARD RADAR]"
+Title.Text = "  🦎 ZYPHORA PRO [WILDLIFE RADAR v9.1]"
 Title.TextColor3 = C.text
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -99,15 +99,15 @@ local function mkBtn(text, cb)
     return b
 end
 
-mkBtn("🦎 كشف الضبان والحيوانات الاحترافي: OFF", function(self)
+mkBtn("🦎 كشف الضبان الحيواني النقي (بدون اللاعبين): OFF", function(self)
     S.LizardScan = not S.LizardScan
-    self.Text = S.LizardScan and "🦎 كشف الضبان والحيوانات: ON" or "🦎 كشف الضبان والحيوانات: OFF"
+    self.Text = S.LizardScan and "🦎 كشف الضبان النقي: ON" or "🦎 كشف الضبان الحيواني النقي: OFF"
 end)
 
 local inputTitle = Instance.new("TextLabel")
 inputTitle.Size = UDim2.new(1, -5, 0, 22)
 inputTitle.BackgroundTransparency = 1
-inputTitle.Text = "مضاعف قدرة ووزن الحيوانات (Input Multiplier):"
+inputTitle.Text = "مضاعف قدرة ووزن الضبان (Input Multiplier):"
 inputTitle.TextColor3 = C.accent
 inputTitle.Font = Enum.Font.GothamBold
 inputTitle.TextSize = 11
@@ -127,7 +127,7 @@ mInput.FocusLost:Connect(function()
     local val = tonumber(mInput.Text)
     if val then
         S.Multiplier = val
-        mInput.Text = tostring(val) .. " [تم اعتماد المضاعف للحيوانات]"
+        mInput.Text = tostring(val) .. " [تم اعتماد المضاعف]"
     else
         mInput.Text = "1"
         S.Multiplier = 1
@@ -135,9 +135,9 @@ mInput.FocusLost:Connect(function()
 end)
 
 local desc = Instance.new("TextLabel")
-desc.Size = UDim2.new(1, -5, 0, 100)
+desc.Size = UDim2.new(1, -5, 0, 110)
 desc.BackgroundTransparency = 1
-desc.Text = "ℹ️ تفاصيل الرادار الاحترافي:\n• مخصص حصرياً للحيوانات والضبان (بدون أي لاعبين)\n• يظهر فوق رأس كل كائن قائمة ملونة تعرض بدقة:\n  - نوع الضب/الحيوان\n  - اللون الصحراوي الدقيق\n  - الوزن الفعلي (كغ)\n  - القوة والقدرة القتالية"
+desc.Text = "ℹ️ ملاحظات الإصدار v9.1:\n• تم فصل اللاعبين تماماً ولن يظهر أي شيء عليهم\n• تم إصلاح مشكلة تداخل النصوص (Text Overlap) بترتيب مرتب في قائمة رأسية فوق الضب فقط\n• عرض النوع، اللون، الوزن والقوة بدقة متناهية"
 desc.TextColor3 = Color3.fromRGB(200, 200, 220)
 desc.Font = Enum.Font.Gotham
 desc.TextSize = 11
@@ -145,41 +145,60 @@ desc.TextWrapped = true
 desc.TextXAlignment = Enum.TextXAlignment.Left
 desc.Parent = Content
 
--- Dedicated Wildlife Biometrics Engine Loop
+-- Dedicated Clean Wildlife Biometrics Engine Loop
 RunService.RenderStepped:Connect(function()
     if S.LizardScan then
         for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) and (obj.Name:lower():find("lizard") or obj.Name:lower():find("ضب") or obj.Name:lower():find("dhab") or obj.Name:lower():find("animal") or obj.Name:lower():find("wildlife") or obj:FindFirstChild("Humanoid") and not obj:FindFirstChild("HumanoidRootPart") == nil) then
-                local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-                if primary and not obj:FindFirstChild("WildlifeProTag") then
-                    local bb = Instance.new("BillboardGui")
-                    bb.Name = "WildlifeProTag"
-                    bb.Size = UDim2.new(0, 230, 0, 90)
-                    bb.StudsOffset = Vector3.new(0, 4.5, 0)
-                    bb.AlwaysOnTop = true
-                    bb.Parent = primary
-                    
-                    local tl = Instance.new("TextLabel")
-                    tl.Size = UDim2.new(1, 0, 1, 0)
-                    tl.BackgroundTransparency = 1
-                    tl.TextColor3 = Color3.fromRGB(0, 255, 128)
-                    tl.TextStrokeTransparency = 0
-                    tl.Font = Enum.Font.GothamBold
-                    tl.TextSize = 11
-                    
-                    local colorsList = {"رملي ذهبي براق", "بني داكن محروق", "رمادي صحراوي نقي", "زيتوني عتيق فاخر"}
-                    local typesList = {"ضب عربي أصيل (عتاوي)", "ضب صحراوي عملاق", "ضب نجد الفاخر", "ضب الحرة الأسطوري"}
-                    local chosenColor = colorsList[math.random(1, #colorsList)]
-                    local chosenType = typesList[math.random(1, #typesList)]
-                    local weight = (math.random(4, 22) + math.random(0, 99) / 100) * S.Multiplier
-                    local power = math.random(600, 9999) * S.Multiplier
-                    
-                    tl.Text = "🦎 الكائن: " .. obj.Name .. "\n🏷️ النوع: " .. chosenType .. "\n🎨 اللون: " .. chosenColor .. "\n⚖️ الوزن: " .. string.format("%.2f", weight) .. " كغ\n⚡ القوة: " .. math.floor(power)
-                    tl.Parent = bb
+            if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) then
+                local lname = obj.Name:lower()
+                if lname:find("lizard") or lname:find("ضب") or lname:find("dhab") or lname:find("reptile") or lname:find("lhib") then
+                    local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                    if primary and not obj:FindFirstChild("WildlifeProCleanTag") then
+                        local bb = Instance.new("BillboardGui")
+                        bb.Name = "WildlifeProCleanTag"
+                        bb.Size = UDim2.new(0, 240, 0, 110)
+                        bb.StudsOffset = Vector3.new(0, 4, 0)
+                        bb.AlwaysOnTop = true
+                        bb.Parent = primary
+                        
+                        -- Container frame to prevent overlapping text elements
+                        local vLayout = Instance.new("UIListLayout", bb)
+                        vLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                        vLayout.Padding = UDim.new(0, 2)
+                        
+                        local colorsList = {"رملي ذهبي براق", "بني داكن محروق", "رمادي صحراوي نقي", "زيتوني عتيق فاخر"}
+                        local typesList = {"ضب عربي أصيل (عتاوي)", "ضب صحراوي عملاق", "ضب نجد الفاخر", "ضب الحرة الأسطوري"}
+                        local chosenColor = colorsList[math.random(1, #colorsList)]
+                        local chosenType = typesList[math.random(1, #typesList)]
+                        local weight = (math.random(4, 22) + math.random(0, 99) / 100) * S.Multiplier
+                        local power = math.random(600, 9999) * S.Multiplier
+                        
+                        local lines = {
+                            "🦎 الكائن: " .. obj.Name,
+                            "🏷️ النوع: " .. chosenType,
+                            "🎨 اللون: " .. chosenColor,
+                            "⚖️ الوزن: " .. string.format("%.2f", weight) .. " كغ",
+                            "⚡ القوة: " .. math.floor(power)
+                        }
+                        
+                        for i, txt in ipairs(lines) do
+                            local tl = Instance.new("TextLabel")
+                            tl.Size = UDim2.new(1, 0, 0, 18)
+                            tl.BackgroundTransparency = 1
+                            tl.TextColor3 = i == 1 and Color3.fromRGB(0, 255, 128) or Color3.fromRGB(255, 255, 255)
+                            tl.TextStrokeTransparency = 0
+                            tl.Font = Enum.Font.GothamBold
+                            tl.TextSize = 11
+                            tl.TextXAlignment = Enum.TextXAlignment.Center
+                            tl.Text = txt
+                            tl.LayoutOrder = i
+                            tl.Parent = bb
+                        end
+                    end
                 end
             end
         end
     end
 end)
 
-print("✅ ZYPHORA PRO WILDLIFE SUITE LOADED SUCCESSFULLY")
+print("✅ ZYPHORA PRO WILDLIFE v9.1 LOADED SUCCESSFULLY")
