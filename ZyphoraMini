@@ -1,4 +1,4 @@
--- Lx REDLINE PRO v60 | radar identification and marker recovery: relaxed identification and delayed model updates
+-- Lx REDLINE PRO v61 | welcome and Discord entry | radar identification and marker recovery: relaxed identification and delayed model updates
 -- Loaded client objects only; server-streamed distant objects cannot be detected.
 -- Lx NEXUS PRO v47 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
@@ -30,10 +30,11 @@ local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(10,10,12),card=Color3.fromRGB(28,29,32),muted=Color3.fromRGB(184,186,190),white=Color3.fromRGB(255,255,255),purple=Color3.fromRGB(239,28,37),green=Color3.fromRGB(80,215,135)}
 for _,oldName in ipairs({'Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local oldCurrent=PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58') or PG:FindFirstChild('Lx_NexusV59')
+local oldCurrent=PG:FindFirstChild('Lx_NexusV60') or PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58') or PG:FindFirstChild('Lx_NexusV59')
 if oldCurrent then oldCurrent:Destroy() end
-local gui=inst('ScreenGui',{Name='Lx_NexusV60',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+local gui=inst('ScreenGui',{Name='Lx_NexusV61',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
+main.Visible=false -- open only after the welcome flow
 inst('UIStroke',{Color=Color3.fromRGB(205,36,42),Thickness=1.4,Transparency=.12},main)
 local scale=inst('UIScale',{Scale=1},main)
 local function fitScreen()
@@ -800,6 +801,46 @@ action(og,'نسخ رابط الديسكورد',function()
 end)
 action(og,'عرض رابط الديسكورد',function()msg('https://discord.gg/7HyFER45Y') end)
 
+-- Welcome overlay. Discord membership and identity are NOT automatically verified.
+local inviteUrl='https://discord.gg/7HyFER45Y'
+local gate=inst('Frame',{Name='WelcomeGate',Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.fromRGB(6,6,8),BackgroundTransparency=.12,BorderSizePixel=0},gui)
+local gateCard=inst('Frame',{Size=UDim2.fromOffset(430,330),AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),BackgroundColor3=Color3.fromRGB(21,21,25),BorderSizePixel=0},gate);round(gateCard,18)
+inst('UIStroke',{Color=C.purple,Thickness=2},gateCard)
+local gateScale=inst('UIScale',{Scale=1},gateCard)
+local function fitGate()
+ local camera=WS.CurrentCamera
+ if camera then local v=camera.ViewportSize;gateScale.Scale=math.min(1,math.max(.55,math.min((v.X-24)/430,(v.Y-24)/330))) end
+end
+fitGate()
+local gateTitle=inst('TextLabel',{Size=UDim2.new(1,-30,0,65),Position=UDim2.fromOffset(15,28),BackgroundTransparency=1,Text='Lx  REDLINE PRO',Font=Enum.Font.GothamBlack,TextSize=29,TextColor3=C.white},gateCard)
+local gateText=inst('TextLabel',{Size=UDim2.new(1,-44,0,90),Position=UDim2.fromOffset(22,105),BackgroundTransparency=1,Text='مرحبًا بك!\nاضغط موافق للمتابعة',TextWrapped=true,Font=Enum.Font.GothamBold,TextSize=19,TextColor3=C.white},gateCard)
+local gateHint=inst('TextLabel',{Size=UDim2.new(1,-40,0,30),Position=UDim2.fromOffset(20,200),BackgroundTransparency=1,Text='',Font=Enum.Font.Gotham,TextSize=11,TextWrapped=true,TextColor3=C.muted},gateCard)
+local gateButton=inst('TextButton',{Size=UDim2.fromOffset(325,46),Position=UDim2.new(.5,-162,1,-72),BackgroundColor3=C.purple,Text='موافق',Font=Enum.Font.GothamBold,TextSize=18,TextColor3=C.white},gateCard);round(gateButton,12)
+local gateStep=1
+local function copyInvite()
+ if type(setclipboard)=='function' then
+  local ok=pcall(setclipboard,inviteUrl)
+  if ok then return true end
+ end
+ return false
+end
+conn(gateButton.MouseButton1Click,function()
+ if gateStep==1 then
+  gateStep=2
+  gateText.Text='منورين يا ساطير\nانضم إلى مجتمعنا في ديسكورد'
+  gateHint.Text='discord.gg/7HyFER45Y'
+  gateButton.Text='نسخ رابط الديسكورد'
+ elseif gateStep==2 then
+  local copied=copyInvite()
+  gateHint.Text=copied and 'تم نسخ الرابط. افتحه في ديسكورد ثم ارجع للعبة.' or ('افتح الرابط في المتصفح: '..inviteUrl)
+  gateButton.Text='متابعة إلى القوائم'
+  gateStep=3
+ else
+  gate:Destroy()
+  main.Visible=true
+  msg('مرحبًا بك في Lx REDLINE PRO | عضوية ديسكورد غير متحقق منها')
+ end
+end)
 local minimized=false
 conn(mini.MouseButton1Click,function()minimized=not minimized;side.Visible=not minimized;area.Visible=not minimized;status.Visible=not minimized;main.Size=minimized and UDim2.fromOffset(650,66) or UDim2.fromOffset(650,500);mini.Text=minimized and '+' or '−' end)
 local dragging,dragStart,frameStart=false,nil,nil
