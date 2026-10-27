@@ -1,4 +1,4 @@
--- Lx REDLINE PRO v57 | radar discovery repair
+-- Lx REDLINE PRO v58 | radar ancestor detection repair
 -- Loaded client objects only; server-streamed distant objects cannot be detected.
 -- Lx NEXUS PRO v47 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
@@ -30,9 +30,9 @@ local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(10,10,12),card=Color3.fromRGB(28,29,32),muted=Color3.fromRGB(184,186,190),white=Color3.fromRGB(255,255,255),purple=Color3.fromRGB(239,28,37),green=Color3.fromRGB(80,215,135)}
 for _,oldName in ipairs({'Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local oldCurrent=PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57')
+local oldCurrent=PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58')
 if oldCurrent then oldCurrent:Destroy() end
-local gui=inst('ScreenGui',{Name='Lx_NexusV57',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+local gui=inst('ScreenGui',{Name='Lx_NexusV58',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 inst('UIStroke',{Color=Color3.fromRGB(205,36,42),Thickness=1.4,Transparency=.12},main)
 local scale=inst('UIScale',{Scale=1},main)
@@ -157,12 +157,17 @@ local seatCache=setmetatable({}, {__mode='k'})
 local function hasDrivingSeat(container)
  local known=seatCache[container]
  if known~=nil then return known end
- local found=container:FindFirstChildWhichIsA('VehicleSeat',true)~=nil
- if not found then
-  -- Some vehicles use Seat plus custom driving controllers. Do not assume
-  -- any top-level map folder containing a Seat is a car.
-  local seat=container:FindFirstChildWhichIsA('Seat',true)
-  if seat and (matchesAny(container.Name,vehicleNames) or container:FindFirstChild('Chassis',true) or container:FindFirstChild('Wheels',true)) then found=true end
+ -- Do not scan a whole map/animal-spawn container for a seat in another car.
+ -- Only models with direct evidence of being a vehicle are checked deeply.
+ local vehicleLike=matchesAny(container.Name,vehicleNames)
+  or container:FindFirstChild('Chassis')~=nil
+  or container:FindFirstChild('Wheels')~=nil
+  or container:FindFirstChild('VehicleSeat')~=nil
+  or container:FindFirstChild('DriveSeat')~=nil
+ local found=false
+ if vehicleLike then
+  found=container:FindFirstChildWhichIsA('VehicleSeat',true)~=nil
+   or container:FindFirstChildWhichIsA('Seat',true)~=nil
  end
  seatCache[container]=found
  return found
@@ -173,10 +178,7 @@ local function blockedAncestor(obj)
   if cursor:IsA('VehicleSeat') or cursor:IsA('Seat') then return true end
   if cursor:IsA('Model') then
    if Players:GetPlayerFromCharacter(cursor) then return true end
-   if matchesAny(cursor.Name,vehicleNames) then return true end
-   -- Crucial fix: car body parts often live in nested models named
-   -- 'Body', 'Meshes', etc. The parent car model owns the driving seat.
-   if hasDrivingSeat(cursor) then return true end
+   if matchesAny(cursor.Name,vehicleNames) or hasDrivingSeat(cursor) then return true end
   end
   cursor=cursor.Parent
  end
@@ -194,7 +196,7 @@ local function lizard(model)
  -- Check seats ONLY inside the candidate, not in unrelated sibling cars.
  if model:FindFirstChildWhichIsA('VehicleSeat',true) or model:FindFirstChildWhichIsA('Seat',true) then return false end
  local species=read(model,{'Species','AnimalType','CreatureType','PetType','MobType','نوع'})
- local tagged=CollectionService:HasTag(model,'Lizard') or CollectionService:HasTag(model,'Dhab') or CollectionService:HasTag(model,'ضب')
+ local tagged=CollectionService:HasTag(model,'Lizard') or CollectionService:HasTag(model,'Dhab') or CollectionService:HasTag(model,'ضب') or CollectionService:HasTag(model,'Lizards') or CollectionService:HasTag(model,'AnimalLizard')
  local typed=species~=nil and matchesAny(species,animalNames)
  local named=matchesAny(model.Name,animalNames)
  -- Names alone are unreliable: decorative car parts can be named 'Dhab'.
@@ -308,6 +310,8 @@ end)
 conn(CollectionService:GetInstanceAddedSignal('Lizard'),trackAnimal)
 conn(CollectionService:GetInstanceAddedSignal('Dhab'),trackAnimal)
 conn(CollectionService:GetInstanceAddedSignal('ضب'),trackAnimal)
+conn(CollectionService:GetInstanceAddedSignal('Lizards'),trackAnimal)
+conn(CollectionService:GetInstanceAddedSignal('AnimalLizard'),trackAnimal)
 local function refreshCache()
  -- Reconsider a bounded number of previously loaded models. Some maps set
  -- their species/name attributes after the instance first appears.
@@ -323,7 +327,7 @@ local function refreshCache()
   scanQueue=fresh
   scanCursor=math.min(scanCursor,#scanQueue+1)
  end
- for _=1,math.min(600,#scanQueue) do
+ for _=1,math.min(240,#scanQueue) do
   if scanCursor>#scanQueue then scanCursor=1 end
   local m=scanQueue[scanCursor]
   scanCursor+=1
@@ -351,7 +355,7 @@ end
 local function clearMarkers() for _,g in pairs(markers) do pcall(function()g:Destroy()end) end;table.clear(markers) end
 local function makeMarker(e)
  local m=e.model;if markers[m] or not living(m) or not lizard(m) then return end
- local bb=inst('BillboardGui',{Name='LxAnimalRadar',Adornee=e.part,Size=UDim2.fromOffset(190,40),StudsOffsetWorldSpace=Vector3.new(0,3.2,0),AlwaysOnTop=true,MaxDistance=S.RadarRange},gui)
+ local bb=inst('BillboardGui',{Name='LxAnimalRadar',Adornee=(e.model:FindFirstChild('Head',true) or e.model:FindFirstChild('head',true) or e.model:FindFirstChild('رأس',true) or e.part),Size=UDim2.fromOffset(190,40),StudsOffsetWorldSpace=Vector3.new(0,3.2,0),AlwaysOnTop=true,MaxDistance=S.RadarRange},gui)
  local text=inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextColor3=rarityColors[rarity(m)] or C.white,TextStrokeTransparency=.4,TextSize=11,Font=Enum.Font.GothamBold,TextWrapped=true},bb)
  markers[m]=bb
 end
@@ -1007,7 +1011,7 @@ conn(RunService.Heartbeat,function(dt)
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
-local aimBinding='Lx_NexusAimV57'
+local aimBinding='Lx_NexusAimV58'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
  local cam=WS.CurrentCamera
