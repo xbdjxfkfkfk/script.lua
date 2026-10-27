@@ -317,7 +317,7 @@ task.spawn(function()
   if obj:IsA('Model') then enqueueAnimal(obj) end
   local children=obj:GetChildren()
   for _,child in ipairs(children) do pending[#pending+1]=child end
-  if index%75==0 then task.wait(0.025) end
+  if index%35==0 then task.wait(0.04) end
  end
 end)
 conn(WS.DescendantAdded,function(obj)
@@ -345,7 +345,7 @@ local function refreshCache()
   scanQueue=fresh
   scanCursor=math.min(scanCursor,#scanQueue+1)
  end
- for _=1,math.min(90,#scanQueue) do
+ for _=1,math.min(24,#scanQueue) do
   if scanCursor>#scanQueue then scanCursor=1 end
   local m=scanQueue[scanCursor]
   scanCursor+=1
@@ -615,7 +615,7 @@ task.spawn(function()
    resourceScanQueue[#resourceScanQueue+1]=obj
   end
   for _,child in ipairs(obj:GetChildren()) do pending[#pending+1]=child end
-  if index%75==0 then task.wait(0.025) end
+  if index%35==0 then task.wait(0.04) end
  end
 end)
 conn(WS.DescendantAdded,function(obj)
@@ -1088,7 +1088,7 @@ local function cleanup()
  if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.CarFly=false;S.Speed=false;S.Fog=false;S.Fullbright=false
  stopCarFly();clearVehicleBoost();clearMarkers();clearResourceMarkers();resourceAlertText:Destroy();if merchantMarker then merchantMarker:Destroy() end;applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
  for _,c in ipairs(conns) do c:Disconnect() end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV56')end)
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV58')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
  gui:Destroy()
 end
@@ -1102,11 +1102,11 @@ conn(RunService.Heartbeat,function(dt)
  -- Vehicle flight still updates each frame for responsive controls.
  if S.CarFly then updateCarFly() end
  if S.CarSpeed then updateVehicleBoost(dt) end
- if timer>=1.0 then
+ if timer>=2.0 then
   timer=0
   if S.Radar or S.Aim or S.RareAlert then refreshCache() end
   if S.RareAlert then checkRareSpawn() elseif rareBanner.Visible then rareBanner.Visible=false end
-  if extrasTimer>=5 then extrasTimer=0;if S.ResourceESP or S.ResourceAlert or S.Merchant then refreshExtrasESP() end end
+  if extrasTimer>=8 then extrasTimer=0;if S.ResourceESP or S.ResourceAlert or S.Merchant then refreshExtrasESP() end end
   if S.Radar then
    local count=0
    for _ in pairs(indexed) do count+=1 end
@@ -1125,7 +1125,7 @@ conn(RunService.Heartbeat,function(dt)
     local e=item.e
     local d=item.d
     local match=living(e.model) and lizard(e.model) and (S.Filter=='الكل' or rarity(e.model)==S.Filter)
-    if match and shown<35 then
+    if match and shown<20 then
      shown+=1
      kept[e.model]=true
      makeMarker(e);local bb=markers[e.model];if bb then bb.MaxDistance=S.RadarRange;local t=bb:FindFirstChildOfClass('TextLabel');if t then
@@ -1144,7 +1144,7 @@ conn(RunService.Heartbeat,function(dt)
    end
    local e,d=nearest(S.Filter);nearestText.Text=e and ('أقرب ضب: '..e.model.Name..' | حجم '..animalSize(e.model)..' | '..math.floor(d)..' وحدة') or 'أقرب ضب: لا يوجد'
   else clearMarkers() end
-  if listTimer>=4.0 then listTimer=0;rebuildAnimalList() end
+  if listTimer>=8.0 then listTimer=0;rebuildAnimalList() end
   if S.Merchant and extrasTimer==0 then local p,d=findMerchant();merchantText.Text=p and ('أقرب تاجر: '..math.floor(d)..' وحدة') or 'أقرب تاجر: غير مكتشف' end
   if vehicleDiagnosticText then vehicleDiagnosticText.Text='التشخيص: '..(S.CarFly and flyState or vehicleState) end
   -- Do not reapply Lighting periodically: repeated writes can cause flashes.
@@ -1155,6 +1155,10 @@ end)
 local aimBinding='Lx_NexusAimV58'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
+ if not S.Aim then return end
+ aimTimer=aimTimer+dt
+ if aimTimer<0.05 then return end
+ aimTimer=0
  local cam=WS.CurrentCamera
  updateCircle(cam)
  if not S.Aim or not cam then return end
