@@ -1,6 +1,6 @@
 -- Startup guard: report Lua execution errors in a visible on-screen panel.
 local function launchRedline()
--- Lx REDLINE PRO v74 | welcome and Discord entry | radar identification and marker recovery: relaxed identification and delayed model updates
+-- Lx REDLINE PRO v75 | welcome and Discord entry | radar identification and marker recovery: relaxed identification and delayed model updates
 -- Loaded client objects only; server-streamed distant objects cannot be detected.
 -- Lx NEXUS PRO v47 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
@@ -17,11 +17,11 @@ if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
 local env=_G
 if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
 if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
-for _,name in ipairs({'Lx_NexusV74','Lx_NexusV73','Lx_NexusV72','Lx_NexusV71','Lx_NexusV70','Lx_NexusV69','Lx_NexusV68','Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+for _,name in ipairs({'Lx_NexusV75','Lx_NexusV74','Lx_NexusV73','Lx_NexusV72','Lx_NexusV71','Lx_NexusV70','Lx_NexusV69','Lx_NexusV68','Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
  local old=PG:FindFirstChild(name)
  if old then old:Destroy() end
 end
-for _,version in ipairs({55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74}) do
+for _,version in ipairs({55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75}) do
  pcall(function() RunService:UnbindFromRenderStep('Lx_NexusAimV'..version) end)
 end
 local alive=true;local conns={};local markers={};local lightSaved={};local atmoSaved={};local originalSpeed=nil;local speedHum=nil
@@ -37,7 +37,7 @@ local C={bg=Color3.fromRGB(10,10,12),card=Color3.fromRGB(28,29,32),muted=Color3.
 for _,oldName in ipairs({'Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
 local oldCurrent=PG:FindFirstChild('Lx_NexusV73') or PG:FindFirstChild('Lx_NexusV71') or PG:FindFirstChild('Lx_NexusV68') or PG:FindFirstChild('Lx_NexusV67') or PG:FindFirstChild('Lx_NexusV66') or PG:FindFirstChild('Lx_NexusV65') or PG:FindFirstChild('Lx_NexusV64') or PG:FindFirstChild('Lx_NexusV63') or PG:FindFirstChild('Lx_NexusV62') or PG:FindFirstChild('Lx_NexusV61') or PG:FindFirstChild('Lx_NexusV60') or PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58') or PG:FindFirstChild('Lx_NexusV59')
 if oldCurrent then oldCurrent:Destroy() end
-local gui=inst('ScreenGui',{Name='Lx_NexusV74',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+local gui=inst('ScreenGui',{Name='Lx_NexusV75',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 main.Visible=true -- always visible before feature initialization
 inst('UIStroke',{Color=Color3.fromRGB(205,36,42),Thickness=1.4,Transparency=.12},main)
@@ -154,14 +154,27 @@ local function number(p,title,key,min,max,step)
 end
 -- Split the heavy features from the GUI/bootstrap to prevent Luau register/local limits.
 -- The menu renders first; feature initialization happens on the next scheduler cycle.
-status.Text='Lx v74 | الواجهة جاهزة؛ جار تحميل الميزات...'
+status.Text='Lx v75 | الواجهة جاهزة؛ جار تحميل الميزات...'
+-- Register a provisional cleanup BEFORE feature initialization. If any feature
+-- throws, restarting the script still disconnects its partial connections.
+local function provisionalCleanup()
+ if not alive then return end
+ alive=false
+ for _,c in ipairs(conns) do pcall(function()c:Disconnect()end) end
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV75')end)
+ local orphan=PG:FindFirstChild('Lx_NexusFOV_V75')
+ if orphan then pcall(function()orphan:Destroy()end) end
+ if gui and gui.Parent then pcall(function()gui:Destroy()end) end
+ if env.XHubCleanup==provisionalCleanup then env.XHubCleanup=nil end
+end
+env.XHubCleanup=provisionalCleanup
 -- Emergency close works even if feature initialization throws an error.
 conn(close.MouseButton1Click,function()
  if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup)
  else gui:Destroy() end
 end)
 local function showFeatureError(detail)
- status.Text='Lx v74 | خطأ في تحميل الميزات (موضح في النافذة)'
+ status.Text='Lx v75 | خطأ في تحميل الميزات (موضح في النافذة)'
  local errorFrame=inst('Frame',{Name='FeatureError',Size=UDim2.new(1,-24,0,137),Position=UDim2.new(0,12,1,-170),BackgroundColor3=Color3.fromRGB(57,21,25),BorderSizePixel=0,ZIndex=100},main)
  round(errorFrame,10)
  local errorLabel=inst('TextLabel',{Size=UDim2.new(1,-20,1,-54),Position=UDim2.fromOffset(10,8),BackgroundTransparency=1,Text='STARTUP ERROR | '..tostring(detail):sub(1,250),Font=Enum.Font.Code,TextSize=12,TextColor3=C.white,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=101},errorFrame)
@@ -819,12 +832,16 @@ end
 toggle(appearance,'إزالة الضباب','Fog',function() applyVisuals() end)
 toggle(appearance,'إضاءة كاملة بدون فلاش أبيض','Fullbright',function() applyVisuals() end)
 label(appearance,'ملاحظة','بعض المابات تعيد تطبيق إعدادات الإضاءة باستمرار؛ لا يمكن ضمان ثباتها')
+-- Flight state must be visible to the later update() / cleanup() definitions.
+-- v74 mistakenly declared this INSIDE the do scope below, causing
+-- `attempt to index nil with 'stop'` when initializeFeatures reached its end.
+local characterFly
 -- Movement protection diagnostics. This DOES NOT bypass server-side protections.
-do -- keep diagnostics locals scoped, reducing live locals in the full feature loader
+do -- keep diagnostic-only locals scoped, reducing live locals in the feature loader
 local protection=tab('كسر حماية الماب')
 label(protection,'فحص قيود الماب وحركة الطيران','مراقبة الطيران وتصحيح الموقع. لا يوجد هنا تجاوز لحماية السيرفر أو منع مضمون للإرجاع')
 -- These are intentionally honest client-side controls, not a universal server bypass.
-local characterFly={root=nil,humanoid=nil,attachment=nil,velocity=nil,orientation=nil,oldAutoRotate=nil,oldPlatformStand=nil,problem='متوقف'}
+characterFly={root=nil,humanoid=nil,attachment=nil,velocity=nil,orientation=nil,oldAutoRotate=nil,oldPlatformStand=nil,problem='متوقف'}
 toggle(protection,'طيران اللاعب | ON / OFF','PlayerFly',function(on)
  if on then
   local h=hum()
@@ -839,7 +856,7 @@ end)
 number(protection,'سرعة طيران اللاعب','PlayerFlySpeed',15,120,5)
 label(protection,'مفاتيح الطيران','W/S للأمام والخلف • A/D للجانبين • E للصعود • Q للنزول • OFF للهبوط الطبيعي')
 local charFlyDiagnostic=label(protection,'طيران اللاعب: متوقف','اعرف هل الحركة تُطبّق محليًا أو يعيد السيرفر مكانك')
-local charFlyDiagnosticText=charFlyDiagnostic:FindFirstChildOfClass('TextLabel')
+characterFly.diagnosticText=charFlyDiagnostic:FindFirstChildOfClass('TextLabel')
 local protectionInfo=label(protection,'المراقبة متوقفة','شغّل المراقبة لمعرفة سرعة الشخصية والانتقالات المفاجئة')
 local protectionText=protectionInfo:FindFirstChildOfClass('TextLabel')
 local protectionCount=0
@@ -876,7 +893,7 @@ action(protection,'تصفير عداد الإرجاع',function()
  msg('تم تصفير عداد الانتقالات المحتملة')
 end)
 action(protection,'نسخ تقرير الإرجاع',function()
- local textLines={'Lx REDLINE v74 | تقرير مراقبة الحركة','الأحداث: '..tostring(protectionCount),'آخر حالة: '..protectionCause}
+ local textLines={'Lx REDLINE v75 | تقرير مراقبة الحركة','الأحداث: '..tostring(protectionCount),'آخر حالة: '..protectionCause}
  for _,entry in ipairs(protectionRecent) do textLines[#textLines+1]=entry end
  local report=table.concat(textLines,'\n')
  if type(setclipboard)=='function' then
@@ -957,12 +974,12 @@ conn(head.InputBegan,function(i)if i.UserInputType==Enum.UserInputType.MouseButt
 conn(UIS.InputChanged,function(i)if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then local d=i.Position-dragStart;main.Position=UDim2.new(frameStart.X.Scale,frameStart.X.Offset+d.X,frameStart.Y.Scale,frameStart.Y.Offset+d.Y) end end)
 conn(UIS.InputEnded,function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
 -- Visible FOV overlay. Radius is in screen pixels, not camera degrees.
-for _,oldFov in ipairs({'Lx_NexusFOV_V74','Lx_NexusFOV_V73','Lx_NexusFOV_V72','Lx_NexusFOV_V71','Lx_NexusFOV_V56','Lx_NexusFOV_V70','Lx_NexusFOV_V69','Lx_NexusFOV_V68','Lx_NexusFOV_V67','Lx_NexusFOV_V55','Lx_NexusFOV_V54','Lx_NexusFOV_V53','Lx_NexusFOV_V52'}) do
+for _,oldFov in ipairs({'Lx_NexusFOV_V75','Lx_NexusFOV_V74','Lx_NexusFOV_V73','Lx_NexusFOV_V72','Lx_NexusFOV_V71','Lx_NexusFOV_V56','Lx_NexusFOV_V70','Lx_NexusFOV_V69','Lx_NexusFOV_V68','Lx_NexusFOV_V67','Lx_NexusFOV_V55','Lx_NexusFOV_V54','Lx_NexusFOV_V53','Lx_NexusFOV_V52'}) do
  local old=PG:FindFirstChild(oldFov)
  if old then old:Destroy() end
 end
 local fovGui=inst('ScreenGui',{
- Name='Lx_NexusFOV_V74',ResetOnSpawn=false,IgnoreGuiInset=true,
+ Name='Lx_NexusFOV_V75',ResetOnSpawn=false,IgnoreGuiInset=true,
  DisplayOrder=89,ZIndexBehavior=Enum.ZIndexBehavior.Sibling
 },PG)
 local fovCircle=inst('Frame',{
@@ -1244,9 +1261,17 @@ end
 
 local function cleanup()
  if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.CarFly=false;S.PlayerFly=false;S.Speed=false;S.Fog=false;S.Fullbright=false
- characterFly.stop();stopCarFly();clearVehicleBoost();clearMarkers();clearResourceMarkers();resourceAlertText:Destroy();if merchantMarker then merchantMarker:Destroy() end;applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
+ if characterFly and characterFly.stop then pcall(characterFly.stop) end
+ if stopCarFly then pcall(stopCarFly) end
+ if clearVehicleBoost then pcall(clearVehicleBoost) end
+ pcall(clearMarkers);pcall(clearResourceMarkers)
+ pcall(function()resourceAlertText:Destroy()end)
+ if merchantMarker then pcall(function()merchantMarker:Destroy()end) end
+ pcall(applyVisuals)
+ if fovGui and fovGui.Parent then pcall(function()fovGui:Destroy()end) end
+ if speedHum and speedHum.Parent and originalSpeed then pcall(function()speedHum.WalkSpeed=originalSpeed end) end
  for _,c in ipairs(conns) do c:Disconnect() end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV74')end)
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV75')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
  gui:Destroy()
 end
@@ -1278,14 +1303,26 @@ conn(RunService.Heartbeat,function(dt)
  flyUpdateTimer+=dt
  groundUpdateTimer+=dt
  if S.CarFly and flyUpdateTimer>=1/30 then
-  updateCarFly()
   flyUpdateTimer=0
+  local ok,err=pcall(updateCarFly)
+  if not ok then
+   S.CarFly=false
+   pcall(stopCarFly)
+   flyState='تم إيقاف الطيران بعد خطأ: '..tostring(err):sub(1,55)
+   warn('[Lx car flight]',err)
+  end
  elseif not S.CarFly then
   flyUpdateTimer=0
  end
  if S.CarSpeed and not S.CarFly and groundUpdateTimer>=0.10 then
-  updateVehicleBoost(groundUpdateTimer)
+  local ok,err=pcall(updateVehicleBoost,groundUpdateTimer)
   groundUpdateTimer=0
+  if not ok then
+   S.CarSpeed=false
+   pcall(clearVehicleBoost)
+   vehicleState='تم إيقاف مساعد السرعة بعد خطأ: '..tostring(err):sub(1,45)
+   warn('[Lx vehicle speed]',err)
+  end
  elseif not S.CarSpeed then
   groundUpdateTimer=0
  end
@@ -1333,14 +1370,14 @@ conn(RunService.Heartbeat,function(dt)
   else clearMarkers() end
   if S.Radar and listTimer>=2.5 then listTimer=0;rebuildAnimalList() elseif not S.Radar then listTimer=0 end
   if S.Merchant and extrasTimer==0 then local p,d=findMerchant();merchantText.Text=p and ('أقرب تاجر: '..math.floor(d)..' وحدة') or 'أقرب تاجر: غير مكتشف' end
-  if charFlyDiagnosticText then charFlyDiagnosticText.Text='طيران اللاعب: '..characterFly.problem end
+  if characterFly.diagnosticText and characterFly.diagnosticText.Parent then characterFly.diagnosticText.Text='طيران اللاعب: '..characterFly.problem end
   if vehicleDiagnosticText then vehicleDiagnosticText.Text='التشخيص: '..(S.CarFly and flyState or vehicleState) end
   -- Do not reapply Lighting periodically: repeated writes can cause flashes.
   if visualTimer>=2.5 then visualTimer=0 end
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
-local aimBinding='Lx_NexusAimV74'
+local aimBinding='Lx_NexusAimV75'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
  if not S.Aim then return end
@@ -1378,8 +1415,8 @@ RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,functi
   cam.CFrame=cam.CFrame:Lerp(desired,math.clamp(alpha,0,1))
  end
 end)
-msg('Lx REDLINE v74 | تشغيل مستقر + مراقبة تغيّرات الموقع')
-print('[Lx REDLINE PRO] v74 loaded')
+msg('Lx REDLINE v75 | تشغيل مستقر + مراقبة تغيّرات الموقع')
+print('[Lx REDLINE PRO] v75 loaded')
 end -- initializeFeatures
 
 task.defer(function()
@@ -1388,14 +1425,14 @@ task.defer(function()
   return tostring(e)
  end)
  if not ok then
-  warn('[Lx REDLINE v74 FEATURES]',err)
+  warn('[Lx REDLINE v75 FEATURES]',err)
   showFeatureError(err)
  end
 end)
 end -- launchRedline
 local ok, issue=xpcall(launchRedline,function(err)
  local trace=(debug and debug.traceback and debug.traceback(tostring(err),2)) or tostring(err)
- warn('[Lx REDLINE v74 STARTUP ERROR] '..trace)
+ warn('[Lx REDLINE v75 STARTUP ERROR] '..trace)
  return trace
 end)
 if not ok then
@@ -1404,12 +1441,12 @@ if not ok then
   if not player then return end
   local pg=player:FindFirstChildOfClass('PlayerGui')
   if not pg then return end
-  local previous=pg:FindFirstChild('Lx_Error_v74')
+  local previous=pg:FindFirstChild('Lx_Error_v75')
   if previous then previous:Destroy() end
-  local gui=Instance.new('ScreenGui');gui.Name='Lx_Error_v74';gui.ResetOnSpawn=false;gui.DisplayOrder=10000;gui.Parent=pg
+  local gui=Instance.new('ScreenGui');gui.Name='Lx_Error_v75';gui.ResetOnSpawn=false;gui.DisplayOrder=10000;gui.Parent=pg
   local frame=Instance.new('Frame');frame.Size=UDim2.fromOffset(540,195);frame.Position=UDim2.new(.5,-270,.32,0);frame.BackgroundColor3=Color3.fromRGB(30,17,18);frame.Parent=gui
   local corner=Instance.new('UICorner');corner.Parent=frame
-  local lab=Instance.new('TextLabel');lab.Size=UDim2.new(1,-24,1,-62);lab.Position=UDim2.fromOffset(12,10);lab.BackgroundTransparency=1;lab.TextWrapped=true;lab.TextXAlignment=Enum.TextXAlignment.Left;lab.TextYAlignment=Enum.TextYAlignment.Top;lab.TextSize=15;lab.Font=Enum.Font.Code;lab.TextColor3=Color3.new(1,1,1);lab.Text='Lx REDLINE v74 - STARTUP ERROR\n'..tostring(issue):sub(1,350);lab.Parent=frame
+  local lab=Instance.new('TextLabel');lab.Size=UDim2.new(1,-24,1,-62);lab.Position=UDim2.fromOffset(12,10);lab.BackgroundTransparency=1;lab.TextWrapped=true;lab.TextXAlignment=Enum.TextXAlignment.Left;lab.TextYAlignment=Enum.TextYAlignment.Top;lab.TextSize=15;lab.Font=Enum.Font.Code;lab.TextColor3=Color3.new(1,1,1);lab.Text='Lx REDLINE v75 - STARTUP ERROR\n'..tostring(issue):sub(1,350);lab.Parent=frame
   local close=Instance.new('TextButton');close.Size=UDim2.new(1,-24,0,35);close.Position=UDim2.new(0,12,1,-45);close.Text='إغلاق';close.TextSize=17;close.TextColor3=Color3.new(1,1,1);close.BackgroundColor3=Color3.fromRGB(209,28,41);close.Parent=frame
   close.MouseButton1Click:Connect(function()gui:Destroy()end)
  end)
