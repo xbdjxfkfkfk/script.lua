@@ -499,12 +499,17 @@ number(aim,'أقصى مسافة للتصويب','AimRange',100,3000,100)
 number(aim,'نعومة التصويب','AimSmooth',.02,1,.02)
 number(aim,'حجم دائرة FOV','FOV',10,150,5)
 label(aim,'التصويب: ON / OFF من الزر أعلاه','لا يوجد اختصار M؛ التصويب يستهدف الرأس فقط عندما تكون بياناته متاحة')
+local stopCarFly,clearVehicleBoost,updateCarFly
+local flyState='الطيران متوقف'
 local vehicle=tab('السيارات')
 toggle(vehicle,'مساعد سرعة السيارة','CarSpeed')
 number(vehicle,'السرعة المستهدفة (وحدة/ثانية)','CarTarget',20,400,20)
-toggle(vehicle,'طيران السيارة أثناء القيادة','CarFly')
+toggle(vehicle,'طيران السيارة أثناء القيادة','CarFly',function(on)
+ if not on then stopCarFly();flyState='الطيران متوقف | تمت إزالة قوى الطيران'
+ else clearVehicleBoost();updateCarFly() end
+end)
 number(vehicle,'سرعة طيران السيارة','FlySpeed',20,300,10)
-label(vehicle,'التحكم في الطيران','W للأمام • S للخلف • A و D للجانبين • E صعود • Q نزول. اتجاه الطيران حسب الكاميرا. عند إيقاف الطيران تعود الفيزياء الطبيعية.')
+label(vehicle,'التحكم في الطيران','OFF يزيل قوة الرفع فورًا وتعود الجاذبية. فعّل مساعد السرعة الأرضي للقيادة. W للأمام • S للخلف • A و D للجانبين • E صعود • Q نزول. اتجاه الطيران حسب الكاميرا. عند إيقاف الطيران تعود الفيزياء الطبيعية.')
 local directionButton=action(vehicle,'اتجاه الدفع: أمام السيارة',function()
  S.CarDirection=-S.CarDirection
  directionButton.Text=S.CarDirection==1 and 'اتجاه الدفع: أمام السيارة' or 'اتجاه الدفع: عكس اتجاه المقعد'
@@ -935,20 +940,37 @@ end
 -- Client-side vehicle control is best-effort; server-owned vehicles may ignore it.
 local savedSeat,savedMaxSpeed,savedTorque
 local vehicleState='مساعد السرعة متوقف'
-local flyState='الطيران متوقف'
 local flyBody=nil
 local flyAttachment=nil
+local flyLastSeat=nil
 local flyVelocity=nil
 local flyOrientation=nil
-local function stopCarFly()
+stopCarFly=function()
  if flyVelocity then flyVelocity:Destroy();flyVelocity=nil end
  if flyOrientation then flyOrientation:Destroy();flyOrientation=nil end
  if flyAttachment then flyAttachment:Destroy();flyAttachment=nil end
+ -- Remove orphaned constraints from previous runs, including older versions.
+ local h=hum();local seat=h and h.SeatPart
+ local body=flyBody or (seat and (seat.AssemblyRootPart or seat))
+ if body and body.Parent then
+  for _,part in ipairs(body:GetConnectedParts(true)) do
+   for _,obj in ipairs(part:GetChildren()) do
+    if obj.Name=='LxFlyVelocity' or obj.Name=='LxFlyOrientation' or obj.Name=='LxFlyAttachment' then obj:Destroy() end
+   end
+  end
+  for _,obj in ipairs(body:GetChildren()) do
+   if obj.Name=='LxFlyVelocity' or obj.Name=='LxFlyOrientation' or obj.Name=='LxFlyAttachment' then obj:Destroy() end
+  end
+  -- Release flight hover: remove the upward velocity, allowing gravity to act.
+  local v=body.AssemblyLinearVelocity
+  if v.Y>0 then pcall(function() body.AssemblyLinearVelocity=Vector3.new(v.X,0,v.Z) end) end
+ end
  flyBody=nil
+ flyLastSeat=nil
 end
-local function updateCarFly()
+updateCarFly=function()
  if not S.CarFly then
-  if flyBody then stopCarFly() end
+  if flyBody or flyVelocity or flyOrientation then stopCarFly() end
   flyState='الطيران متوقف'
   return
  end
@@ -964,6 +986,7 @@ local function updateCarFly()
  if body~=flyBody or not flyVelocity or not flyVelocity.Parent then
   stopCarFly()
   flyBody=body
+  flyLastSeat=seat
   flyAttachment=Instance.new('Attachment');flyAttachment.Name='LxFlyAttachment';flyAttachment.Parent=body
   flyVelocity=Instance.new('LinearVelocity')
   flyVelocity.Name='LxFlyVelocity'
@@ -1011,13 +1034,13 @@ local function restoreSeat()
  end
  savedSeat=nil;savedMaxSpeed=nil;savedTorque=nil
 end
-local function clearVehicleBoost()
+clearVehicleBoost=function()
  restoreSeat()
  lastVehicleSpeed=0;vehicleSpeedStuckFor=0
 end
 local function updateVehicleBoost(dt)
  if S.CarFly then
-  vehicleState='الطيران مفعّل: مساعد السرعة الأرضي معلّق';clearVehicleBoost();return
+  vehicleState='الطيران مفعّل: مساعد السرعة الأرضي معلّق';return
  end
  if not S.CarSpeed then
   vehicleState='مساعد السرعة متوقف';clearVehicleBoost();return
@@ -1097,11 +1120,11 @@ conn(close.MouseButton1Click,cleanup)
 local timer=0;local flyUpdateTimer=0;local aimTarget=nil;local aimTimer=0;local fitTimer=0;local listTimer=0;local extrasTimer=0;local visualTimer=0
 conn(RunService.Heartbeat,function(dt)
  if not alive then return end
- timer+=dt;aimTimer+=dt;fitTimer+=dt;listTimer+=dt;extrasTimer+=dt;visualTimer+=dt;if fitTimer>=1 then fitTimer=0;fitScreen() end
+ timer+=dt;fitTimer+=dt;listTimer+=dt;extrasTimer+=dt;visualTimer+=dt;if fitTimer>=1 then fitTimer=0;fitScreen() end
  if S.Speed then local h=hum();if h then if speedHum~=h then speedHum=h;originalSpeed=h.WalkSpeed end;h.WalkSpeed=S.Walk end end
  -- Vehicle flight still updates each frame for responsive controls.
  if S.CarFly then updateCarFly() end
- if S.CarSpeed then updateVehicleBoost(dt) end
+ if S.CarSpeed and not S.CarFly then updateVehicleBoost(dt) end
  if timer>=2.0 then
   timer=0
   if S.Radar or S.Aim or S.RareAlert then refreshCache() end
@@ -1189,5 +1212,5 @@ RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,functi
   cam.CFrame=cam.CFrame:Lerp(desired,math.clamp(alpha,0,1))
  end
 end)
-msg('Lx REDLINE v56 | التصويب ON / OFF من قائمة التصويب')
-print('[Lx NEXUS PRO] v56 loaded')
+msg('Lx REDLINE v66 | تحسين طيران السيارة وأداء الحركة')
+print('[Lx REDLINE PRO] v66 loaded')
