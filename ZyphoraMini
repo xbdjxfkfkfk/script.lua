@@ -242,7 +242,11 @@ end
 -- Event-maintained animal index: avoids traversing every workspace descendant every second.
 local indexed=setmetatable({}, {__mode='k'})
 local scanQueue={}
+local queued=setmetatable({}, {__mode='k'})
 local scanCursor=1
+local function enqueueAnimal(m)
+ if m and m:IsA('Model') and not queued[m] then queued[m]=true;scanQueue[#scanQueue+1]=m end
+end
 local cache={}
 local function trackAnimal(m)
  if m:IsA('Model') and not indexed[m] and lizard(m) and living(m) then indexed[m]=true end
@@ -251,12 +255,12 @@ task.spawn(function()
  local all=WS:GetDescendants()
  for i,obj in ipairs(all) do
   if not alive then return end
-  if obj:IsA('Model') then trackAnimal(obj);scanQueue[#scanQueue+1]=obj end
+  if obj:IsA('Model') then trackAnimal(obj);enqueueAnimal(obj) end
   if i%120==0 then task.wait() end
  end
 end)
 conn(WS.DescendantAdded,function(obj)
- if obj:IsA('Model') then scanQueue[#scanQueue+1]=obj;task.defer(function() if alive and obj.Parent then trackAnimal(obj) end end) end
+ if obj:IsA('Model') then enqueueAnimal(obj);task.defer(function() if alive and obj.Parent then trackAnimal(obj) end end) end
 end)
 conn(WS.DescendantRemoving,function(obj)
  if indexed[obj] then indexed[obj]=nil end
@@ -268,7 +272,7 @@ local function refreshCache()
  -- Reconsider a bounded number of previously loaded models. Some maps set
  -- their species/name attributes after the instance first appears.
  table.clear(seatCache)
- for _=1,math.min(100,#scanQueue) do
+ for _=1,math.min(300,#scanQueue) do
   if scanCursor>#scanQueue then scanCursor=1 end
   local m=scanQueue[scanCursor]
   scanCursor+=1
@@ -861,7 +865,7 @@ conn(RunService.Heartbeat,function(dt)
  if S.Speed then local h=hum();if h then if speedHum~=h then speedHum=h;originalSpeed=h.WalkSpeed end;h.WalkSpeed=S.Walk end end
  updateCarFly()
  updateVehicleBoost(dt)
- if timer>=0.8 then
+ if timer>=0.35 then
   timer=0
   if S.Radar or S.Aim or S.RareAlert then refreshCache() end
   if S.RareAlert then checkRareSpawn() elseif rareBanner.Visible then rareBanner.Visible=false end
@@ -875,12 +879,14 @@ conn(RunService.Heartbeat,function(dt)
    end
    table.sort(visible,function(a,b)return a.d<b.d end)
    local shown=0
+   local kept={}
    for _,item in ipairs(visible) do
     local e=item.e
     local d=item.d
     local match=living(e.model) and lizard(e.model) and (S.Filter=='الكل' or rarity(e.model)==S.Filter)
-    if match and shown<28 then
+    if match and shown<80 then
      shown+=1
+     kept[e.model]=true
      makeMarker(e);local bb=markers[e.model];if bb then bb.MaxDistance=S.RadarRange;local t=bb:FindFirstChildOfClass('TextLabel');if t then
       local weight=animalWeight(e.model);local size=animalSize(e.model)
       t.Text=(rarity(e.model)=='غير محدد' and 'ضب' or rarity(e.model))..'\nحجم '..size..'  •  وزن '..weight..'  •  '..math.floor(d)..' وحدة'
@@ -891,16 +897,17 @@ conn(RunService.Heartbeat,function(dt)
    for m,bb in pairs(markers) do
     local p=part(m)
     local d=(r and p and p.Parent) and (p.Position-r.Position).Magnitude or math.huge
-    if not m.Parent or not living(m) or not lizard(m) or d>S.RadarRange or (S.Filter~='الكل' and rarity(m)~=S.Filter) then
+    if not kept[m] or not m.Parent or not living(m) or not lizard(m) or d>S.RadarRange or (S.Filter~='الكل' and rarity(m)~=S.Filter) then
      bb:Destroy();markers[m]=nil
     end
    end
    local e,d=nearest(S.Filter);nearestText.Text=e and ('أقرب ضب: '..e.model.Name..' | حجم '..animalSize(e.model)..' | '..math.floor(d)..' وحدة') or 'أقرب ضب: لا يوجد'
   else clearMarkers() end
-  if listTimer>=2.4 then listTimer=0;rebuildAnimalList() end
+  if listTimer>=2.0 then listTimer=0;rebuildAnimalList() end
   if S.Merchant then local p,d=findMerchant();merchantText.Text=p and ('أقرب تاجر: '..math.floor(d)..' وحدة') or 'أقرب تاجر: غير مكتشف' end
   if vehicleDiagnosticText then vehicleDiagnosticText.Text='التشخيص: '..(S.CarFly and flyState or vehicleState) end
-  if visualTimer>=2.5 then visualTimer=0;if S.Fog or S.Fullbright then applyVisuals() end end
+  -- Do not reapply Lighting periodically: repeated writes can cause flashes.
+  if visualTimer>=2.5 then visualTimer=0 end
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
@@ -916,13 +923,15 @@ RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,functi
  local best,bestPixelDistance=nil,math.huge
  for _,e in ipairs(cache) do
   if e.model.Parent and e.part.Parent and lizard(e.model) and living(e.model) then
-   local worldDistance=(e.part.Position-r.Position).Magnitude
+   local head=e.model:FindFirstChild('Head',true) or e.model:FindFirstChild('head',true) or e.model:FindFirstChild('رأس',true)
+   local targetPart=(head and head:IsA('BasePart')) and head or e.part
+   local worldDistance=(targetPart.Position-r.Position).Magnitude
    if worldDistance<=S.AimRange then
-    local point,onScreen=cam:WorldToViewportPoint(e.part.Position)
+    local point,onScreen=cam:WorldToViewportPoint(targetPart.Position)
     if onScreen and point.Z>0 then
      local pixelDistance=(Vector2.new(point.X,point.Y)-center).Magnitude
      if pixelDistance<=S.FOV and pixelDistance<bestPixelDistance then
-      best=e
+      best=targetPart
       bestPixelDistance=pixelDistance
      end
     end
@@ -930,10 +939,10 @@ RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,functi
   end
  end
  if best then
-  local desired=CFrame.lookAt(cam.CFrame.Position,best.part.Position)
+  local desired=CFrame.lookAt(cam.CFrame.Position,best.Position)
   local alpha=1-math.exp(-math.clamp(S.AimSmooth,.02,1)*30*math.min(dt,.1))
   cam.CFrame=cam.CFrame:Lerp(desired,math.clamp(alpha,0,1))
  end
 end)
-msg('Lx NEXUS v49 | منع ESP فوق مجسمات المركبات')
-print('[Lx NEXUS PRO] v49 loaded')
+msg('Lx NEXUS v51 | Radar & Aim adjustments')
+print('[Lx NEXUS PRO] v51 loaded')
