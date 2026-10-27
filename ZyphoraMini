@@ -1,4 +1,4 @@
--- Lx REDLINE PRO v62 | welcome and Discord entry | radar identification and marker recovery: relaxed identification and delayed model updates
+-- Lx REDLINE PRO v63 | welcome and Discord entry | radar identification and marker recovery: relaxed identification and delayed model updates
 -- Loaded client objects only; server-streamed distant objects cannot be detected.
 -- Lx NEXUS PRO v47 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
@@ -30,9 +30,9 @@ local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(10,10,12),card=Color3.fromRGB(28,29,32),muted=Color3.fromRGB(184,186,190),white=Color3.fromRGB(255,255,255),purple=Color3.fromRGB(239,28,37),green=Color3.fromRGB(80,215,135)}
 for _,oldName in ipairs({'Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local oldCurrent=PG:FindFirstChild('Lx_NexusV61') or PG:FindFirstChild('Lx_NexusV60') or PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58') or PG:FindFirstChild('Lx_NexusV59')
+local oldCurrent=PG:FindFirstChild('Lx_NexusV62') or PG:FindFirstChild('Lx_NexusV61') or PG:FindFirstChild('Lx_NexusV60') or PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58') or PG:FindFirstChild('Lx_NexusV59')
 if oldCurrent then oldCurrent:Destroy() end
-local gui=inst('ScreenGui',{Name='Lx_NexusV62',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+local gui=inst('ScreenGui',{Name='Lx_NexusV63',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 main.Visible=false -- open only after the welcome flow
 inst('UIStroke',{Color=Color3.fromRGB(205,36,42),Thickness=1.4,Transparency=.12},main)
@@ -310,11 +310,14 @@ local function trackAnimal(m)
  if m:IsA('Model') and lizard(m) and living(m) then indexed[m]=true end
 end
 task.spawn(function()
- local all=WS:GetDescendants()
- for i,obj in ipairs(all) do
-  if not alive then return end
-  if obj:IsA('Model') then trackAnimal(obj);enqueueAnimal(obj) end
-  if i%120==0 then task.wait() end
+ -- Incremental breadth-first traversal avoids a single expensive GetDescendants allocation.
+ local pending={WS};local index=1
+ while alive and index<=#pending do
+  local obj=pending[index];index+=1
+  if obj:IsA('Model') then enqueueAnimal(obj) end
+  local children=obj:GetChildren()
+  for _,child in ipairs(children) do pending[#pending+1]=child end
+  if index%75==0 then task.wait(0.025) end
  end
 end)
 conn(WS.DescendantAdded,function(obj)
@@ -331,8 +334,7 @@ conn(CollectionService:GetInstanceAddedSignal('AnimalLizard'),trackAnimal)
 local function refreshCache()
  -- Reconsider a bounded number of previously loaded models. Some maps set
  -- their species/name attributes after the instance first appears.
- table.clear(seatCache)
--- Compact removed models periodically; otherwise the queue grows forever.
+ -- Compact removed models periodically; otherwise the queue grows forever.
  if #scanQueue>1500 and os.clock()-lastQueueCompact>15 then
   lastQueueCompact=os.clock()
   local fresh={}
@@ -343,7 +345,7 @@ local function refreshCache()
   scanQueue=fresh
   scanCursor=math.min(scanCursor,#scanQueue+1)
  end
- for _=1,math.min(600,#scanQueue) do
+ for _=1,math.min(90,#scanQueue) do
   if scanCursor>#scanQueue then scanCursor=1 end
   local m=scanQueue[scanCursor]
   scanCursor+=1
@@ -605,11 +607,17 @@ clearResourceMarkers=function()
 end
 -- Index potential resource objects once, then update incrementally.
 -- Avoid scanning the entire Workspace every UI refresh.
-for _,obj in ipairs(WS:GetDescendants()) do
- if (obj:IsA('Model') or obj:IsA('BasePart')) and nameMatches(obj,resourceWords) then
-  resourceScanQueue[#resourceScanQueue+1]=obj
+task.spawn(function()
+ local pending={WS};local index=1
+ while alive and index<=#pending do
+  local obj=pending[index];index+=1
+  if (obj:IsA('Model') or obj:IsA('BasePart')) and nameMatches(obj,resourceWords) then
+   resourceScanQueue[#resourceScanQueue+1]=obj
+  end
+  for _,child in ipairs(obj:GetChildren()) do pending[#pending+1]=child end
+  if index%75==0 then task.wait(0.025) end
  end
-end
+end)
 conn(WS.DescendantAdded,function(obj)
  if (obj:IsA('Model') or obj:IsA('BasePart')) and nameMatches(obj,resourceWords) then
   resourceScanQueue[#resourceScanQueue+1]=obj
@@ -1086,18 +1094,19 @@ local function cleanup()
 end
 env.XHubCleanup=cleanup
 conn(close.MouseButton1Click,cleanup)
-local timer=0;local aimTarget=nil;local aimTimer=0;local fitTimer=0;local listTimer=0;local extrasTimer=0;local visualTimer=0
+local timer=0;local flyUpdateTimer=0;local aimTarget=nil;local aimTimer=0;local fitTimer=0;local listTimer=0;local extrasTimer=0;local visualTimer=0
 conn(RunService.Heartbeat,function(dt)
  if not alive then return end
  timer+=dt;aimTimer+=dt;fitTimer+=dt;listTimer+=dt;extrasTimer+=dt;visualTimer+=dt;if fitTimer>=1 then fitTimer=0;fitScreen() end
  if S.Speed then local h=hum();if h then if speedHum~=h then speedHum=h;originalSpeed=h.WalkSpeed end;h.WalkSpeed=S.Walk end end
- updateCarFly()
- updateVehicleBoost(dt)
- if timer>=0.5 then
+ -- Vehicle flight still updates each frame for responsive controls.
+ if S.CarFly then updateCarFly() end
+ if S.CarSpeed then updateVehicleBoost(dt) end
+ if timer>=1.0 then
   timer=0
   if S.Radar or S.Aim or S.RareAlert then refreshCache() end
   if S.RareAlert then checkRareSpawn() elseif rareBanner.Visible then rareBanner.Visible=false end
-  if extrasTimer>=3 then extrasTimer=0;if S.ResourceESP or S.ResourceAlert or S.Merchant then refreshExtrasESP() end end
+  if extrasTimer>=5 then extrasTimer=0;if S.ResourceESP or S.ResourceAlert or S.Merchant then refreshExtrasESP() end end
   if S.Radar then
    local count=0
    for _ in pairs(indexed) do count+=1 end
@@ -1116,7 +1125,7 @@ conn(RunService.Heartbeat,function(dt)
     local e=item.e
     local d=item.d
     local match=living(e.model) and lizard(e.model) and (S.Filter=='الكل' or rarity(e.model)==S.Filter)
-    if match and shown<80 then
+    if match and shown<35 then
      shown+=1
      kept[e.model]=true
      makeMarker(e);local bb=markers[e.model];if bb then bb.MaxDistance=S.RadarRange;local t=bb:FindFirstChildOfClass('TextLabel');if t then
@@ -1135,8 +1144,8 @@ conn(RunService.Heartbeat,function(dt)
    end
    local e,d=nearest(S.Filter);nearestText.Text=e and ('أقرب ضب: '..e.model.Name..' | حجم '..animalSize(e.model)..' | '..math.floor(d)..' وحدة') or 'أقرب ضب: لا يوجد'
   else clearMarkers() end
-  if listTimer>=2.0 then listTimer=0;rebuildAnimalList() end
-  if S.Merchant then local p,d=findMerchant();merchantText.Text=p and ('أقرب تاجر: '..math.floor(d)..' وحدة') or 'أقرب تاجر: غير مكتشف' end
+  if listTimer>=4.0 then listTimer=0;rebuildAnimalList() end
+  if S.Merchant and extrasTimer==0 then local p,d=findMerchant();merchantText.Text=p and ('أقرب تاجر: '..math.floor(d)..' وحدة') or 'أقرب تاجر: غير مكتشف' end
   if vehicleDiagnosticText then vehicleDiagnosticText.Text='التشخيص: '..(S.CarFly and flyState or vehicleState) end
   -- Do not reapply Lighting periodically: repeated writes can cause flashes.
   if visualTimer>=2.5 then visualTimer=0 end
