@@ -1,4 +1,4 @@
--- Lx REDLINE PRO v56 | verified static repairs
+-- Lx REDLINE PRO v57 | radar discovery repair
 -- Loaded client objects only; server-streamed distant objects cannot be detected.
 -- Lx NEXUS PRO v47 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
@@ -30,9 +30,9 @@ local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(10,10,12),card=Color3.fromRGB(28,29,32),muted=Color3.fromRGB(184,186,190),white=Color3.fromRGB(255,255,255),purple=Color3.fromRGB(239,28,37),green=Color3.fromRGB(80,215,135)}
 for _,oldName in ipairs({'Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local oldCurrent=PG:FindFirstChild('Lx_NexusV56')
+local oldCurrent=PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57')
 if oldCurrent then oldCurrent:Destroy() end
-local gui=inst('ScreenGui',{Name='Lx_NexusV56',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+local gui=inst('ScreenGui',{Name='Lx_NexusV57',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 inst('UIStroke',{Color=Color3.fromRGB(205,36,42),Thickness=1.4,Transparency=.12},main)
 local scale=inst('UIScale',{Scale=1},main)
@@ -205,8 +205,20 @@ local function lizard(model)
  local hasAnimalRig=(h~=nil and hasHead)
  -- Some games use custom NPC rigs without Humanoid. Require both a head
  -- and explicit animal stats, never a name alone, to avoid vehicle decals.
- local hasAnimalStats=read(model,{'Rarity','Tier','AnimalType','CreatureType','DhabSize','AnimalSize','DhabWeight','AnimalWeight'})~=nil
- return tagged or typed or (named and (hasAnimalRig or (hasHead and hasAnimalStats)))
+ local hasAnimalStats=read(model,{'Rarity','Tier','AnimalType','CreatureType','DhabSize','AnimalSize','DhabWeight','AnimalWeight','Size','Weight'})~=nil
+ -- Custom-rig animals often have no Humanoid and no replicated stats.
+ -- A genuine animal name plus a head and at least two distinct body parts
+ -- is an additional candidate; vehicle ancestry is excluded above.
+ local bodyParts=0
+ if named and hasHead then
+  for _,child in ipairs(model:GetDescendants()) do
+   if child:IsA('BasePart') then
+    bodyParts+=1
+    if bodyParts>=2 then break end
+   end
+  end
+ end
+ return tagged or typed or (named and (hasAnimalRig or (hasHead and (hasAnimalStats or bodyParts>=2))))
 end
 local function part(model) return model.PrimaryPart or model:FindFirstChildWhichIsA('BasePart',true) end
 local function living(model)
@@ -311,7 +323,7 @@ local function refreshCache()
   scanQueue=fresh
   scanCursor=math.min(scanCursor,#scanQueue+1)
  end
- for _=1,math.min(180,#scanQueue) do
+ for _=1,math.min(600,#scanQueue) do
   if scanCursor>#scanQueue then scanCursor=1 end
   local m=scanQueue[scanCursor]
   scanCursor+=1
@@ -351,6 +363,7 @@ local fi=1
 local filterBtn
 filterBtn=action(radar,'فلتر الندرة: الكل',function() fi=fi%#filterValues+1;S.Filter=filterValues[fi];filterBtn.Text='فلتر الندرة: '..S.Filter end)
 local closestLabel=label(radar,'أقرب ضب: لا يوجد','يتم التحديث عند تفعيل الرادار')
+local radarDiag=label(radar,'تشخيص الكاشف: جار الفحص','يفحص المجسمات المحمّلة على جهازك فقط')
 local nearestText=closestLabel:FindFirstChildOfClass('TextLabel')
 -- Persistent live list of all loaded, living lizards in range.
 local listTitle=label(radar,'قائمة الضبان | الحجم والمسافة','الأقرب أولاً • بيانات الحجم والوزن من الماب فقط')
@@ -950,6 +963,10 @@ conn(RunService.Heartbeat,function(dt)
   if S.RareAlert then checkRareSpawn() elseif rareBanner.Visible then rareBanner.Visible=false end
   if extrasTimer>=3 then extrasTimer=0;if S.ResourceESP or S.ResourceAlert or S.Merchant then refreshExtrasESP() end end
   if S.Radar then
+   local count=0
+   for _ in pairs(indexed) do count+=1 end
+   local diag=radarDiag:FindFirstChildOfClass('TextLabel')
+   if diag then diag.Text='تشخيص الكاشف: '..count..' ضب محتمل | '..#scanQueue..' مجسم في الفهرس' end
    local r=root()
    local visible={}
    for _,e in ipairs(cache) do
@@ -990,7 +1007,7 @@ conn(RunService.Heartbeat,function(dt)
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
-local aimBinding='Lx_NexusAimV56'
+local aimBinding='Lx_NexusAimV57'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
  local cam=WS.CurrentCamera
