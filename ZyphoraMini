@@ -1,4 +1,4 @@
--- Lx REDLINE PRO v59 | radar regression repair: relaxed identification and delayed model updates
+-- Lx REDLINE PRO v60 | radar identification and marker recovery: relaxed identification and delayed model updates
 -- Loaded client objects only; server-streamed distant objects cannot be detected.
 -- Lx NEXUS PRO v47 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
@@ -30,9 +30,9 @@ local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(10,10,12),card=Color3.fromRGB(28,29,32),muted=Color3.fromRGB(184,186,190),white=Color3.fromRGB(255,255,255),purple=Color3.fromRGB(239,28,37),green=Color3.fromRGB(80,215,135)}
 for _,oldName in ipairs({'Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local oldCurrent=PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58')
+local oldCurrent=PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58') or PG:FindFirstChild('Lx_NexusV59')
 if oldCurrent then oldCurrent:Destroy() end
-local gui=inst('ScreenGui',{Name='Lx_NexusV58',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+local gui=inst('ScreenGui',{Name='Lx_NexusV60',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 inst('UIStroke',{Color=Color3.fromRGB(205,36,42),Thickness=1.4,Transparency=.12},main)
 local scale=inst('UIScale',{Scale=1},main)
@@ -136,7 +136,7 @@ end
 -- Verified animal classification. Never infer an animal solely from a part name.
 -- Vehicles may contain child models named after animals (decals, cargo, tools).
 local vehicleNames={'car','truck','vehicle','pickup','trailer','chassis','wheel','tire','seat','سيار','مركب','شاص','كفر','عجل','قلص','مقطور'}
-local animalNames={'dhab','dhub','lizard','reptile','ضب','ضبان','dhabb','dhabb','uromastyx'}
+local animalNames={'dhab','dhub','lizard','reptile','ضب','ضبان','dhabb','uromastyx','uromastyx','spinytailed','spiny-tailed'}
 local function matchesAny(value,words)
  local name=tostring(value):lower()
  for _,word in ipairs(words) do if name:find(word,1,true) then return true end end
@@ -197,8 +197,23 @@ local function lizard(model)
  if model:FindFirstChildWhichIsA('VehicleSeat',true) or model:FindFirstChildWhichIsA('Seat',true) then return false end
  local species=read(model,{'Species','AnimalType','CreatureType','PetType','MobType','نوع'})
  local tagged=CollectionService:HasTag(model,'Lizard') or CollectionService:HasTag(model,'Dhab') or CollectionService:HasTag(model,'ضب') or CollectionService:HasTag(model,'Lizards') or CollectionService:HasTag(model,'AnimalLizard')
+ if not tagged then
+  for _,child in ipairs(model:GetDescendants()) do
+   if (child:IsA('BasePart') or child:IsA('Model')) and (CollectionService:HasTag(child,'Lizard') or CollectionService:HasTag(child,'Dhab') or CollectionService:HasTag(child,'ضب')) then tagged=true;break end
+  end
+ end
  local typed=species~=nil and matchesAny(species,animalNames)
  local named=matchesAny(model.Name,animalNames)
+ -- The creature's parent may have a generic name while its visible mesh
+ -- or nested rig carries the actual species name.
+ if not named then
+  for _,child in ipairs(model:GetDescendants()) do
+   if (child:IsA('BasePart') or child:IsA('Model')) and matchesAny(child.Name,animalNames) then
+    named=true
+    break
+   end
+  end
+ end
  -- Names alone are unreliable: decorative car parts can be named 'Dhab'.
  -- An untagged model must also have an animal-shaped rig or actual species metadata.
  local h=model:FindFirstChildOfClass('Humanoid')
@@ -355,12 +370,40 @@ end
 local function clearMarkers() for _,g in pairs(markers) do pcall(function()g:Destroy()end) end;table.clear(markers) end
 local function makeMarker(e)
  local m=e.model;if markers[m] or not living(m) or not lizard(m) then return end
- local bb=inst('BillboardGui',{Name='LxAnimalRadar',Adornee=(e.model:FindFirstChild('Head',true) or e.model:FindFirstChild('head',true) or e.model:FindFirstChild('رأس',true) or e.part),Size=UDim2.fromOffset(190,40),StudsOffsetWorldSpace=Vector3.new(0,3.2,0),AlwaysOnTop=true,MaxDistance=S.RadarRange},gui)
- local text=inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextColor3=rarityColors[rarity(m)] or C.white,TextStrokeTransparency=.4,TextSize=11,Font=Enum.Font.GothamBold,TextWrapped=true},bb)
+ local bb=inst('BillboardGui',{Name='LxAnimalRadar',Adornee=e.part,Size=UDim2.fromOffset(230,62),StudsOffsetWorldSpace=Vector3.new(0,4,0),AlwaysOnTop=true,MaxDistance=S.RadarRange},gui)
+ local text=inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextColor3=rarityColors[rarity(m)] or C.white,TextStrokeTransparency=.4,TextSize=14,Font=Enum.Font.GothamBold,TextWrapped=true},bb)
  markers[m]=bb
 end
+-- Manual fallback: select a loaded lizard by clicking its visible body.
+-- This is explicit user confirmation, never an invented species guess.
+local manualTargets=setmetatable({}, {__mode='k'})
+local manualSelecting=false
+local mouse=LP:GetMouse()
+local function manualLizard(m)
+ return m and manualTargets[m] and m.Parent and not blockedAncestor(m)
+end
+local oldLizard=lizard
+lizard=function(m) return manualLizard(m) or oldLizard(m) end
+conn(mouse.Button1Down,function()
+ if not manualSelecting then return end
+ local hit=mouse.Target
+ if not hit then msg('لم يتم تحديد مجسم؛ اضغط على جسم الضب') return end
+ local selected=hit:FindFirstAncestorOfClass('Model')
+ if not selected or blockedAncestor(selected) then
+  msg('هذا ليس مجسم ضب صالحًا أو هو داخل سيارة')
+  return
+ end
+ manualTargets[selected]=true
+ indexed[selected]=true
+ enqueueAnimal(selected)
+ manualSelecting=false
+ refreshCache()
+ msg('تم تحديد الضب: '..selected.Name..' | فعّل الكاشف')
+end)
 local radar=tab('كشف العناصر')
 toggle(radar,'كشف الضبان ومعلوماتها','Radar',function(on) if not on then clearMarkers() else refreshCache() end end)
+action(radar,'تحديد ضب أمامك (اضغط على جسمه)',function() manualSelecting=true;msg('اضغط على جسم الضب الموجود أمامك لتحديد مجسمه الحقيقي') end)
+action(radar,'إعادة فحص الضبان الآن',function() refreshCache();msg('أعيد فحص '..#scanQueue..' مجسم مسجل') end)
 number(radar,'مدى الرادار (وحدة)','RadarRange',100,3000,100)
 local filterValues={'الكل','عادي','مميز','نادر','فاخر','أسطوري','خرافي'}
 local fi=1
