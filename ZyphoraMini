@@ -1,4 +1,4 @@
--- Lx REDLINE PRO v58 | radar ancestor detection repair
+-- Lx REDLINE PRO v59 | radar regression repair: relaxed identification and delayed model updates
 -- Loaded client objects only; server-streamed distant objects cannot be detected.
 -- Lx NEXUS PRO v47 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
@@ -136,7 +136,7 @@ end
 -- Verified animal classification. Never infer an animal solely from a part name.
 -- Vehicles may contain child models named after animals (decals, cargo, tools).
 local vehicleNames={'car','truck','vehicle','pickup','trailer','chassis','wheel','tire','seat','سيار','مركب','شاص','كفر','عجل','قلص','مقطور'}
-local animalNames={'dhab','dhub','lizard','reptile','ضب'}
+local animalNames={'dhab','dhub','lizard','reptile','ضب','ضبان','dhabb','dhabb','uromastyx'}
 local function matchesAny(value,words)
  local name=tostring(value):lower()
  for _,word in ipairs(words) do if name:find(word,1,true) then return true end end
@@ -220,7 +220,7 @@ local function lizard(model)
    end
   end
  end
- return tagged or typed or (named and (hasAnimalRig or (hasHead and (hasAnimalStats or bodyParts>=2))))
+ return tagged or typed or (named and (hasAnimalRig or hasAnimalStats or bodyParts>=2 or model.PrimaryPart~=nil or model:FindFirstChildWhichIsA('BasePart',true)~=nil))
 end
 local function part(model) return model.PrimaryPart or model:FindFirstChildWhichIsA('BasePart',true) end
 local function living(model)
@@ -291,7 +291,7 @@ local function enqueueAnimal(m)
 end
 local cache={}
 local function trackAnimal(m)
- if m:IsA('Model') and not indexed[m] and lizard(m) and living(m) then indexed[m]=true end
+ if m:IsA('Model') and lizard(m) and living(m) then indexed[m]=true end
 end
 task.spawn(function()
  local all=WS:GetDescendants()
@@ -302,7 +302,7 @@ task.spawn(function()
  end
 end)
 conn(WS.DescendantAdded,function(obj)
- if obj:IsA('Model') then enqueueAnimal(obj);task.defer(function() if alive and obj.Parent then trackAnimal(obj) end end) end
+ if obj:IsA('Model') then enqueueAnimal(obj);task.defer(function() if alive and obj.Parent then trackAnimal(obj) end end) elseif obj:IsA('BasePart') or obj:IsA('ValueBase') then local parentModel=obj:FindFirstAncestorOfClass('Model');if parentModel then enqueueAnimal(parentModel);task.defer(function()if alive and parentModel.Parent then trackAnimal(parentModel) end end)end end
 end)
 conn(WS.DescendantRemoving,function(obj)
  if indexed[obj] then indexed[obj]=nil end
@@ -327,7 +327,7 @@ local function refreshCache()
   scanQueue=fresh
   scanCursor=math.min(scanCursor,#scanQueue+1)
  end
- for _=1,math.min(240,#scanQueue) do
+ for _=1,math.min(600,#scanQueue) do
   if scanCursor>#scanQueue then scanCursor=1 end
   local m=scanQueue[scanCursor]
   scanCursor+=1
