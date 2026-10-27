@@ -1,4 +1,6 @@
--- Lx REDLINE PRO v70 | welcome and Discord entry | radar identification and marker recovery: relaxed identification and delayed model updates
+-- Startup guard: report Lua execution errors in a visible on-screen panel.
+local function launchRedline()
+-- Lx REDLINE PRO v71 | welcome and Discord entry | radar identification and marker recovery: relaxed identification and delayed model updates
 -- Loaded client objects only; server-streamed distant objects cannot be detected.
 -- Lx NEXUS PRO v47 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
@@ -35,9 +37,9 @@ local C={bg=Color3.fromRGB(10,10,12),card=Color3.fromRGB(28,29,32),muted=Color3.
 for _,oldName in ipairs({'Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
 local oldCurrent=PG:FindFirstChild('Lx_NexusV68') or PG:FindFirstChild('Lx_NexusV67') or PG:FindFirstChild('Lx_NexusV66') or PG:FindFirstChild('Lx_NexusV65') or PG:FindFirstChild('Lx_NexusV64') or PG:FindFirstChild('Lx_NexusV63') or PG:FindFirstChild('Lx_NexusV62') or PG:FindFirstChild('Lx_NexusV61') or PG:FindFirstChild('Lx_NexusV60') or PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58') or PG:FindFirstChild('Lx_NexusV59')
 if oldCurrent then oldCurrent:Destroy() end
-local gui=inst('ScreenGui',{Name='Lx_NexusV70',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+local gui=inst('ScreenGui',{Name='Lx_NexusV71',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
-main.Visible=false -- open only after the welcome flow
+main.Visible=true -- open instantly; do not hide everything behind a startup gate
 inst('UIStroke',{Color=Color3.fromRGB(205,36,42),Thickness=1.4,Transparency=.12},main)
 local scale=inst('UIScale',{Scale=1},main)
 local function fitScreen()
@@ -869,46 +871,7 @@ action(og,'نسخ رابط الديسكورد',function()
 end)
 action(og,'عرض رابط الديسكورد',function()msg('https://discord.gg/7HyFER45Y') end)
 
--- Welcome overlay. Discord membership and identity are NOT automatically verified.
-local inviteUrl='https://discord.gg/7HyFER45Y'
-local gate=inst('Frame',{Name='WelcomeGate',Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.fromRGB(6,6,8),BackgroundTransparency=.12,BorderSizePixel=0},gui)
-local gateCard=inst('Frame',{Size=UDim2.fromOffset(430,330),AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),BackgroundColor3=Color3.fromRGB(21,21,25),BorderSizePixel=0},gate);round(gateCard,18)
-inst('UIStroke',{Color=C.purple,Thickness=2},gateCard)
-local gateScale=inst('UIScale',{Scale=1},gateCard)
-local function fitGate()
- local camera=WS.CurrentCamera
- if camera then local v=camera.ViewportSize;gateScale.Scale=math.min(1,math.max(.55,math.min((v.X-24)/430,(v.Y-24)/330))) end
-end
-fitGate()
-local gateTitle=inst('TextLabel',{Size=UDim2.new(1,-30,0,65),Position=UDim2.fromOffset(15,28),BackgroundTransparency=1,Text='Lx  REDLINE PRO',Font=Enum.Font.GothamBlack,TextSize=29,TextColor3=C.white},gateCard)
-local gateText=inst('TextLabel',{Size=UDim2.new(1,-44,0,90),Position=UDim2.fromOffset(22,105),BackgroundTransparency=1,Text='مرحبًا بك!\nاضغط موافق للمتابعة',TextWrapped=true,Font=Enum.Font.GothamBold,TextSize=19,TextColor3=C.white},gateCard)
-local gateHint=inst('TextLabel',{Size=UDim2.new(1,-40,0,30),Position=UDim2.fromOffset(20,200),BackgroundTransparency=1,Text='',Font=Enum.Font.Gotham,TextSize=11,TextWrapped=true,TextColor3=C.muted},gateCard)
-local gateButton=inst('TextButton',{Size=UDim2.fromOffset(325,46),Position=UDim2.new(.5,-162,1,-72),BackgroundColor3=C.purple,Text='موافق',Font=Enum.Font.GothamBold,TextSize=18,TextColor3=C.white},gateCard);round(gateButton,12)
-local gateStep=1
-local function copyInvite()
- if type(setclipboard)=='function' then
-  local ok=pcall(setclipboard,inviteUrl)
-  if ok then return true end
- end
- return false
-end
-conn(gateButton.MouseButton1Click,function()
- if gateStep==1 then
-  gateStep=2
-  gateText.Text='منورين يا ساطير\nانضم إلى مجتمعنا في ديسكورد'
-  gateHint.Text='discord.gg/7HyFER45Y'
-  gateButton.Text='نسخ رابط الديسكورد'
- elseif gateStep==2 then
-  local copied=copyInvite()
-  gateHint.Text=copied and 'تم نسخ الرابط. افتحه في ديسكورد ثم ارجع للعبة.' or ('افتح الرابط في المتصفح: '..inviteUrl)
-  gateButton.Text='متابعة إلى القوائم'
-  gateStep=3
- else
-  gate:Destroy()
-  main.Visible=true
-  msg('مرحبًا بك في Lx REDLINE PRO | عضوية ديسكورد غير متحقق منها')
- end
-end)
+-- Startup gate removed: immediate visible menu and no stuck multi-step flow.
 local minimized=false
 conn(mini.MouseButton1Click,function()minimized=not minimized;side.Visible=not minimized;area.Visible=not minimized;status.Visible=not minimized;main.Size=minimized and UDim2.fromOffset(650,66) or UDim2.fromOffset(650,500);mini.Text=minimized and '+' or '−' end)
 local dragging,dragStart,frameStart=false,nil,nil
@@ -921,7 +884,7 @@ for _,oldFov in ipairs({'Lx_NexusFOV_V56','Lx_NexusFOV_V70','Lx_NexusFOV_V69','L
  if old then old:Destroy() end
 end
 local fovGui=inst('ScreenGui',{
- Name='Lx_NexusFOV_V70',ResetOnSpawn=false,IgnoreGuiInset=true,
+ Name='Lx_NexusFOV_V71',ResetOnSpawn=false,IgnoreGuiInset=true,
  DisplayOrder=89,ZIndexBehavior=Enum.ZIndexBehavior.Sibling
 },PG)
 local fovCircle=inst('Frame',{
@@ -1112,7 +1075,7 @@ local function cleanup()
  if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.CarFly=false;S.Speed=false;S.Fog=false;S.Fullbright=false
  stopCarFly();clearVehicleBoost();clearMarkers();clearResourceMarkers();resourceAlertText:Destroy();if merchantMarker then merchantMarker:Destroy() end;applyVisuals();if fovGui.Parent then fovGui:Destroy() end;if speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end
  for _,c in ipairs(conns) do c:Disconnect() end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV70')end)
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV71')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
  gui:Destroy()
 end
@@ -1196,7 +1159,7 @@ conn(RunService.Heartbeat,function(dt)
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
-local aimBinding='Lx_NexusAimV70'
+local aimBinding='Lx_NexusAimV71'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
  if not S.Aim then return end
@@ -1234,5 +1197,29 @@ RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,functi
   cam.CFrame=cam.CFrame:Lerp(desired,math.clamp(alpha,0,1))
  end
 end)
-msg('Lx REDLINE v70 | تحسين الاستقرار والإدخال وإيقاف الطيران')
-print('[Lx REDLINE PRO] v70 loaded')
+msg('Lx REDLINE v71 | تحسين الاستقرار والإدخال وإيقاف الطيران')
+print('[Lx REDLINE PRO] v71 loaded')
+
+end
+local ok, issue=xpcall(launchRedline,function(err)
+ local trace=(debug and debug.traceback and debug.traceback(tostring(err),2)) or tostring(err)
+ warn('[Lx REDLINE v71 STARTUP ERROR] '..trace)
+ return trace
+end)
+if not ok then
+ local success,uierr=pcall(function()
+  local player=game:GetService('Players').LocalPlayer
+  if not player then return end
+  local pg=player:FindFirstChildOfClass('PlayerGui')
+  if not pg then return end
+  local previous=pg:FindFirstChild('Lx_Error_v71')
+  if previous then previous:Destroy() end
+  local gui=Instance.new('ScreenGui');gui.Name='Lx_Error_v71';gui.ResetOnSpawn=false;gui.DisplayOrder=10000;gui.Parent=pg
+  local frame=Instance.new('Frame');frame.Size=UDim2.fromOffset(540,195);frame.Position=UDim2.new(.5,-270,.32,0);frame.BackgroundColor3=Color3.fromRGB(30,17,18);frame.Parent=gui
+  local corner=Instance.new('UICorner');corner.Parent=frame
+  local lab=Instance.new('TextLabel');lab.Size=UDim2.new(1,-24,1,-62);lab.Position=UDim2.fromOffset(12,10);lab.BackgroundTransparency=1;lab.TextWrapped=true;lab.TextXAlignment=Enum.TextXAlignment.Left;lab.TextYAlignment=Enum.TextYAlignment.Top;lab.TextSize=15;lab.Font=Enum.Font.Code;lab.TextColor3=Color3.new(1,1,1);lab.Text='Lx REDLINE v71 - STARTUP ERROR\n'..tostring(issue):sub(1,350);lab.Parent=frame
+  local close=Instance.new('TextButton');close.Size=UDim2.new(1,-24,0,35);close.Position=UDim2.new(0,12,1,-45);close.Text='إغلاق';close.TextSize=17;close.TextColor3=Color3.new(1,1,1);close.BackgroundColor3=Color3.fromRGB(209,28,41);close.Parent=frame
+  close.MouseButton1Click:Connect(function()gui:Destroy()end)
+ end)
+ if not success then warn('Lx diagnostic UI failed:',uierr) end
+end
