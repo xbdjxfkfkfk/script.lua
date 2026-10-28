@@ -1,6 +1,6 @@
 -- Startup guard: report Lua execution errors in a visible on-screen panel.
 local function launchRedline()
--- Lx REDLINE PRO v76 | welcome and Discord entry | radar identification and marker recovery: relaxed identification and delayed model updates
+-- Lx REDLINE PRO v77 | smooth vehicle controls and Discord entry | radar identification and marker recovery: relaxed identification and delayed model updates
 -- Loaded client objects only; server-streamed distant objects cannot be detected.
 -- Lx NEXUS PRO v47 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
@@ -17,11 +17,11 @@ if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
 local env=_G
 if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
 if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
-for _,name in ipairs({'Lx_NexusV76','Lx_NexusV75','Lx_NexusV74','Lx_NexusV73','Lx_NexusV72','Lx_NexusV71','Lx_NexusV70','Lx_NexusV69','Lx_NexusV68','Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+for _,name in ipairs({'Lx_NexusV77','Lx_NexusV76','Lx_NexusV75','Lx_NexusV74','Lx_NexusV73','Lx_NexusV72','Lx_NexusV71','Lx_NexusV70','Lx_NexusV69','Lx_NexusV68','Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
  local old=PG:FindFirstChild(name)
  if old then old:Destroy() end
 end
-for _,version in ipairs({55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76}) do
+for _,version in ipairs({55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77}) do
  pcall(function() RunService:UnbindFromRenderStep('Lx_NexusAimV'..version) end)
 end
 local alive=true;local conns={};local markers={};local lightSaved={};local atmoSaved={};local originalSpeed=nil;local speedHum=nil
@@ -35,9 +35,9 @@ local status
 local function msg(t) if alive and status then status.Text=tostring(t) end end
 local C={bg=Color3.fromRGB(10,10,12),card=Color3.fromRGB(28,29,32),muted=Color3.fromRGB(184,186,190),white=Color3.fromRGB(255,255,255),purple=Color3.fromRGB(239,28,37),green=Color3.fromRGB(80,215,135)}
 for _,oldName in ipairs({'Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local oldCurrent=PG:FindFirstChild('Lx_NexusV75') or PG:FindFirstChild('Lx_NexusV74') or PG:FindFirstChild('Lx_NexusV73') or PG:FindFirstChild('Lx_NexusV71') or PG:FindFirstChild('Lx_NexusV68') or PG:FindFirstChild('Lx_NexusV67') or PG:FindFirstChild('Lx_NexusV66') or PG:FindFirstChild('Lx_NexusV65') or PG:FindFirstChild('Lx_NexusV64') or PG:FindFirstChild('Lx_NexusV63') or PG:FindFirstChild('Lx_NexusV62') or PG:FindFirstChild('Lx_NexusV61') or PG:FindFirstChild('Lx_NexusV60') or PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58') or PG:FindFirstChild('Lx_NexusV59')
+local oldCurrent=PG:FindFirstChild('Lx_NexusV76') or PG:FindFirstChild('Lx_NexusV75') or PG:FindFirstChild('Lx_NexusV74') or PG:FindFirstChild('Lx_NexusV73') or PG:FindFirstChild('Lx_NexusV71') or PG:FindFirstChild('Lx_NexusV68') or PG:FindFirstChild('Lx_NexusV67') or PG:FindFirstChild('Lx_NexusV66') or PG:FindFirstChild('Lx_NexusV65') or PG:FindFirstChild('Lx_NexusV64') or PG:FindFirstChild('Lx_NexusV63') or PG:FindFirstChild('Lx_NexusV62') or PG:FindFirstChild('Lx_NexusV61') or PG:FindFirstChild('Lx_NexusV60') or PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58') or PG:FindFirstChild('Lx_NexusV59')
 if oldCurrent then oldCurrent:Destroy() end
-local gui=inst('ScreenGui',{Name='Lx_NexusV76',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+local gui=inst('ScreenGui',{Name='Lx_NexusV77',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
 local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
 main.Visible=true -- always visible before feature initialization
 inst('UIStroke',{Color=Color3.fromRGB(205,36,42),Thickness=1.4,Transparency=.12},main)
@@ -84,6 +84,7 @@ local function action(p,title,fn)
  inst('UIStroke',{Color=Color3.fromRGB(110,44,49),Thickness=1,Transparency=.5},b)
  conn(b.MouseButton1Click,function() local ok,e=pcall(fn);if not ok then warn('Lx NEXUS:',e);msg('خطأ: '..tostring(e):sub(1,65)) end end);return b
 end
+local togglePaints={}
 local function toggle(p,title,key,fn)
  local b=inst('TextButton',{Size=UDim2.new(1,-2,0,41),Text='',TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,BackgroundColor3=C.card},p)
  round(b,11)
@@ -94,6 +95,7 @@ local function toggle(p,title,key,fn)
   b.BackgroundColor3=enabled and Color3.fromRGB(105,30,35) or C.card
  end
  paint()
+ togglePaints[key]=paint
  conn(b.MouseButton1Click,function()
   local previous=S[key]==true
   local desired=not previous
@@ -154,15 +156,15 @@ local function number(p,title,key,min,max,step)
 end
 -- Split the heavy features from the GUI/bootstrap to prevent Luau register/local limits.
 -- The menu renders first; feature initialization happens on the next scheduler cycle.
-status.Text='Lx v75 | الواجهة جاهزة؛ جار تحميل الميزات...'
+status.Text='Lx v77 | الواجهة جاهزة؛ جار تحميل الميزات...'
 -- Register a provisional cleanup BEFORE feature initialization. If any feature
 -- throws, restarting the script still disconnects its partial connections.
 local function provisionalCleanup()
  if not alive then return end
  alive=false
  for _,c in ipairs(conns) do pcall(function()c:Disconnect()end) end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV76')end)
- local orphan=PG:FindFirstChild('Lx_NexusFOV_V75')
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV77')end)
+ local orphan=PG:FindFirstChild('Lx_NexusFOV_V77')
  if orphan then pcall(function()orphan:Destroy()end) end
  if gui and gui.Parent then pcall(function()gui:Destroy()end) end
  if env.XHubCleanup==provisionalCleanup then env.XHubCleanup=nil end
@@ -174,7 +176,7 @@ conn(close.MouseButton1Click,function()
  else gui:Destroy() end
 end)
 local function showFeatureError(detail)
- status.Text='Lx v75 | خطأ في تحميل الميزات (موضح في النافذة)'
+ status.Text='Lx v77 | خطأ في تحميل الميزات (موضح في النافذة)'
  local errorFrame=inst('Frame',{Name='FeatureError',Size=UDim2.new(1,-24,0,137),Position=UDim2.new(0,12,1,-170),BackgroundColor3=Color3.fromRGB(57,21,25),BorderSizePixel=0,ZIndex=100},main)
  round(errorFrame,10)
  local errorLabel=inst('TextLabel',{Size=UDim2.new(1,-20,1,-54),Position=UDim2.fromOffset(10,8),BackgroundTransparency=1,Text='STARTUP ERROR | '..tostring(detail):sub(1,250),Font=Enum.Font.Code,TextSize=12,TextColor3=C.white,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=101},errorFrame)
@@ -357,7 +359,11 @@ task.spawn(function()
  local pending={WS};local index=1
  while alive and index<=#pending do
   local obj=pending[index];index+=1
-  if obj:IsA('Model') then enqueueAnimal(obj) end
+  if obj:IsA('Model') then
+   enqueueAnimal(obj)
+   local ok,why=pcall(trackAnimal,obj)
+   if not ok then warn('[Lx lizard indexing]',tostring(why):sub(1,100)) end
+  end
   local children=obj:GetChildren()
   for _,child in ipairs(children) do pending[#pending+1]=child end
   if index%35==0 then task.wait(0.04) end
@@ -388,7 +394,7 @@ local function refreshCache()
   scanQueue=fresh
   scanCursor=math.min(scanCursor,#scanQueue+1)
  end
- for _=1,math.min(24,#scanQueue) do
+ for _=1,math.min(36,#scanQueue) do
   if scanCursor>#scanQueue then scanCursor=1 end
   local m=scanQueue[scanCursor]
   scanCursor+=1
@@ -545,11 +551,23 @@ label(aim,'التصويب: ON / OFF من الزر أعلاه','لا يوجد ا�
 local stopCarFly,clearVehicleBoost,updateCarFly
 local flyState='الطيران متوقف'
 local vehicle=tab('السيارات')
-toggle(vehicle,'مساعد سرعة السيارة','CarSpeed')
+toggle(vehicle,'مساعد سرعة السيارة','CarSpeed',function(on)
+ if not on and clearVehicleBoost then
+  clearVehicleBoost()
+ elseif on and S.CarFly then
+  msg('السرعة الأرضية ستعمل بعد إيقاف الطيران')
+ end
+end)
 number(vehicle,'السرعة المستهدفة (وحدة/ثانية)','CarTarget',20,400,20)
 toggle(vehicle,'طيران السيارة أثناء القيادة','CarFly',function(on)
- if not on then stopCarFly();flyState='الطيران متوقف | تمت إزالة قوى الطيران'
- else clearVehicleBoost();updateCarFly() end
+ if not on then
+  if stopCarFly then stopCarFly(true) end
+  flyState='الطيران متوقف | أُزيلت قيود الرفع؛ يمكنك القيادة الآن'
+ else
+  if S.PlayerFly then error('أوقف طيران اللاعب قبل قيادة السيارة') end
+  if clearVehicleBoost then clearVehicleBoost() end
+  if updateCarFly then updateCarFly() end
+ end
 end)
 number(vehicle,'سرعة طيران السيارة','FlySpeed',20,300,10)
 label(vehicle,'التحكم في الطيران','OFF يزيل قوة الرفع فورًا وتعود الجاذبية. فعّل مساعد السرعة الأرضي للقيادة. W للأمام • S للخلف • A و D للجانبين • E صعود • Q نزول. اتجاه الطيران حسب الكاميرا. عند إيقاف الطيران تعود الفيزياء الطبيعية.')
@@ -775,7 +793,11 @@ local function refreshCars()
 end
 action(vehicle,'تحديث قائمة السيارات',refreshCars)
 local movement=tab('سرعة اللاعب')
-toggle(movement,'تشغيل سرعة اللاعب','Speed',function(on) if not on and speedHum and speedHum.Parent and originalSpeed then speedHum.WalkSpeed=originalSpeed end end)
+toggle(movement,'تشغيل سرعة اللاعب','Speed',function(on) if not on and speedHum and speedHum.Parent and originalSpeed then
+  speedHum.WalkSpeed=originalSpeed
+  speedHum=nil
+  originalSpeed=nil
+ end end)
 number(movement,'سرعة المشي','Walk',8,100,4)
 local tele=tab('الانتقال')
 action(tele,'الانتقال إلى أقرب ضب حي',function()refreshCache();local e=nearest('الكل');if e then moveTo(e.part.Position) else msg('لا يوجد ضب قريب ومحمّل') end end)
@@ -896,7 +918,7 @@ action(protection,'تصفير عداد الإرجاع',function()
  msg('تم تصفير عداد الانتقالات المحتملة')
 end)
 action(protection,'نسخ تقرير الإرجاع',function()
- local textLines={'Lx REDLINE v76 | تقرير مراقبة الحركة','الأحداث: '..tostring(protectionCount),'آخر حالة: '..protectionCause}
+ local textLines={'Lx REDLINE v77 | تقرير مراقبة الحركة','الأحداث: '..tostring(protectionCount),'آخر حالة: '..protectionCause}
  for _,entry in ipairs(protectionRecent) do textLines[#textLines+1]=entry end
  local report=table.concat(textLines,'\n')
  if type(setclipboard)=='function' then
@@ -1010,12 +1032,12 @@ conn(head.InputBegan,function(i)if i.UserInputType==Enum.UserInputType.MouseButt
 conn(UIS.InputChanged,function(i)if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then local d=i.Position-dragStart;main.Position=UDim2.new(frameStart.X.Scale,frameStart.X.Offset+d.X,frameStart.Y.Scale,frameStart.Y.Offset+d.Y) end end)
 conn(UIS.InputEnded,function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
 -- Visible FOV overlay. Radius is in screen pixels, not camera degrees.
-for _,oldFov in ipairs({'Lx_NexusFOV_V75','Lx_NexusFOV_V74','Lx_NexusFOV_V73','Lx_NexusFOV_V72','Lx_NexusFOV_V71','Lx_NexusFOV_V56','Lx_NexusFOV_V70','Lx_NexusFOV_V69','Lx_NexusFOV_V68','Lx_NexusFOV_V67','Lx_NexusFOV_V55','Lx_NexusFOV_V54','Lx_NexusFOV_V53','Lx_NexusFOV_V52'}) do
+for _,oldFov in ipairs({'Lx_NexusFOV_V77','Lx_NexusFOV_V76','Lx_NexusFOV_V75','Lx_NexusFOV_V74','Lx_NexusFOV_V73','Lx_NexusFOV_V72','Lx_NexusFOV_V71','Lx_NexusFOV_V56','Lx_NexusFOV_V70','Lx_NexusFOV_V69','Lx_NexusFOV_V68','Lx_NexusFOV_V67','Lx_NexusFOV_V55','Lx_NexusFOV_V54','Lx_NexusFOV_V53','Lx_NexusFOV_V52'}) do
  local old=PG:FindFirstChild(oldFov)
  if old then old:Destroy() end
 end
 local fovGui=inst('ScreenGui',{
- Name='Lx_NexusFOV_V75',ResetOnSpawn=false,IgnoreGuiInset=true,
+ Name='Lx_NexusFOV_V77',ResetOnSpawn=false,IgnoreGuiInset=true,
  DisplayOrder=89,ZIndexBehavior=Enum.ZIndexBehavior.Sibling
 },PG)
 local fovCircle=inst('Frame',{
@@ -1046,22 +1068,31 @@ local flyAttachment=nil
 local flyLastSeat=nil
 local flyVelocity=nil
 local flyOrientation=nil
-stopCarFly=function()
- if flyVelocity then flyVelocity:Destroy();flyVelocity=nil end
- if flyOrientation then flyOrientation:Destroy();flyOrientation=nil end
- if flyAttachment then flyAttachment:Destroy();flyAttachment=nil end
- -- Tear down our constraints, release hover and restore ordinary gravity.
- local h=hum();local seat=h and h.SeatPart
- local body=flyBody or (seat and (seat.AssemblyRootPart or seat))
+stopCarFly=function(descend)
+ -- Exactly one actuator set is owned by this script. Remove it completely
+ -- so the ordinary suspension / gravity controller can take over on OFF.
+ local body=flyBody
+ if flyVelocity then pcall(function()flyVelocity:Destroy()end) end
+ if flyOrientation then pcall(function()flyOrientation:Destroy()end) end
+ if flyAttachment then pcall(function()flyAttachment:Destroy()end) end
+ flyVelocity=nil;flyOrientation=nil;flyAttachment=nil
  if body and body.Parent then
   for _,obj in ipairs(body:GetChildren()) do
-   if obj.Name=='LxFlyVelocity' or obj.Name=='LxFlyOrientation' or obj.Name=='LxFlyAttachment' then obj:Destroy() end
+   if obj.Name=='LxFlyVelocity' or obj.Name=='LxFlyOrientation' or obj.Name=='LxFlyAttachment' then
+    pcall(function()obj:Destroy()end)
+   end
   end
-  local v=body.AssemblyLinearVelocity
-  if v.Y>0 then pcall(function() body.AssemblyLinearVelocity=Vector3.new(v.X,0,v.Z) end) end
+  if descend and not body.Anchored then
+   -- Zero an upward hover velocity without resetting ground momentum.
+   pcall(function()
+    local velocity=body.AssemblyLinearVelocity
+    if velocity.Y>0 then
+     body.AssemblyLinearVelocity=Vector3.new(velocity.X,0,velocity.Z)
+    end
+   end)
+  end
  end
- flyBody=nil
- flyLastSeat=nil
+ flyBody=nil;flyLastSeat=nil
 end
 updateCarFly=function()
  if not S.CarFly then
@@ -1135,80 +1166,98 @@ clearVehicleBoost=function()
 end
 local function updateVehicleBoost(dt)
  if S.CarFly then
-  vehicleState='الطيران مفعّل: مساعد السرعة الأرضي معلّق';return
+  vehicleState='الطيران مفعّل؛ مساعد السرعة الأرضي معلّق'
+  return
  end
  if not S.CarSpeed then
-  vehicleState='مساعد السرعة متوقف';clearVehicleBoost();return
+  vehicleState='مساعد السرعة متوقف'
+  if savedSeat then clearVehicleBoost() end
+  return
  end
  local h=hum()
  local seat=h and h.SeatPart
- if not seat then
-  vehicleState='اجلس في مقعد السائق';clearVehicleBoost();return
- end
- if not seat:IsA('VehicleSeat') then
-  vehicleState='مقعد مخصص ('..seat.ClassName..'): لا توجد طريقة عامة لضبط سرعته';clearVehicleBoost();return
- end
- if seat.Occupant~=h then
-  vehicleState='لا يوجد تحكم في مقعد السائق';clearVehicleBoost();return
+ if not seat or not seat:IsA('VehicleSeat') or seat.Occupant~=h then
+  vehicleState=seat and 'هذا الماب يستخدم مقعد قيادة مخصصًا' or 'اجلس في مقعد قيادة السيارة'
+  if savedSeat then clearVehicleBoost() end
+  return
  end
  local body=seat.AssemblyRootPart or seat
  if not body or body.Anchored then
-  vehicleState='جسم السيارة ثابت أو غير متاح';clearVehicleBoost();return
+  vehicleState='جسم السيارة مثبت ولا يقبل تغيير السرعة'
+  if savedSeat then clearVehicleBoost() end
+  return
  end
  if savedSeat~=seat then
   restoreSeat()
-  savedSeat=seat;savedMaxSpeed=seat.MaxSpeed;savedTorque=seat.Torque
+  savedSeat=seat
+  savedMaxSpeed=seat.MaxSpeed
+  savedTorque=seat.Torque
  end
- local target=math.clamp(S.CarTarget,20,400)
- pcall(function() seat.MaxSpeed=math.max(savedMaxSpeed or 0,target) end)
- pcall(function() seat.Torque=math.max(savedTorque or 0,math.min(20000,target*45)) end)
- local pressingW=UIS:IsKeyDown(Enum.KeyCode.W) or UIS:IsKeyDown(Enum.KeyCode.Up)
- local throttle=seat.ThrottleFloat
- if not pressingW and throttle<=0.05 then
-  vehicleState='انتظار W | السرعة الحالية '..string.format('%.1f',body.AssemblyLinearVelocity.Magnitude)
-  vehicleSpeedStuckFor=0;return
+ local target=math.clamp(tonumber(S.CarTarget) or 200,20,400)
+ -- Some vehicles use native VehicleSeat propulsion; adjust only on change.
+ pcall(function()
+  local wantedMax=math.max(savedMaxSpeed or 0,target)
+  if math.abs(seat.MaxSpeed-wantedMax)>0.1 then seat.MaxSpeed=wantedMax end
+  local wantedTorque=math.max(savedTorque or 0,math.min(18000,target*45))
+  if math.abs(seat.Torque-wantedTorque)>0.1 then seat.Torque=wantedTorque end
+ end)
+ if UIS:GetFocusedTextBox() then
+  vehicleState='كتابة قيمة السرعة؛ لا يوجد دفع أثناء الكتابة'
+  return
  end
- local forward=seat.CFrame.LookVector*S.CarDirection
- local flat=Vector3.new(forward.X,0,forward.Z)
- if flat.Magnitude<0.01 then vehicleState='اتجاه السيارة غير صالح';return end
- flat=flat.Unit
+ local nativeThrottle=seat.ThrottleFloat
+ local wantsForward=UIS:IsKeyDown(Enum.KeyCode.W) or UIS:IsKeyDown(Enum.KeyCode.Up)
+ local wantsReverse=UIS:IsKeyDown(Enum.KeyCode.S) or UIS:IsKeyDown(Enum.KeyCode.Down)
+ local drive=0
+ if wantsForward~=wantsReverse then
+  drive=wantsForward and 1 or -1
+ elseif math.abs(nativeThrottle)>0.1 then
+  drive=nativeThrottle>0 and 1 or -1
+ end
  local velocity=body.AssemblyLinearVelocity
  local horizontal=Vector3.new(velocity.X,0,velocity.Z)
- local current=horizontal.Magnitude
- -- Preserve actual movement direction to avoid sideways impulses on steering.
- local direction=current>1 and horizontal.Unit or flat
- -- Do not accelerate in reverse, and do not apply while braking.
- if direction:Dot(flat)<0.15 then
-  vehicleState='اتجاه الحركة لا يطابق مقدمة المقعد | جرّب زر اتجاه الدفع';return
+ if drive==0 then
+  vehicleState=('انتظار W / S | الحالية %.1f | الهدف %.0f'):format(horizontal.Magnitude,target)
+  vehicleSpeedStuckFor=0
+  return
  end
- local desired=math.min(target,current+math.max(20,target*0.5)*math.clamp(dt,0,0.1))
- if desired>current+0.001 then
-  local newHorizontal=direction*desired
-  local ok,err=pcall(function()
-   body.AssemblyLinearVelocity=Vector3.new(newHorizontal.X,velocity.Y,newHorizontal.Z)
-  end)
-  if not ok then vehicleState='فشل ضبط سرعة الجسم: '..tostring(err):sub(1,50);return end
+ local forward=seat.CFrame.LookVector * S.CarDirection * drive
+ local flat=Vector3.new(forward.X,0,forward.Z)
+ if flat.Magnitude<0.05 then vehicleState='اتجاه مقعد القيادة غير صالح';return end
+ flat=flat.Unit
+ -- Drive in the requested direction without destroying sideways motion on turns.
+ local aligned=horizontal:Dot(flat)
+ local desired=math.min(target,math.max(0,aligned)+math.clamp(dt,0,0.12)*math.max(45,target*0.65))
+ local gain=math.clamp(desired-aligned,0,math.max(45,target*0.65)*math.clamp(dt,0,0.12))
+ if gain>0.01 then
+  local candidate=horizontal+flat*gain
+  -- Never write a huge impulse when the car is already moving faster than target.
+  if candidate.Magnitude<=target+math.max(12,target*0.15) then
+   local ok,err=pcall(function()
+    body.AssemblyLinearVelocity=Vector3.new(candidate.X,velocity.Y,candidate.Z)
+   end)
+   if not ok then vehicleState='تعذر تعديل السرعة: '..tostring(err):sub(1,45);return end
+  end
  end
- local observed=body.AssemblyLinearVelocity.Magnitude
- if math.abs(current-lastVehicleSpeed)<0.2 and current<target-5 then
-  vehicleSpeedStuckFor+=math.clamp(dt,0,0.1)
+ local actual=body.AssemblyLinearVelocity
+ local now=Vector3.new(actual.X,0,actual.Z).Magnitude
+ if now<target*0.35 and math.abs(now-lastVehicleSpeed)<0.15 then
+  vehicleSpeedStuckFor+=math.clamp(dt,0,0.12)
  else
   vehicleSpeedStuckFor=0
  end
- lastVehicleSpeed=current
- vehicleState=string.format('الحالية %.1f | الهدف %.0f | القراءة %.1f | W %s',current,target,observed,pressingW and 'نعم' or 'لا')
+ lastVehicleSpeed=now
+ vehicleState=('سرعة فعلية %.1f / %.0f | %s'):format(now,target,drive>0 and 'أمام' or 'خلف')
  if vehicleSpeedStuckFor>2.5 then
-  vehicleState='لا توجد زيادة فعلية | قد يتحكم السيرفر أو نظام السيارة بالسرعة'
+  vehicleState='السيارة لا تستجيب للتسارع المحلي؛ ربما يتحكم السيرفر أو نظام السيارة'
  end
 end
-
-
 -- Character flight: client-side actuation only. Server corrections remain authoritative.
 characterFly.stop=function()
  local cf=characterFly
- for _,object in ipairs({cf.velocity,cf.orientation,cf.attachment}) do
-  if object then pcall(function()object:Destroy()end) end
- end
+ if cf.velocity then pcall(function()cf.velocity:Destroy()end) end
+ if cf.orientation then pcall(function()cf.orientation:Destroy()end) end
+ if cf.attachment then pcall(function()cf.attachment:Destroy()end) end
  cf.velocity=nil;cf.orientation=nil;cf.attachment=nil;cf.root=nil
  if cf.humanoid and cf.humanoid.Parent then
   pcall(function()
@@ -1307,7 +1356,7 @@ local function cleanup()
  if fovGui and fovGui.Parent then pcall(function()fovGui:Destroy()end) end
  if speedHum and speedHum.Parent and originalSpeed then pcall(function()speedHum.WalkSpeed=originalSpeed end) end
  for _,c in ipairs(conns) do c:Disconnect() end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV76')end)
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV77')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
  gui:Destroy()
 end
@@ -1331,7 +1380,7 @@ conn(RunService.Heartbeat,function(dt)
  if S.PlayerFly and characterFlyTimer>=1/30 then
   characterFlyTimer=0
   local ok,err=pcall(characterFly.update)
-  if not ok then characterFly.problem='خطأ طيران اللاعب: '..tostring(err):sub(1,60);S.PlayerFly=false;characterFly.stop() end
+  if not ok then characterFly.problem='خطأ طيران اللاعب: '..tostring(err):sub(1,60);S.PlayerFly=false;characterFly.stop();if togglePaints.PlayerFly then togglePaints.PlayerFly() end end
  elseif not S.PlayerFly then
   characterFlyTimer=0
  end
@@ -1343,7 +1392,8 @@ conn(RunService.Heartbeat,function(dt)
   local ok,err=pcall(updateCarFly)
   if not ok then
    S.CarFly=false
-   pcall(stopCarFly)
+   pcall(stopCarFly,true)
+   if togglePaints.CarFly then togglePaints.CarFly() end
    flyState='تم إيقاف الطيران بعد خطأ: '..tostring(err):sub(1,55)
    warn('[Lx car flight]',err)
   end
@@ -1356,13 +1406,14 @@ conn(RunService.Heartbeat,function(dt)
   if not ok then
    S.CarSpeed=false
    pcall(clearVehicleBoost)
+   if togglePaints.CarSpeed then togglePaints.CarSpeed() end
    vehicleState='تم إيقاف مساعد السرعة بعد خطأ: '..tostring(err):sub(1,45)
    warn('[Lx vehicle speed]',err)
   end
  elseif not S.CarSpeed then
   groundUpdateTimer=0
  end
- if timer>=2.5 then
+ if timer>=1.5 then
   timer=0
   if S.Radar or S.Aim or S.RareAlert then local ok,err=pcall(refreshCache);if not ok then warn('[Lx radar]',err) end end
   if S.RareAlert then local ok,err=pcall(checkRareSpawn);if not ok then warn('[Lx rare]',err) end elseif rareBanner.Visible then rareBanner.Visible=false end
@@ -1404,7 +1455,7 @@ conn(RunService.Heartbeat,function(dt)
    end
    local e,d=nearest(S.Filter);nearestText.Text=e and ('أقرب ضب: '..e.model.Name..' | حجم '..animalSize(e.model)..' | '..math.floor(d)..' وحدة') or 'أقرب ضب: لا يوجد'
   else clearMarkers() end
-  if S.Radar and listTimer>=2.5 then listTimer=0;rebuildAnimalList() elseif not S.Radar then listTimer=0 end
+  if S.Radar and listTimer>=3 then listTimer=0;rebuildAnimalList() elseif not S.Radar then listTimer=0 end
   if S.Merchant and extrasTimer==0 then local p,d=findMerchant();merchantText.Text=p and ('أقرب تاجر: '..math.floor(d)..' وحدة') or 'أقرب تاجر: غير مكتشف' end
   if characterFly.diagnosticText and characterFly.diagnosticText.Parent then characterFly.diagnosticText.Text='طيران اللاعب: '..characterFly.problem end
   if vehicleDiagnosticText then vehicleDiagnosticText.Text='التشخيص: '..(S.CarFly and flyState or vehicleState) end
@@ -1413,7 +1464,7 @@ conn(RunService.Heartbeat,function(dt)
  end
 end)
 -- Apply aim after Roblox's camera update, so the camera does not fight the controller.
-local aimBinding='Lx_NexusAimV76'
+local aimBinding='Lx_NexusAimV77'
 RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
  if not alive then return end
  if not S.Aim then return end
@@ -1451,8 +1502,8 @@ RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,functi
   cam.CFrame=cam.CFrame:Lerp(desired,math.clamp(alpha,0,1))
  end
 end)
-msg('Lx REDLINE v76 | تشغيل مستقر + مراقبة تغيّرات الموقع')
-print('[Lx REDLINE PRO] v76 loaded')
+msg('Lx REDLINE v77 | تشغيل مستقر + مراقبة تغيّرات الموقع')
+print('[Lx REDLINE PRO] v77 loaded')
 end -- initializeFeatures
 
 task.defer(function()
@@ -1461,14 +1512,14 @@ task.defer(function()
   return tostring(e)
  end)
  if not ok then
-  warn('[Lx REDLINE v76 FEATURES]',err)
+  warn('[Lx REDLINE v77 FEATURES]',err)
   showFeatureError(err)
  end
 end)
 end -- launchRedline
 local ok, issue=xpcall(launchRedline,function(err)
  local trace=(debug and debug.traceback and debug.traceback(tostring(err),2)) or tostring(err)
- warn('[Lx REDLINE v76 STARTUP ERROR] '..trace)
+ warn('[Lx REDLINE v77 STARTUP ERROR] '..trace)
  return trace
 end)
 if not ok then
@@ -1477,12 +1528,12 @@ if not ok then
   if not player then return end
   local pg=player:FindFirstChildOfClass('PlayerGui')
   if not pg then return end
-  local previous=pg:FindFirstChild('Lx_Error_v75')
+  local previous=pg:FindFirstChild('Lx_Error_v77')
   if previous then previous:Destroy() end
-  local gui=Instance.new('ScreenGui');gui.Name='Lx_Error_v75';gui.ResetOnSpawn=false;gui.DisplayOrder=10000;gui.Parent=pg
+  local gui=Instance.new('ScreenGui');gui.Name='Lx_Error_v77';gui.ResetOnSpawn=false;gui.DisplayOrder=10000;gui.Parent=pg
   local frame=Instance.new('Frame');frame.Size=UDim2.fromOffset(540,195);frame.Position=UDim2.new(.5,-270,.32,0);frame.BackgroundColor3=Color3.fromRGB(30,17,18);frame.Parent=gui
   local corner=Instance.new('UICorner');corner.Parent=frame
-  local lab=Instance.new('TextLabel');lab.Size=UDim2.new(1,-24,1,-62);lab.Position=UDim2.fromOffset(12,10);lab.BackgroundTransparency=1;lab.TextWrapped=true;lab.TextXAlignment=Enum.TextXAlignment.Left;lab.TextYAlignment=Enum.TextYAlignment.Top;lab.TextSize=15;lab.Font=Enum.Font.Code;lab.TextColor3=Color3.new(1,1,1);lab.Text='Lx REDLINE v76 - STARTUP ERROR\n'..tostring(issue):sub(1,350);lab.Parent=frame
+  local lab=Instance.new('TextLabel');lab.Size=UDim2.new(1,-24,1,-62);lab.Position=UDim2.fromOffset(12,10);lab.BackgroundTransparency=1;lab.TextWrapped=true;lab.TextXAlignment=Enum.TextXAlignment.Left;lab.TextYAlignment=Enum.TextYAlignment.Top;lab.TextSize=15;lab.Font=Enum.Font.Code;lab.TextColor3=Color3.new(1,1,1);lab.Text='Lx REDLINE v77 - STARTUP ERROR\n'..tostring(issue):sub(1,350);lab.Parent=frame
   local close=Instance.new('TextButton');close.Size=UDim2.new(1,-24,0,35);close.Position=UDim2.new(0,12,1,-45);close.Text='إغلاق';close.TextSize=17;close.TextColor3=Color3.new(1,1,1);close.BackgroundColor3=Color3.fromRGB(209,28,41);close.Parent=frame
   close.MouseButton1Click:Connect(function()gui:Destroy()end)
  end)
