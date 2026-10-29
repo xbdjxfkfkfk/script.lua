@@ -1,68 +1,1541 @@
-@echo off
-setlocal EnableExtensions
-cd /d "%~dp0"
-title Lx REDLINE - Discord Membership Gate
+-- Startup guard: report Lua execution errors in a visible on-screen panel.
+local function launchRedline()
+-- Lx REDLINE PRO v77 | smooth vehicle controls and Discord entry | radar identification and marker recovery: relaxed identification and delayed model updates
+-- Loaded client objects only; server-streamed distant objects cannot be detected.
+-- Lx NEXUS PRO v47 | single-file Luau client utility
+-- Features are best-effort and limited to replicated objects and client authority.
+local Players=game:GetService('Players')
+local RunService=game:GetService('RunService')
+local UIS=game:GetService('UserInputService')
+local WS=game:GetService('Workspace')
+local Lighting=game:GetService('Lighting')
+local CollectionService=game:GetService('CollectionService')
+local LP=Players.LocalPlayer
+if not LP then warn('Lx NEXUS: no LocalPlayer');return end
+local PG=LP:WaitForChild('PlayerGui',12)
+if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
+local env=_G
+if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
+if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
+for _,name in ipairs({'Lx_NexusV77','Lx_NexusV76','Lx_NexusV75','Lx_NexusV74','Lx_NexusV73','Lx_NexusV72','Lx_NexusV71','Lx_NexusV70','Lx_NexusV69','Lx_NexusV68','Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+ local old=PG:FindFirstChild(name)
+ if old then old:Destroy() end
+end
+for _,version in ipairs({55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77}) do
+ pcall(function() RunService:UnbindFromRenderStep('Lx_NexusAimV'..version) end)
+end
+local alive=true;local conns={};local markers={};local lightSaved={};local atmoSaved={};local originalSpeed=nil;local speedHum=nil
+local S={Radar=false,RadarRange=3000,Aim=false,AimRange=3000,AimSmooth=.14,FOV=25,Speed=false,Walk=32,CarSpeed=false,CarTarget=200,CarDirection=1,CarFly=false,FlySpeed=100,PlayerFly=false,PlayerFlySpeed=50,Fog=false,Fullbright=false,Merchant=false,ResourceESP=false,RareAlert=false,ResourceAlert=false,Filter='الكل'}
+local function conn(signal,fn) local c=signal:Connect(fn);conns[#conns+1]=c;return c end
+local function inst(typ,props,parent) local x=Instance.new(typ);for k,v in pairs(props or {}) do x[k]=v end;x.Parent=parent;return x end
+local function round(x,r) inst('UICorner',{CornerRadius=UDim.new(0,r or 9)},x) end
+local function root() return LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') end
+local function hum() return LP.Character and LP.Character:FindFirstChildOfClass('Humanoid') end
+local status
+local function msg(t) if alive and status then status.Text=tostring(t) end end
+local C={bg=Color3.fromRGB(10,10,12),card=Color3.fromRGB(28,29,32),muted=Color3.fromRGB(184,186,190),white=Color3.fromRGB(255,255,255),purple=Color3.fromRGB(239,28,37),green=Color3.fromRGB(80,215,135)}
+for _,oldName in ipairs({'Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
+local oldCurrent=PG:FindFirstChild('Lx_NexusV76') or PG:FindFirstChild('Lx_NexusV75') or PG:FindFirstChild('Lx_NexusV74') or PG:FindFirstChild('Lx_NexusV73') or PG:FindFirstChild('Lx_NexusV71') or PG:FindFirstChild('Lx_NexusV68') or PG:FindFirstChild('Lx_NexusV67') or PG:FindFirstChild('Lx_NexusV66') or PG:FindFirstChild('Lx_NexusV65') or PG:FindFirstChild('Lx_NexusV64') or PG:FindFirstChild('Lx_NexusV63') or PG:FindFirstChild('Lx_NexusV62') or PG:FindFirstChild('Lx_NexusV61') or PG:FindFirstChild('Lx_NexusV60') or PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58') or PG:FindFirstChild('Lx_NexusV59')
+if oldCurrent then oldCurrent:Destroy() end
+local gui=inst('ScreenGui',{Name='Lx_NexusV77',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
+main.Visible=true -- always visible before feature initialization
+inst('UIStroke',{Color=Color3.fromRGB(205,36,42),Thickness=1.4,Transparency=.12},main)
+local scale=inst('UIScale',{Scale=1},main)
+local function fitScreen()
+ local cam=WS.CurrentCamera
+ if cam then local v=cam.ViewportSize;scale.Scale=math.min(1,math.max(.55,math.min((v.X-24)/650,(v.Y-24)/500))) end
+end
+fitScreen()
+local head=inst('Frame',{Size=UDim2.new(1,0,0,66),BackgroundColor3=Color3.fromRGB(22,22,24),BorderSizePixel=0,Active=true},main);round(head,16)
+inst('Frame',{Size=UDim2.new(1,-30,0,2),Position=UDim2.new(0,15,1,-2),BackgroundColor3=C.purple,BorderSizePixel=0},head)
+local brand=inst('Frame',{Size=UDim2.fromOffset(44,44),Position=UDim2.fromOffset(12,11),BackgroundColor3=Color3.fromRGB(255,255,255),BorderSizePixel=0},head);round(brand,12)
+inst('UIStroke',{Color=Color3.fromRGB(240,42,50),Thickness=1},brand)
+inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text='Lx',Font=Enum.Font.GothamBlack,TextSize=22,TextColor3=C.purple},brand)
+inst('TextLabel',{Size=UDim2.fromOffset(270,17),Position=UDim2.fromOffset(70,39),BackgroundTransparency=1,Text='REDLINE  •  PREMIUM CONTROL SYSTEM',TextColor3=C.muted,Font=Enum.Font.GothamMedium,TextSize=9,TextXAlignment=Enum.TextXAlignment.Left},head)
+inst('TextLabel',{Size=UDim2.fromOffset(330,30),Position=UDim2.fromOffset(70,9),BackgroundTransparency=1,Text='Lx  REDLINE PRO',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=19,TextXAlignment=Enum.TextXAlignment.Left},head)
+local function smallBtn(text,x) local b=inst('TextButton',{Size=UDim2.fromOffset(31,29),Position=UDim2.new(1,x,0,19),Text=text,Font=Enum.Font.GothamBold,TextSize=16,TextColor3=C.white,BackgroundColor3=C.bg},head);round(b,7);return b end
+local mini=smallBtn('−',-78);local close=smallBtn('×',-39)
+local side=inst('ScrollingFrame',{Size=UDim2.new(0,188,1,-111),Position=UDim2.fromOffset(12,76),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},main)
+inst('UIListLayout',{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},side)
+local area=inst('Frame',{Size=UDim2.new(1,-222,1,-114),Position=UDim2.fromOffset(210,76),BackgroundTransparency=1,ClipsDescendants=true},main)
+status=inst('TextLabel',{Size=UDim2.new(1,-24,0,25),Position=UDim2.new(0,12,1,-31),BackgroundTransparency=1,Text='Lx REDLINE | الوظائف تعتمد على بيانات الماب وصلاحيات العميل',TextColor3=C.muted,TextSize=11,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},main)
+local tabs={};local pageButtons={}
+local function tab(name)
+ local b=inst('TextButton',{Size=UDim2.new(1,-6,0,44),Text=name,TextSize=12,Font=Enum.Font.GothamBold,TextColor3=C.white,BackgroundColor3=C.card},side);round(b,11)
+ inst('UIStroke',{Color=Color3.fromRGB(110,44,49),Thickness=1,Transparency=.45},b)
+ local p=inst('ScrollingFrame',{Size=UDim2.fromScale(1,1),Visible=false,BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=4,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},area)
+ inst('UIListLayout',{Padding=UDim.new(0,9),SortOrder=Enum.SortOrder.LayoutOrder},p)
+ inst('UIPadding',{PaddingTop=UDim.new(0,3),PaddingBottom=UDim.new(0,12),PaddingRight=UDim.new(0,8)},p)
+ tabs[#tabs+1]=p;pageButtons[#pageButtons+1]=b
+ conn(b.MouseButton1Click,function() for i,t in ipairs(tabs) do t.Visible=t==p;pageButtons[i].BackgroundColor3=t==p and C.purple or C.card end end)
+ if #tabs==1 then p.Visible=true;b.BackgroundColor3=C.purple end
+ return p
+end
+local function label(p,title,desc)
+ local h=desc and 54 or 27
+ local f=inst('Frame',{Size=UDim2.new(1,-2,0,h),BackgroundColor3=C.card,BorderSizePixel=0},p);round(f,11);inst('UIStroke',{Color=Color3.fromRGB(85,46,49),Thickness=1,Transparency=.5},f)
+ inst('TextLabel',{Size=UDim2.new(1,-20,0,25),Position=UDim2.fromOffset(10,3),BackgroundTransparency=1,Text=title,Font=Enum.Font.GothamBold,TextSize=12,TextColor3=C.white,TextXAlignment=Enum.TextXAlignment.Left},f)
+ if desc then inst('TextLabel',{Size=UDim2.new(1,-20,0,22),Position=UDim2.fromOffset(10,27),BackgroundTransparency=1,Text=desc,Font=Enum.Font.Gotham,TextSize=10,TextColor3=C.muted,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left},f) end
+ return f
+end
+local function action(p,title,fn)
+ local b=inst('TextButton',{Size=UDim2.new(1,-2,0,41),Text=title,TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,BackgroundColor3=C.card},p);round(b,11)
+ inst('UIStroke',{Color=Color3.fromRGB(110,44,49),Thickness=1,Transparency=.5},b)
+ conn(b.MouseButton1Click,function() local ok,e=pcall(fn);if not ok then warn('Lx NEXUS:',e);msg('خطأ: '..tostring(e):sub(1,65)) end end);return b
+end
+local togglePaints={}
+local function toggle(p,title,key,fn)
+ local b=inst('TextButton',{Size=UDim2.new(1,-2,0,41),Text='',TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,BackgroundColor3=C.card},p)
+ round(b,11)
+ inst('UIStroke',{Color=Color3.fromRGB(110,44,49),Thickness=1,Transparency=.5},b)
+ local function paint()
+  local enabled=S[key]==true
+  b.Text=title..(enabled and '  |  ON ✓' or '  |  OFF ✕')
+  b.BackgroundColor3=enabled and Color3.fromRGB(105,30,35) or C.card
+ end
+ paint()
+ togglePaints[key]=paint
+ conn(b.MouseButton1Click,function()
+  local previous=S[key]==true
+  local desired=not previous
+  S[key]=desired
+  local ok,err=true,nil
+  if fn then ok,err=pcall(fn,desired) end
+  if not ok then
+   S[key]=previous
+   warn('[Lx NEXUS] toggle failed:',err)
+   msg('تعذر تغيير الخيار: '..tostring(err):sub(1,55))
+  else
+   msg(title..(desired and ' : تم التشغيل ON' or ' : تم الإيقاف OFF'))
+  end
+  paint()
+ end)
+ return b
+end
 
-echo ===============================================
-echo   Lx REDLINE - Discord Membership Gate
-echo ===============================================
-echo.
+local function number(p,title,key,min,max,step)
+ -- Separate title and entry row: old one-line control covered the input on some viewport scales.
+ local f=inst('Frame',{Size=UDim2.new(1,-2,0,72),BackgroundColor3=C.card,BorderSizePixel=0},p)
+ round(f,10)
+ inst('TextLabel',{Size=UDim2.new(1,-16,0,22),Position=UDim2.fromOffset(8,4),BackgroundTransparency=1,
+  Text=title,TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,
+  TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},f)
+ local minus=inst('TextButton',{Size=UDim2.fromOffset(36,31),Position=UDim2.fromOffset(8,31),
+  Text='−',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=18,BackgroundColor3=C.bg,Active=true,ZIndex=3},f)
+ round(minus,6)
+ local plus=inst('TextButton',{Size=UDim2.fromOffset(36,31),Position=UDim2.new(1,-44,0,31),
+  Text='+',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=18,BackgroundColor3=C.bg,Active=true,ZIndex=3},f)
+ round(plus,6)
+ local value=inst('TextBox',{Size=UDim2.new(1,-108,0,31),Position=UDim2.fromOffset(54,31),
+  BackgroundColor3=C.bg,Text=tostring(S[key]),ClearTextOnFocus=false,MultiLine=false,
+  TextEditable=true,Active=true,ZIndex=4,TextColor3=C.white,TextSize=14,
+  Font=Enum.Font.GothamBold,PlaceholderText='اكتب الرقم',PlaceholderColor3=C.muted},f)
+ round(value,6)
+ inst('UIStroke',{Color=C.purple,Thickness=1.2,Transparency=.2},value)
+ local function commit(raw)
+  local cleaned=tostring(raw):gsub('٫','.'):gsub('٬',''):gsub('،','.')
+  local numerals={'٠','١','٢','٣','٤','٥','٦','٧','٨','٩'}
+  for i,digit in ipairs(numerals) do cleaned=cleaned:gsub(digit,tostring(i-1)) end
+  local persian={'۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'}
+  for i,digit in ipairs(persian) do cleaned=cleaned:gsub(digit,tostring(i-1)) end
+  cleaned=cleaned:gsub('^%s+',''):gsub('%s+$','')
+  local n=tonumber(cleaned)
+  if not n or n~=n or n==math.huge or n==-math.huge then
+   msg('أدخل رقمًا صحيحًا: '..title)
+  else
+   S[key]=math.clamp(math.floor(n*100+.5)/100,min,max)
+  end
+  value.Text=tostring(S[key])
+ end
+ conn(minus.MouseButton1Click,function()commit(S[key]-step)end)
+ conn(plus.MouseButton1Click,function()commit(S[key]+step)end)
+ conn(value.Focused,function() value.Text=tostring(S[key]);value.CursorPosition=#value.Text+1 end)
+ conn(value.FocusLost,function()commit(value.Text)end)
+ return f
+end
+-- Split the heavy features from the GUI/bootstrap to prevent Luau register/local limits.
+-- The menu renders first; feature initialization happens on the next scheduler cycle.
+status.Text='Lx v77 | الواجهة جاهزة؛ جار تحميل الميزات...'
+-- Register a provisional cleanup BEFORE feature initialization. If any feature
+-- throws, restarting the script still disconnects its partial connections.
+local function provisionalCleanup()
+ if not alive then return end
+ alive=false
+ for _,c in ipairs(conns) do pcall(function()c:Disconnect()end) end
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV77')end)
+ local orphan=PG:FindFirstChild('Lx_NexusFOV_V77')
+ if orphan then pcall(function()orphan:Destroy()end) end
+ if gui and gui.Parent then pcall(function()gui:Destroy()end) end
+ if env.XHubCleanup==provisionalCleanup then env.XHubCleanup=nil end
+end
+env.XHubCleanup=provisionalCleanup
+-- Emergency close works even if feature initialization throws an error.
+conn(close.MouseButton1Click,function()
+ if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup)
+ else gui:Destroy() end
+end)
+local function showFeatureError(detail)
+ status.Text='Lx v77 | خطأ في تحميل الميزات (موضح في النافذة)'
+ local errorFrame=inst('Frame',{Name='FeatureError',Size=UDim2.new(1,-24,0,137),Position=UDim2.new(0,12,1,-170),BackgroundColor3=Color3.fromRGB(57,21,25),BorderSizePixel=0,ZIndex=100},main)
+ round(errorFrame,10)
+ local errorLabel=inst('TextLabel',{Size=UDim2.new(1,-20,1,-54),Position=UDim2.fromOffset(10,8),BackgroundTransparency=1,Text='STARTUP ERROR | '..tostring(detail):sub(1,250),Font=Enum.Font.Code,TextSize=12,TextColor3=C.white,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=101},errorFrame)
+ local copyButton=inst('TextButton',{Size=UDim2.new(1,-20,0,32),Position=UDim2.new(0,10,1,-38),BackgroundColor3=C.purple,Text='نسخ الخطأ للتشخيص',TextColor3=C.white,TextSize=13,Font=Enum.Font.GothamBold,ZIndex=101},errorFrame)
+ round(copyButton,6)
+ conn(copyButton.MouseButton1Click,function()
+  if type(setclipboard)=='function' then local ok=pcall(setclipboard,tostring(detail));copyButton.Text=ok and 'تم نسخ الخطأ' or 'النسخ غير متاح'
+  else copyButton.Text='النسخ غير متاح؛ صوّر الخطأ' end
+ end)
+end
+local function initializeFeatures()
+local function read(model,names)
+ for _,n in ipairs(names) do local v=model:GetAttribute(n);if v~=nil then return v end;local child=model:FindFirstChild(n,true);if child and child:IsA('ValueBase') then return child.Value end end
+end
+-- Verified animal classification. Never infer an animal solely from a part name.
+-- Vehicles may contain child models named after animals (decals, cargo, tools).
+local vehicleNames={'car','truck','vehicle','pickup','trailer','chassis','wheel','tire','seat','سيار','مركب','شاص','كفر','عجل','قلص','مقطور'}
+local animalNames={'dhab','dhub','lizard','reptile','ضب','ضبان','dhabb','uromastyx','uromastyx','spinytailed','spiny-tailed'}
+local function matchesAny(value,words)
+ local name=tostring(value):lower()
+ for _,word in ipairs(words) do if name:find(word,1,true) then return true end end
+ return false
+end
+local function playerAncestor(obj)
+ local cursor=obj
+ while cursor and cursor~=WS do
+  if cursor:IsA('Model') and Players:GetPlayerFromCharacter(cursor) then return true end
+  cursor=cursor.Parent
+ end
+ return false
+end
+-- A model can be a decorative submodel of a car even if its own name
+-- does not contain vehicle keywords. Inspect all containing model hierarchies.
+-- Cache seat-bearing models for the current radar refresh to avoid lag.
+local seatCache=setmetatable({}, {__mode='k'})
+local function hasDrivingSeat(container)
+ local known=seatCache[container]
+ if known~=nil then return known end
+ -- Do not scan a whole map/animal-spawn container for a seat in another car.
+ -- Only models with direct evidence of being a vehicle are checked deeply.
+ local vehicleLike=matchesAny(container.Name,vehicleNames)
+  or container:FindFirstChild('Chassis')~=nil
+  or container:FindFirstChild('Wheels')~=nil
+  or container:FindFirstChild('VehicleSeat')~=nil
+  or container:FindFirstChild('DriveSeat')~=nil
+ local found=false
+ if vehicleLike then
+  found=container:FindFirstChildWhichIsA('VehicleSeat',true)~=nil
+   or container:FindFirstChildWhichIsA('Seat',true)~=nil
+ end
+ seatCache[container]=found
+ return found
+end
+local function blockedAncestor(obj)
+ local cursor=obj
+ while cursor and cursor~=WS do
+  if cursor:IsA('VehicleSeat') or cursor:IsA('Seat') then return true end
+  if cursor:IsA('Model') then
+   if Players:GetPlayerFromCharacter(cursor) then return true end
+   if matchesAny(cursor.Name,vehicleNames) or hasDrivingSeat(cursor) then return true end
+  end
+  cursor=cursor.Parent
+ end
+ return false
+end
+local function lizard(model)
+ if not model or not model:IsA('Model') or not model.Parent then return false end
+ if blockedAncestor(model) then return false end
+ -- A car/showroom containing a lizard child must never become one huge ESP target.
+ local ownParts=0
+ local ownRoot=nil
+ for _,child in ipairs(model:GetChildren()) do
+  if child:IsA('BasePart') then ownParts+=1;ownRoot=ownRoot or child end
+ end
+ local tagged=CollectionService:HasTag(model,'Lizard') or CollectionService:HasTag(model,'Dhab')
+  or CollectionService:HasTag(model,'ضب') or CollectionService:HasTag(model,'Lizards')
+  or CollectionService:HasTag(model,'AnimalLizard')
+ local species=read(model,{'Species','AnimalType','CreatureType','PetType','MobType','نوع'})
+ local typed=species~=nil and matchesAny(species,animalNames)
+ local named=matchesAny(model.Name,animalNames)
+ if not (tagged or typed or named) then return false end
+ -- Display, truck and animal-spawn folders can have species-like names.
+ -- A creature candidate needs an actual physical body, not just a nested decoration.
+ local physical=ownParts>0 or model.PrimaryPart~=nil
+ if not physical and not (tagged or typed) then return false end
+ if model:FindFirstChildWhichIsA('VehicleSeat',true) or model:FindFirstChildWhichIsA('Seat',true) then return false end
+ -- The topmost confirmed animal owns the label: avoid duplicate labels for nested rigs.
+ local cursor=model.Parent
+ while cursor and cursor~=WS do
+  if cursor:IsA('Model') and (CollectionService:HasTag(cursor,'Lizard')
+    or CollectionService:HasTag(cursor,'Dhab') or CollectionService:HasTag(cursor,'ضب')) then return false end
+  cursor=cursor.Parent
+ end
+ if tagged or typed then return model:FindFirstChildWhichIsA('BasePart',true)~=nil end
+ -- The previous version required a Head/Humanoid. Many real lizards are single MeshParts.
+ -- Keep a conservative bounding-box limit to avoid tagging cars or whole showcases.
+ local ok,_,size=pcall(function()return model:GetBoundingBox()end)
+ if not ok or not size then return false end
+ if math.max(size.X,size.Y,size.Z)>18 then return false end
+ return ownParts>0 or model.PrimaryPart~=nil
+end
+local function part(model) return model.PrimaryPart or model:FindFirstChildWhichIsA('BasePart',true) end
+local function living(model)
+ local h=model:FindFirstChildOfClass('Humanoid')
+ if h and h.Health<=0 then return false end
+ local dead=read(model,{'Dead','IsDead','Killed','Defeated','Collected'})
+ if dead==true or dead==1 or dead=='true' then return false end
+ local health=read(model,{'Health','HP','CurrentHealth'})
+ if tonumber(health) and tonumber(health)<=0 then return false end
+ return model.Parent~=nil
+end
+local rarities={['t1']='عادي',['t2']='مميز',['t3']='نادر',['t4']='فاخر',['t5']='أسطوري',['t6']='خرافي',common='عادي',uncommon='مميز',rare='نادر',epic='فاخر',legendary='أسطوري',mythic='خرافي'}
+local rarityColors={['عادي']=Color3.fromRGB(230,230,230),['مميز']=Color3.fromRGB(65,220,110),['نادر']=Color3.fromRGB(75,155,255),['فاخر']=Color3.fromRGB(170,90,240),['أسطوري']=Color3.fromRGB(255,192,60),['خرافي']=Color3.fromRGB(245,65,80)}
+local function rarity(m)
+ local raw=tostring(read(m,{'Rarity','Tier','Grade','Rank','RarityName','ندرة'}) or ''):lower():gsub('^%s+',''):gsub('%s+$','')
+ return rarities[raw] or (rarityColors[raw] and raw) or 'غير محدد'
+end
+local function speciesName(model)
+ local raw=read(model,{'Species','AnimalType','CreatureType','PetType','MobType','نوع'})
+ if raw~=nil and tostring(raw)~='' then return tostring(raw) end
+ return model.Name
+end
+local function animalSize(model)
+ -- Only report game-provided size stats, never derive an invented value.
+ local v=read(model,{'Size','Scale','SizeValue','AnimalSize','DhabSize','CreatureSize','SizeStat','الحجم','حجم'})
+ if v==nil then return 'غير متاح' end
+ local n=tonumber(v)
+ if n then
+  if n~=n or n==math.huge or n==-math.huge then return 'غير متاح' end
+  return string.format('%.2f',n):gsub('%.?0+$','')
+ end
+ if typeof(v)=='Vector3' then return string.format('%.1f × %.1f × %.1f',v.X,v.Y,v.Z) end
+ return tostring(v)
+end
+-- Read explicit weight metadata only. Roblox physical AssemblyMass is not animal weight.
+-- Games can store weight on the animal or in a Stats/Metadata container.
+local function animalWeight(model)
+ local names={'Weight','WeightKG','WeightKg','Weight_kg','WeightInKg','AnimalWeight',
+  'CreatureWeight','DhabWeight','LizardWeight','BodyWeight','KG','Kg','kg',
+  'الوزن','وزن','الوزن_كجم','الوزن_بالكيلو'}
+ local v=read(model,names)
+ if v==nil then
+  for _,folderName in ipairs({'Stats','Statistics','Data','Metadata','Attributes','Info','Properties','معلومات','بيانات'}) do
+   local folder=model:FindFirstChild(folderName,true)
+   if folder then
+    v=read(folder,names)
+    if v~=nil then break end
+   end
+  end
+ end
+ if v==nil then return 'غير متاح' end
+ local n=tonumber(v)
+ if n then
+  if n~=n or n==math.huge or n==-math.huge or n<0 then return 'غير متاح' end
+  return (string.format('%.2f',n):gsub('%.?0+$',''))..' كجم'
+ end
+ if typeof(v)=='string' and #v>0 then return v end
+ return 'غير متاح'
+end
+local function nice(v,unit)
+ if v==nil then return nil end
+ local n=tonumber(v);if n then return string.format('%.1f',n)..(unit or '') end
+ return tostring(v)
+end
+-- Event-maintained animal index: avoids traversing every workspace descendant every second.
+local indexed=setmetatable({}, {__mode='k'})
+local scanQueue={}
+local lastQueueCompact=0
+local queued=setmetatable({}, {__mode='k'})
+local scanCursor=1
+local function enqueueAnimal(m)
+ if m and m:IsA('Model') and not queued[m] then queued[m]=true;scanQueue[#scanQueue+1]=m end
+end
+local cache={}
+local function trackAnimal(m)
+ if m:IsA('Model') and lizard(m) and living(m) then indexed[m]=true end
+end
+task.spawn(function()
+ -- Incremental breadth-first traversal avoids a single expensive GetDescendants allocation.
+ local pending={WS};local index=1
+ while alive and index<=#pending do
+  local obj=pending[index];index+=1
+  if obj:IsA('Model') then
+   enqueueAnimal(obj)
+   local ok,why=pcall(trackAnimal,obj)
+   if not ok then warn('[Lx lizard indexing]',tostring(why):sub(1,100)) end
+  end
+  local children=obj:GetChildren()
+  for _,child in ipairs(children) do pending[#pending+1]=child end
+  if index%35==0 then task.wait(0.04) end
+ end
+end)
+conn(WS.DescendantAdded,function(obj)
+ if obj:IsA('Model') then enqueueAnimal(obj);task.defer(function() if alive and obj.Parent then trackAnimal(obj) end end) elseif obj:IsA('BasePart') or obj:IsA('ValueBase') then local parentModel=obj:FindFirstAncestorOfClass('Model');if parentModel then enqueueAnimal(parentModel);task.defer(function()if alive and parentModel.Parent then trackAnimal(parentModel) end end)end end
+end)
+conn(WS.DescendantRemoving,function(obj)
+ if indexed[obj] then indexed[obj]=nil end
+end)
+conn(CollectionService:GetInstanceAddedSignal('Lizard'),trackAnimal)
+conn(CollectionService:GetInstanceAddedSignal('Dhab'),trackAnimal)
+conn(CollectionService:GetInstanceAddedSignal('ضب'),trackAnimal)
+conn(CollectionService:GetInstanceAddedSignal('Lizards'),trackAnimal)
+conn(CollectionService:GetInstanceAddedSignal('AnimalLizard'),trackAnimal)
+local function refreshCache()
+ -- Reconsider a bounded number of previously loaded models. Some maps set
+ -- their species/name attributes after the instance first appears.
+ -- Compact removed models periodically; otherwise the queue grows forever.
+ if #scanQueue>1500 and os.clock()-lastQueueCompact>15 then
+  lastQueueCompact=os.clock()
+  local fresh={}
+  for _,model in ipairs(scanQueue) do
+   if model and model:IsDescendantOf(WS) then fresh[#fresh+1]=model
+   else queued[model]=nil end
+  end
+  scanQueue=fresh
+  scanCursor=math.min(scanCursor,#scanQueue+1)
+ end
+ for _=1,math.min(36,#scanQueue) do
+  if scanCursor>#scanQueue then scanCursor=1 end
+  local m=scanQueue[scanCursor]
+  scanCursor+=1
+  if m and m.Parent then trackAnimal(m) end
+ end
+ table.clear(cache)
+ for m in pairs(indexed) do
+  if m.Parent and living(m) and lizard(m) then
+   local p=part(m)
+   if p and p.Parent then cache[#cache+1]={model=m,part=p} end
+  else indexed[m]=nil end
+ end
+end
+local function nearest(filter)
+ local r=root();if not r then return nil end
+ local best,dist=nil,math.huge
+ for _,e in ipairs(cache) do
+  if e.model.Parent and e.part.Parent and living(e.model) and lizard(e.model) then
+   local d=(e.part.Position-r.Position).Magnitude
+   if d<dist and d<=S.RadarRange and (not filter or filter=='الكل' or rarity(e.model)==filter) then best=e;dist=d end
+  end
+ end
+ return best,dist
+end
+local function clearMarkers() for _,g in pairs(markers) do pcall(function()g:Destroy()end) end;table.clear(markers) end
+local function makeMarker(e)
+ local m=e.model;if markers[m] or not living(m) or not lizard(m) then return end
+ local bb=inst('BillboardGui',{Name='LxAnimalRadar',Adornee=e.part,Size=UDim2.fromOffset(190,50),StudsOffsetWorldSpace=Vector3.new(0,2.7,0),AlwaysOnTop=true,MaxDistance=S.RadarRange},gui)
+ local text=inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextColor3=rarityColors[rarity(m)] or C.white,TextStrokeTransparency=.4,TextSize=12,Font=Enum.Font.GothamBold,TextWrapped=true},bb)
+ markers[m]=bb
+end
+-- Manual fallback: select a loaded lizard by clicking its visible body.
+-- This is explicit user confirmation, never an invented species guess.
+local manualTargets=setmetatable({}, {__mode='k'})
+local manualSelecting=false
+local mouse=LP:GetMouse()
+local function manualLizard(m)
+ return m and manualTargets[m] and m.Parent and not blockedAncestor(m)
+end
+local oldLizard=lizard
+lizard=function(m) return manualLizard(m) or oldLizard(m) end
+conn(mouse.Button1Down,function()
+ if not manualSelecting then return end
+ local hit=mouse.Target
+ if not hit then msg('لم يتم تحديد مجسم؛ اضغط على جسم الضب') return end
+ local selected=hit:FindFirstAncestorOfClass('Model')
+ if not selected or blockedAncestor(selected) or selected:FindFirstChildWhichIsA('VehicleSeat',true) then
+  msg('هذا ليس مجسم ضب صالحًا أو هو داخل سيارة')
+  return
+ end
+ manualTargets[selected]=true
+ indexed[selected]=true
+ enqueueAnimal(selected)
+ manualSelecting=false
+ refreshCache()
+ msg('تم تحديد الضب: '..selected.Name..' | فعّل الكاشف')
+end)
+local radar=tab('كشف العناصر')
+toggle(radar,'كشف الضبان ومعلوماتها','Radar',function(on) if not on then clearMarkers() else refreshCache() end end)
+action(radar,'تحديد ضب أمامك (اضغط على جسمه)',function() manualSelecting=true;msg('اضغط على جسم الضب الموجود أمامك لتحديد مجسمه الحقيقي') end)
+action(radar,'إعادة فحص الضبان الآن',function() refreshCache();msg('أعيد فحص '..#scanQueue..' مجسم مسجل') end)
+number(radar,'مدى الرادار (وحدة)','RadarRange',100,3000,100)
+local filterValues={'الكل','عادي','مميز','نادر','فاخر','أسطوري','خرافي'}
+local fi=1
+local filterBtn
+filterBtn=action(radar,'فلتر الندرة: الكل',function() fi=fi%#filterValues+1;S.Filter=filterValues[fi];filterBtn.Text='فلتر الندرة: '..S.Filter end)
+local closestLabel=label(radar,'أقرب ضب: لا يوجد','يتم التحديث عند تفعيل الرادار')
+local radarDiag=label(radar,'تشخيص الكاشف: جار الفحص','يفحص المجسمات المحمّلة على جهازك فقط')
+local nearestText=closestLabel:FindFirstChildOfClass('TextLabel')
+-- Persistent live list of all loaded, living lizards in range.
+local listTitle=label(radar,'قائمة الضبان | الحجم والمسافة','الأقرب أولاً • بيانات الحجم والوزن من الماب فقط')
+local animalList=inst('Frame',{Size=UDim2.new(1,-2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},radar)
+inst('UIListLayout',{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},animalList)
+local function rebuildAnimalList()
+ for _,x in ipairs(animalList:GetChildren()) do if x:IsA('Frame') then x:Destroy() end end
+ if not S.Radar then
+  label(animalList,'الرادار متوقف','فعّل كشف الضبان لعرض الأحجام والمسافات')
+  return
+ end
+ local r=root()
+ if not r then label(animalList,'الشخصية غير جاهزة');return end
+ local entries={}
+ for _,e in ipairs(cache) do
+  if e.model.Parent and e.part.Parent and living(e.model) and lizard(e.model) then
+   local d=(e.part.Position-r.Position).Magnitude
+   if d<=S.RadarRange and (S.Filter=='الكل' or rarity(e.model)==S.Filter) then
+    entries[#entries+1]={model=e.model,distance=d}
+   end
+  end
+ end
+ table.sort(entries,function(a,b)return a.distance<b.distance end)
+ if #entries==0 then label(animalList,'لا توجد ضبان مطابقة','قد تكون خارج المدى أو لم تُحمّلها اللعبة');return end
+ for i=1,math.min(#entries,25) do
+  local e=entries[i]
+  local rarityName=rarity(e.model)
+  local card=inst('Frame',{Size=UDim2.new(1,-2,0,69),BackgroundColor3=C.card,BorderSizePixel=0,LayoutOrder=i},animalList)
+  round(card,10)
+  inst('UIStroke',{Color=rarityColors[rarityName] or C.purple,Thickness=1,Transparency=.25},card)
+  inst('TextLabel',{Size=UDim2.new(1,-16,0,23),Position=UDim2.fromOffset(8,4),BackgroundTransparency=1,Text=speciesName(e.model)..' | '..rarityName,TextColor3=rarityColors[rarityName] or C.white,TextSize=12,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},card)
+  inst('TextLabel',{Size=UDim2.new(1,-16,0,33),Position=UDim2.fromOffset(8,28),BackgroundTransparency=1,Text='الحجم: '..animalSize(e.model)..'  |  الوزن: '..animalWeight(e.model)..'  |  المسافة: '..math.floor(e.distance+.5)..' وحدة',TextColor3=C.white,TextSize=11,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,TextWrapped=true},card)
+ end
+end
 
-where node >nul 2>nul
-if errorlevel 1 (
-  echo ERROR: Node.js is not installed.
-  echo Install Node.js 20 or newer, then double-click this file again.
-  start "" "https://nodejs.org/en/download"
-  pause
-  exit /b 1
-)
+local findMerchant,clearResourceMarkers,validResource,resourcePart,nearestNamed,goToPointWithCar,rareBanner
+local saleWords
+local merchant=tab('كشف التاجر')
+toggle(merchant,'كشف التجار','Merchant')
+local merchantInfo=label(merchant,'أقرب تاجر: غير مكتشف','المسافة والاتجاه حسب النماذج المحمّلة')
+local merchantText=merchantInfo:FindFirstChildOfClass('TextLabel')
+local selectedMerchant=nil
+findMerchant=function()
+ local r=root();if not r then return nil end
+ local best,d=nil,math.huge
+ for _,obj in ipairs(WS:GetDescendants()) do
+  if obj:IsA('Model') and not playerAncestor(obj) then
+   local n=obj.Name:lower()
+   if n:find('merchant',1,true) or n:find('trader',1,true) or n:find('تاجر',1,true) or n:find('الخلا',1,true) or n:find('dealer',1,true) then
+    local p=part(obj);if p then local dis=(p.Position-r.Position).Magnitude;if dis<d then best=p;d=dis end end
+   end
+  end
+ end
+ return best,d
+end
+action(merchant,'تحديد اتجاه أقرب تاجر',function() local p,d=findMerchant();if not p then msg('التاجر غير محمّل أو غير معروف');return end;selectedMerchant=p;local cam=WS.CurrentCamera;if cam then cam.CFrame=CFrame.lookAt(cam.CFrame.Position,p.Position) end;msg('اتجاه التاجر | '..math.floor(d)..' وحدة') end)
+local loot=tab('النوادر والبيع')
+toggle(loot,'ESP النوادر: الياقوت والتبر وغيرها','ResourceESP',function(on)if not on then clearResourceMarkers() end end)
+toggle(loot,'تنبيه ظهور ضب نادر على الشاشة','RareAlert',function(on)if not on and rareBanner then rareBanner.Visible=false end end)
+toggle(loot,'تنبيه ظهور ياقوت أو تبر أو مورد نادر','ResourceAlert')
+label(loot,'كشف النوادر','يكشف العناصر المحمّلة ذات الأسماء المعروفة فقط؛ لا يختلق أماكن أو أسماء')
+action(loot,'الذهاب لأقرب مورد نادر (مع السيارة)',function()
+ local r=root();if not r then return end
+ local best,d=nil,math.huge
+ for _,obj in ipairs(WS:GetDescendants()) do
+  if validResource(obj) then local p=resourcePart(obj);if p then local dis=(p.Position-r.Position).Magnitude;if dis<d then best=p;d=dis end end end
+ end
+ goToPointWithCar(best)
+end)
+action(loot,'الذهاب إلى نقطة البيع',function()
+ local p=nearestNamed(saleWords)
+ if p then goToPointWithCar(p) else msg('نقطة البيع غير معروفة أو غير محمّلة') end
+end)
+action(loot,'الذهاب إلى تاجر الخلا',function()
+ local p=findMerchant()
+ if p then goToPointWithCar(p) else msg('التاجر غير مكتشف') end
+end)
+label(loot,'الخبرة والبيع','الانتقال لا يبيع الضب ولا يمنح XP؛ يجب إتمام البيع داخل نظام الماب')
 
-for /f "tokens=1 delims=." %%V in ('node -p "process.versions.node"') do set NODE_MAJOR=%%V
-if %NODE_MAJOR% LSS 20 (
-  echo ERROR: Node.js 20 or newer is required. Detected version:
-  node --version
-  start "" "https://nodejs.org/en/download"
-  pause
-  exit /b 1
-)
+local aim=tab('التصويب')
+toggle(aim,'التصويب المساعد على الضبان فقط','Aim')
+number(aim,'أقصى مسافة للتصويب','AimRange',100,3000,100)
+number(aim,'نعومة التصويب','AimSmooth',.02,1,.02)
+number(aim,'حجم دائرة FOV','FOV',10,150,5)
+label(aim,'التصويب: ON / OFF من الزر أعلاه','لا يوجد اختصار M؛ التصويب يستهدف الرأس فقط عندما تكون بياناته متاحة')
+local stopCarFly,clearVehicleBoost,updateCarFly
+local flyState='الطيران متوقف'
+local vehicle=tab('السيارات')
+toggle(vehicle,'مساعد سرعة السيارة','CarSpeed',function(on)
+ if not on and clearVehicleBoost then
+  clearVehicleBoost()
+ elseif on and S.CarFly then
+  msg('السرعة الأرضية ستعمل بعد إيقاف الطيران')
+ end
+end)
+number(vehicle,'السرعة المستهدفة (وحدة/ثانية)','CarTarget',20,400,20)
+toggle(vehicle,'طيران السيارة أثناء القيادة','CarFly',function(on)
+ if not on then
+  if stopCarFly then stopCarFly(true) end
+  flyState='الطيران متوقف | أُزيلت قيود الرفع؛ يمكنك القيادة الآن'
+ else
+  if S.PlayerFly then error('أوقف طيران اللاعب قبل قيادة السيارة') end
+  if clearVehicleBoost then clearVehicleBoost() end
+  if updateCarFly then updateCarFly() end
+ end
+end)
+number(vehicle,'سرعة طيران السيارة','FlySpeed',20,300,10)
+label(vehicle,'التحكم في الطيران','OFF يزيل قوة الرفع فورًا وتعود الجاذبية. فعّل مساعد السرعة الأرضي للقيادة. W للأمام • S للخلف • A و D للجانبين • E صعود • Q نزول. اتجاه الطيران حسب الكاميرا. عند إيقاف الطيران تعود الفيزياء الطبيعية.')
+local directionButton=action(vehicle,'اتجاه الدفع: أمام السيارة',function()
+ S.CarDirection=-S.CarDirection
+ directionButton.Text=S.CarDirection==1 and 'اتجاه الدفع: أمام السيارة' or 'اتجاه الدفع: عكس اتجاه المقعد'
+ msg('تم تغيير اتجاه دفع السيارة؛ جرّب القيادة للأمام')
+end)
+label(vehicle,'معلومة مهمة','اضغط W أثناء القيادة. إن كان اتجاه الدفع عكسيًا بدّله من الزر. السيرفر قد يمنع تغيير السرعة.')
+local vehicleDiagnostic=label(vehicle,'التشخيص: لم يبدأ','مقعد السائق والسرعة الفعلية؛ قد يمنع السيرفر التعديل')
+local vehicleDiagnosticText=vehicleDiagnostic:FindFirstChildOfClass('TextLabel')
+local carList=inst('Frame',{Size=UDim2.new(1,-2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},vehicle)
+inst('UIListLayout',{Padding=UDim.new(0,6)},carList)
+local function moveTo(pos)
+ local r=root();if not r then msg('انتظر ظهور الشخصية');return end
+ r.CFrame=CFrame.new(pos+Vector3.new(0,4,0))
+ task.delay(.8,function() if not alive or not r.Parent then return end;if (r.Position-pos).Magnitude>25 then msg('السيرفر أعاد موقعك؛ الانتقال غير مسموح') else msg('الانتقال ثابت محلياً') end end)
+end
+-- Rare resources, sale-point navigation, and rare-spawn notifications.
+-- Detection uses only objects replicated by the current game; names are heuristics.
+local resourceWords={'ياقوت','ruby','تبر','gold nugget','goldnugget','gold ore','gem','جوهرة','emerald','زمرد','diamond','ألماس','الماس','sapphire','ياقوت أزرق','rare ore','خام نادر','gold nugget','قطعة ذهب','حجر كريم','precious gem'}
+saleWords={'بيع','sell','sale','buyer','المشتري','نقطة البيع','sellpoint','sell zone','sellzone','sell npc','selling','vendor'}
+local function nameMatches(obj,words)
+ local n=string.lower(obj.Name)
+ for _,w in ipairs(words) do if string.find(n,w,1,true) then return true end end
+ return false
+end
+resourcePart=function(obj)
+ if obj:IsA('BasePart') then return obj end
+ if obj:IsA('Model') then return part(obj) end
+ return nil
+end
+validResource=function(obj)
+ if not (obj:IsA('Model') or obj:IsA('BasePart')) or not obj:IsDescendantOf(WS) then return false end
+ if playerAncestor(obj) or blockedAncestor(obj) or lizard(obj) then return false end
+ if not nameMatches(obj,resourceWords) then return false end
+ -- Prefer a single model over every individual part inside it.
+ local par=obj.Parent
+ while par and par~=WS do
+  if (par:IsA('Model') or par:IsA('BasePart')) and nameMatches(par,resourceWords) then return false end
+  par=par.Parent
+ end
+ return resourcePart(obj)~=nil
+end
+nearestNamed=function(words)
+ local r=root();if not r then return nil,nil end
+ local best,d=nil,math.huge
+ for _,obj in ipairs(WS:GetDescendants()) do
+  if (obj:IsA('Model') or obj:IsA('BasePart')) and nameMatches(obj,words) and not playerAncestor(obj) and not blockedAncestor(obj) then
+   local p=resourcePart(obj)
+   if p and (p.Position-r.Position).Magnitude<d then best=p;d=(p.Position-r.Position).Magnitude end
+  end
+ end
+ return best,d
+end
+local function occupiedVehicle()
+ local h=hum();local seat=h and h.SeatPart
+ if not seat or not seat:IsA('BasePart') then return nil,nil end
+ local model=seat:FindFirstAncestorOfClass('Model')
+ if not model or not model:IsDescendantOf(WS) then return nil,nil end
+ return model,seat
+end
+goToPointWithCar=function(target)
+ if not target then msg('الهدف غير موجود ضمن العناصر المحمّلة؛ قد يكون خارج StreamingEnabled');return end
+ local car,seat=occupiedVehicle()
+ if not car then moveTo(target.Position);msg('انتقال اللاعب فقط: أنت لست في سيارة');return end
+ local offset=Vector3.new(0,7,0)
+ local before=car:GetPivot()
+ local ok,err=pcall(function()car:PivotTo(CFrame.new(target.Position+offset)*before.Rotation)end)
+ if not ok then msg('تعذر نقل السيارة: '..tostring(err):sub(1,48));return end
+ task.delay(.8,function()
+  if not alive or not car.Parent or not target.Parent then return end
+  if (car:GetPivot().Position-target.Position).Magnitude>30 then msg('السيرفر رفض نقل السيارة أو أعاد موقعها')
+  else msg('تم نقل السيارة محلياً؛ تحقق من ثبات الموقع') end
+ end)
+end
+local resourceMarkers={}
+local resourceIndex={}
+local resourceKnown={}
+local resourceReady=false
+local resourceScanCursor=1
+local resourceScanQueue={}
+local resourceAlertCooldown=0
+local merchantMarker=nil
+local knownRare={}
+local rareInitialized=false
+rareBanner=inst('Frame',{Size=UDim2.fromOffset(340,65),Position=UDim2.new(.5,-170,0,20),BackgroundColor3=Color3.fromRGB(36,22,55),Visible=false,BorderSizePixel=0},gui)
+round(rareBanner,12)
+inst('UIStroke',{Color=C.purple,Thickness=1.5},rareBanner)
+local rareBannerText=inst('TextLabel',{Size=UDim2.new(1,-16,1,-8),Position=UDim2.fromOffset(8,4),BackgroundTransparency=1,TextColor3=C.white,TextSize=14,Font=Enum.Font.GothamBold,TextWrapped=true},rareBanner)
+local bannerUntil=0
+local resourceAlertText=inst('TextLabel',{Size=UDim2.fromOffset(360,58),Position=UDim2.new(.5,-180,0,93),BackgroundColor3=Color3.fromRGB(42,30,22),BorderSizePixel=0,Visible=false,TextColor3=Color3.fromRGB(255,220,144),Font=Enum.Font.GothamBold,TextSize=14,TextWrapped=true},gui)
+round(resourceAlertText,11)
+local resourceBannerUntil=0
+local function billboardFor(target,text,color)
+ local b=inst('BillboardGui',{Adornee=target,Size=UDim2.fromOffset(210,46),StudsOffsetWorldSpace=Vector3.new(0,3,0),AlwaysOnTop=true,MaxDistance=3000},gui)
+ local t=inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text=text,TextColor3=color,TextStrokeTransparency=.18,Font=Enum.Font.GothamBold,TextSize=13,TextWrapped=true},b)
+ return b,t
+end
+clearResourceMarkers=function()
+ for _,b in pairs(resourceMarkers) do b:Destroy() end
+ table.clear(resourceMarkers)
+end
+-- Index potential resource objects once, then update incrementally.
+-- Avoid scanning the entire Workspace every UI refresh.
+task.spawn(function()
+ local pending={WS};local index=1
+ while alive and index<=#pending do
+  local obj=pending[index];index+=1
+  if (obj:IsA('Model') or obj:IsA('BasePart')) and nameMatches(obj,resourceWords) then
+   resourceScanQueue[#resourceScanQueue+1]=obj
+  end
+  for _,child in ipairs(obj:GetChildren()) do pending[#pending+1]=child end
+  if index%35==0 then task.wait(0.04) end
+ end
+end)
+conn(WS.DescendantAdded,function(obj)
+ if (obj:IsA('Model') or obj:IsA('BasePart')) and nameMatches(obj,resourceWords) then
+  resourceScanQueue[#resourceScanQueue+1]=obj
+ end
+end)
+local function updateResourceIndex()
+ for _=1,math.min(100,#resourceScanQueue) do
+  if resourceScanCursor>#resourceScanQueue then break end
+  local obj=resourceScanQueue[resourceScanCursor]
+  resourceScanCursor+=1
+  if obj and obj.Parent and validResource(obj) then resourceIndex[obj]=true end
+ end
+ if resourceScanCursor>#resourceScanQueue then
+  resourceScanQueue={};resourceScanCursor=1
+  if not resourceReady then
+   for obj in pairs(resourceIndex) do resourceKnown[obj]=true end
+  end
+  resourceReady=true
+ end
+end
+local function refreshExtrasESP()
+ updateResourceIndex()
+ local r=root()
+ local now=os.clock()
+ if resourceAlertText.Visible and now>=resourceBannerUntil then resourceAlertText.Visible=false end
+ local count=0
+ for obj in pairs(resourceIndex) do
+  local valid=validResource(obj)
+  local p=valid and resourcePart(obj) or nil
+  local d=(r and p) and (p.Position-r.Position).Magnitude or math.huge
+  if not valid or not p then
+   resourceIndex[obj]=nil
+   resourceKnown[obj]=nil
+  else
+   if resourceReady and not resourceKnown[obj] and S.ResourceAlert and d<=3000 and now>=resourceAlertCooldown then
+    resourceAlertText.Text='◆ ظهر مورد نادر: '..obj.Name..'\nالمسافة '..math.floor(d)..' وحدة'
+    resourceAlertText.Visible=true
+    resourceBannerUntil=now+5
+    resourceAlertCooldown=now+2
+   end
+   resourceKnown[obj]=true
+   if S.ResourceESP and d<=3000 and count<50 then
+    count+=1
+    if not resourceMarkers[obj] then resourceMarkers[obj]=billboardFor(p,'',Color3.fromRGB(255,209,95)) end
+    local b=resourceMarkers[obj];b.Adornee=p
+    local t=b:FindFirstChildOfClass('TextLabel')
+    if t then t.Text='◆ '..obj.Name..'\n'..math.floor(d)..' وحدة' end
+   elseif resourceMarkers[obj] then
+    resourceMarkers[obj]:Destroy();resourceMarkers[obj]=nil
+   end
+  end
+ end
+ for obj,b in pairs(resourceMarkers) do
+  if not S.ResourceESP or not resourceIndex[obj] then b:Destroy();resourceMarkers[obj]=nil end
+ end
+ local trader,d=findMerchant()
+ if S.Merchant and trader and r then
+  if not merchantMarker then merchantMarker=billboardFor(trader,'',Color3.fromRGB(110,245,174)) end
+  merchantMarker.Adornee=trader
+  local t=merchantMarker:FindFirstChildOfClass('TextLabel');if t then t.Text='تاجر الخلا\n'..math.floor(d)..' وحدة' end
+ elseif merchantMarker then merchantMarker:Destroy();merchantMarker=nil end
+end
+local function checkRareSpawn()
+ local now=os.clock()
+ if rareBanner.Visible and now>=bannerUntil then rareBanner.Visible=false end
+ local seen={}
+ local r=root()
+ for _,e in ipairs(cache) do
+  if e.model.Parent and living(e.model) and lizard(e.model) then
+   local rank=rarity(e.model)
+   if rank=='نادر' or rank=='فاخر' or rank=='أسطوري' or rank=='خرافي' then
+    seen[e.model]=true
+    if rareInitialized and not knownRare[e.model] and S.RareAlert and r then
+     local d=math.floor((e.part.Position-r.Position).Magnitude)
+     rareBannerText.Text='ضب '..rank..' ظهر!\n'..e.model.Name..' • '..d..' وحدة'
+     rareBanner.Visible=true;bannerUntil=now+5
+    end
+   end
+  end
+ end
+ knownRare=seen
+ rareInitialized=true
+end
 
-call node setup-env.js
-if errorlevel 1 (
-  echo ERROR: Could not prepare .env.
-  pause
-  exit /b 1
-)
+-- A vehicle must have an actual driving seat, not just a vehicle-like name.
+-- Avoid listing nested submodels of the same vehicle multiple times.
+local function hasVehicle(model)
+ if not model or not model:IsA('Model') or not model:IsDescendantOf(WS) then return false end
+ if playerAncestor(model) then return false end
+ local seat=model:FindFirstChildWhichIsA('VehicleSeat',true)
+ if not seat then return false end
+ local ancestor=model.Parent
+ while ancestor and ancestor~=WS do
+  if ancestor:IsA('Model') and ancestor:FindFirstChildWhichIsA('VehicleSeat',true) then return false end
+  ancestor=ancestor.Parent
+ end
+ return true
+end
+local function refreshCars()
+ for _,x in ipairs(carList:GetChildren()) do if x:IsA('TextButton') then x:Destroy() end end
+ local count=0
+ for _,m in ipairs(WS:GetDescendants()) do if m:IsA('Model') and hasVehicle(m) then
+  count+=1;local p=part(m);if p then action(carList,'🚗 '..m.Name,function() if p.Parent then moveTo(p.Position) else msg('السيارة لم تعد موجودة') end end) end
+  if count>=35 then break end
+ end end
+ msg('السيارات المكتشفة بمقعد قيادة: '..count)
+end
+action(vehicle,'تحديث قائمة السيارات',refreshCars)
+local movement=tab('سرعة اللاعب')
+toggle(movement,'تشغيل سرعة اللاعب','Speed',function(on) if not on and speedHum and speedHum.Parent and originalSpeed then
+  speedHum.WalkSpeed=originalSpeed
+  speedHum=nil
+  originalSpeed=nil
+ end end)
+number(movement,'سرعة المشي','Walk',8,100,4)
+local tele=tab('الانتقال')
+action(tele,'الانتقال إلى أقرب ضب حي',function()refreshCache();local e=nearest('الكل');if e then moveTo(e.part.Position) else msg('لا يوجد ضب قريب ومحمّل') end end)
+action(tele,'الانتقال إلى أقرب سيارة',function()
+ local r=root();if not r then return end;local best,d=nil,math.huge
+ for _,m in ipairs(WS:GetDescendants()) do if m:IsA('Model') and hasVehicle(m) then local p=part(m);if p then local v=(p.Position-r.Position).Magnitude;if v<d then best=p;d=v end end end end
+ if best then moveTo(best.Position) else msg('لا توجد سيارة محمّلة') end
+end)
+local savedHome=nil
+local function findHome()
+ for _,m in ipairs(WS:GetDescendants()) do
+  if (m:IsA('BasePart') or m:IsA('Model')) then local n=m.Name:lower()
+   if n=='home' or n=='base' or n=='ديرة' or n=='spawnlocation' then
+    local p=m:IsA('BasePart') and m or part(m);if p then return p.Position end
+   end
+  end
+ end
+end
+action(tele,'حفظ موقعي الحالي كديرة',function()local r=root();if r then savedHome=r.Position;msg('تم حفظ موقع الديرة في هذه الجلسة') end end)
+action(tele,'العودة للديرة',function()local pos=savedHome or findHome();if pos then moveTo(pos) else msg('حدد موقع الديرة أولاً من داخلها') end end)
+label(tele,'الانتقال إلى لاعب: اختر اسمه')
+local playerList=inst('Frame',{Size=UDim2.new(1,-2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},tele)
+inst('UIListLayout',{Padding=UDim.new(0,6)},playerList)
+local function refreshPlayers()
+ for _,x in ipairs(playerList:GetChildren()) do if x:IsA('TextButton') then x:Destroy() end end
+ for _,p in ipairs(Players:GetPlayers()) do if p~=LP then action(playerList,'👤 '..p.DisplayName..' (@'..p.Name..')',function()local r=p.Character and p.Character:FindFirstChild('HumanoidRootPart');if r then moveTo(r.Position) else msg('اللاعب غير محمّل') end end) end end
+end
+action(tele,'تحديث اللاعبين',refreshPlayers);refreshPlayers()
+conn(Players.PlayerAdded,refreshPlayers);conn(Players.PlayerRemoving,function()task.defer(refreshPlayers)end)
+local appearance=tab('المظهر')
+local fogEffects={}
+local lightingCaptured=false
+local function saveLighting()
+ if lightingCaptured then return end
+ lightingCaptured=true
+ for _,k in ipairs({'Brightness','Ambient','OutdoorAmbient','GlobalShadows','ExposureCompensation','FogEnd','FogStart'}) do lightSaved[k]=Lighting[k] end
+ for _,x in ipairs(Lighting:GetChildren()) do if x:IsA('Atmosphere') then atmoSaved[x]={Density=x.Density,Haze=x.Haze,Glare=x.Glare} end end
+end
+local function setIfDifferent(obj,key,value)
+ if obj[key]~=value then obj[key]=value end
+end
+local function applyVisuals()
+ if not (S.Fog or S.Fullbright) then
+  for k,v in pairs(lightSaved) do pcall(function()Lighting[k]=v end) end
+  for x,vals in pairs(atmoSaved) do if x.Parent then for k,v in pairs(vals) do pcall(function()x[k]=v end) end end end
+  table.clear(lightSaved);table.clear(atmoSaved);lightingCaptured=false;return
+ end
+ saveLighting()
+ if S.Fog then setIfDifferent(Lighting,'FogEnd',100000);setIfDifferent(Lighting,'FogStart',0);for _,x in ipairs(Lighting:GetChildren()) do if x:IsA('Atmosphere') then if not atmoSaved[x] then atmoSaved[x]={Density=x.Density,Haze=x.Haze,Glare=x.Glare} end;setIfDifferent(x,'Density',0);setIfDifferent(x,'Haze',0);setIfDifferent(x,'Glare',0) end end
+ else Lighting.FogEnd=lightSaved.FogEnd or Lighting.FogEnd;Lighting.FogStart=lightSaved.FogStart or Lighting.FogStart;for x,vals in pairs(atmoSaved) do if x.Parent then for k,v in pairs(vals) do x[k]=v end end end end
+ if S.Fullbright then setIfDifferent(Lighting,'Brightness',2.5);setIfDifferent(Lighting,'Ambient',Color3.fromRGB(175,175,175));setIfDifferent(Lighting,'OutdoorAmbient',Color3.fromRGB(175,175,175));setIfDifferent(Lighting,'GlobalShadows',false);setIfDifferent(Lighting,'ExposureCompensation',0)
+ else for _,k in ipairs({'Brightness','Ambient','OutdoorAmbient','GlobalShadows','ExposureCompensation'}) do if lightSaved[k]~=nil then Lighting[k]=lightSaved[k] end end end
+end
+toggle(appearance,'إزالة الضباب','Fog',function() applyVisuals() end)
+toggle(appearance,'إضاءة كاملة بدون فلاش أبيض','Fullbright',function() applyVisuals() end)
+label(appearance,'ملاحظة','بعض المابات تعيد تطبيق إعدادات الإضاءة باستمرار؛ لا يمكن ضمان ثباتها')
+-- Flight state must be visible to the later update() / cleanup() definitions.
+-- v74 mistakenly declared this INSIDE the do scope below, causing
+-- `attempt to index nil with 'stop'` when initializeFeatures reached its end.
+local characterFly
+-- Movement protection diagnostics. This DOES NOT bypass server-side protections.
+do -- keep diagnostic-only locals scoped, reducing live locals in the feature loader
+local protection=tab('كسر حماية الماب')
+label(protection,'فحص قيود الماب وحركة الطيران','مراقبة الطيران وتصحيح الموقع. لا يوجد هنا تجاوز لحماية السيرفر أو منع مضمون للإرجاع')
+-- These are intentionally honest client-side controls, not a universal server bypass.
+characterFly={root=nil,humanoid=nil,attachment=nil,velocity=nil,orientation=nil,oldAutoRotate=nil,oldPlatformStand=nil,problem='متوقف'}
+toggle(protection,'طيران اللاعب | ON / OFF','PlayerFly',function(on)
+ if on then
+  local h=hum()
+  if not h or h.Health<=0 then error('الشخصية غير جاهزة للطيران') end
+  if h.SeatPart or S.CarFly then error('أوقف طيران السيارة وانزل منها قبل تشغيل طيران اللاعب') end
+  characterFly.problem='جار تشغيل الطيران المحلي'
+ else
+  if characterFly.stop then characterFly.stop() end
+  characterFly.problem='تم إيقاف الطيران واستعادة الجاذبية'
+ end
+end)
+number(protection,'سرعة طيران اللاعب','PlayerFlySpeed',15,120,5)
+label(protection,'مفاتيح الطيران','W/S للأمام والخلف • A/D للجانبين • E للصعود • Q للنزول • OFF للهبوط الطبيعي')
+local charFlyDiagnostic=label(protection,'طيران اللاعب: متوقف','اعرف هل الحركة تُطبّق محليًا أو يعيد السيرفر مكانك')
+characterFly.diagnosticText=charFlyDiagnostic:FindFirstChildOfClass('TextLabel')
+local protectionInfo=label(protection,'المراقبة متوقفة','شغّل المراقبة لمعرفة سرعة الشخصية والانتقالات المفاجئة')
+local protectionText=protectionInfo:FindFirstChildOfClass('TextLabel')
+local protectionCount=0
+local protectionPrevious=nil
+local protectionHistory={}
+local protectionRoot=nil
+local protectionLast=0
+local protectionRecent={}
+local protectionCause='لا توجد أحداث مسجلة'
+local protectionSpeed=0
+S.ProtectionMonitor=true
+local protectionTick=0
+local protectionDetails=label(protection,'حالة الإرجاع: لا توجد بيانات','يُرصد تغير الموقع؛ الاستنتاج تقريبي ولا يحدد مصدره قطعًا')
+local protectionDetailsText=protectionDetails:FindFirstChildOfClass('TextLabel')
+toggle(protection,'تفعيل فحص الحماية والحركة','ProtectionMonitor',function(on)
+ protectionPrevious=nil
+ table.clear(protectionHistory)
+ protectionRoot=nil
+ protectionTick=0
+ if not on then protectionText.Text='المراقبة متوقفة' end
+end)
+action(protection,'عرض حالة الحماية',function()
+ local r=root()
+ if not r then msg('الشخصية غير محمّلة') return end
+ msg(('السرعة %.1f | انتقالات مفاجئة %d | الموقع %.0f, %.0f, %.0f'):format(protectionSpeed,protectionCount,r.Position.X,r.Position.Y,r.Position.Z))
+end)
+action(protection,'تصفير عداد الإرجاع',function()
+ protectionCount=0
+ S._protectionCount=0
+ S._protectionLast=0
+ protectionPrevious=nil
+ protectionRoot=nil
+ table.clear(protectionHistory)
+ table.clear(protectionRecent)
+ protectionCause='لا توجد أحداث مسجلة'
+ protectionDetailsText.Text='حالة الإرجاع: لا توجد أحداث مسجلة'
+ msg('تم تصفير عداد الانتقالات المحتملة')
+end)
+action(protection,'نسخ تقرير الإرجاع',function()
+ local textLines={'Lx REDLINE v77 | تقرير مراقبة الحركة','الأحداث: '..tostring(protectionCount),'آخر حالة: '..protectionCause}
+ for _,entry in ipairs(protectionRecent) do textLines[#textLines+1]=entry end
+ local report=table.concat(textLines,'\n')
+ if type(setclipboard)=='function' then
+  local success=pcall(setclipboard,report)
+  msg(success and 'تم نسخ تقرير المراقبة' or 'تعذر نسخ التقرير')
+ else
+  msg('النسخ غير متاح في بيئة التشغيل الحالية')
+ end
+end)
+label(protection,'حدود التحكم','لا تُحتسب الالتفاتات كإرجاع. القفزات الكبيرة قد تكون انتقالًا مشروعًا أو تصحيحًا أو تأخر اتصال')
+-- Diagnostic only: directional reversals are normal controls, NOT proof of rollback.
+-- Evaluate only large discontinuities and optionally compare with an older
+-- recorded location. Even these can be intentional teleports or physics.
+conn(RunService.Heartbeat,function(dt)
+ if not alive or not S.ProtectionMonitor then return end
+ protectionTick=protectionTick+dt
+ if protectionTick<0.20 then return end
+ local elapsed=protectionTick
+ protectionTick=0
+ local r=root()
+ if not r then
+  protectionPrevious=nil
+  protectionRoot=nil
+  table.clear(protectionHistory)
+  return
+ end
+ if protectionRoot~=r then
+  protectionRoot=r
+  protectionPrevious=nil
+  table.clear(protectionHistory)
+ end
+ local position=r.Position
+ local velocity=r.AssemblyLinearVelocity
+ protectionSpeed=Vector3.new(velocity.X,0,velocity.Z).Magnitude
+ local h=hum()
+ local seated=h and h.SeatPart~=nil
+ local now=os.clock()
+ -- Keep 3 seconds of lightweight position samples to recognize a snapback.
+ for i=#protectionHistory,1,-1 do
+  if now-protectionHistory[i].t>3 then table.remove(protectionHistory,i) end
+ end
+ if protectionPrevious and not seated and elapsed>0 and elapsed<1 then
+  local delta=(position-protectionPrevious).Magnitude
+  local discontinuity=delta>math.max(55,elapsed*145)
+  local revisited=false
+  if S.PlayerFly and delta>30 then
+   for _,sample in ipairs(protectionHistory) do
+    if now-sample.t>=1 and (position-sample.pos).Magnitude<8 then
+     revisited=true
+     break
+    end
+   end
+  end
+  local classification
+  if discontinuity and revisited then
+   classification='عودة مفاجئة لموقع سابق أثناء الطيران (تصحيح محتمل)'
+  elseif discontinuity then
+   classification='انتقال مفاجئ (المصدر غير معروف)'
+  elseif revisited then
+   classification='عودة لموقع سابق (احتمال تصحيح)'
+  end
+  if classification and now-protectionLast>=1 then
+   protectionCount+=1
+   protectionLast=now
+   S._protectionLast=now
+   S._protectionCount=protectionCount
+   protectionCause=('%s | فرق %.1f وحدة | عينة %.2f ثانية'):format(classification,delta,elapsed)
+   local line=('%s | %s'):format(os.date('%H:%M:%S'),protectionCause)
+   protectionRecent[#protectionRecent+1]=line
+   if #protectionRecent>8 then table.remove(protectionRecent,1) end
+   if protectionDetailsText and protectionDetailsText.Parent then
+    protectionDetailsText.Text='آخر رصد: '..protectionCause
+   end
+  end
+ end
+ protectionHistory[#protectionHistory+1]={t=now,pos=position}
+ protectionPrevious=position
+ protectionText.Text=('السرعة: %.1f | أحداث حركة كبيرة: %d'):format(protectionSpeed,protectionCount)
+end)
+end -- end protection diagnostics local scope
+local extras=tab('أدوات إضافية')
+action(extras,'تحديث معلومات أقرب ضب',function()refreshCache();local e,d=nearest('الكل');if not e then msg('لا يوجد ضب حي قريب');return end;local m=e.model;msg(m.Name..' | '..rarity(m)..' | '..math.floor(d)..' وحدة') end)
+label(extras,'Lx REDLINE PRO','المعلومات الحقيقية فقط؛ القيم غير الموجودة لا تُخترع')
+-- Official community tab: built entirely from UI primitives (no external image download).
+local og=tab('OG | المجتمع')
+local ogCard=inst('Frame',{Size=UDim2.new(1,-2,0,146),BackgroundColor3=Color3.fromRGB(20,20,22),BorderSizePixel=0},og)
+round(ogCard,14)
+inst('UIStroke',{Color=C.purple,Thickness=1.4,Transparency=.15},ogCard)
+local ogLogo=inst('Frame',{Size=UDim2.fromOffset(66,66),Position=UDim2.new(.5,-33,0,12),BackgroundColor3=C.white,BorderSizePixel=0},ogCard)
+round(ogLogo,100)
+inst('UIStroke',{Color=C.purple,Thickness=3},ogLogo)
+inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text='Lx',Font=Enum.Font.GothamBlack,TextSize=32,TextColor3=C.purple},ogLogo)
+inst('TextLabel',{Size=UDim2.new(1,-12,0,28),Position=UDim2.fromOffset(6,87),BackgroundTransparency=1,Text='منورين يا ساطير',TextColor3=C.white,TextSize=19,Font=Enum.Font.GothamBold},ogCard)
+inst('TextLabel',{Size=UDim2.new(1,-12,0,20),Position=UDim2.fromOffset(6,116),BackgroundTransparency=1,Text='Lx  •  OFFICIAL COMMUNITY',TextColor3=C.muted,TextSize=10,Font=Enum.Font.GothamMedium},ogCard)
+label(og,'ديسكورد Lx','discord.gg/7HyFER45Y')
+action(og,'نسخ رابط الديسكورد',function()
+ local url='https://discord.gg/7HyFER45Y'
+ if type(setclipboard)=='function' then
+  local ok=pcall(setclipboard,url)
+  if ok then msg('تم نسخ رابط الديسكورد');return end
+ end
+ msg('الرابط: '..url)
+end)
+action(og,'عرض رابط الديسكورد',function()msg('https://discord.gg/7HyFER45Y') end)
 
-rem If required Discord values are still placeholders, let the user edit them.
-findstr /c:"PUT_CLIENT_ID_HERE" /c:"PUT_CLIENT_SECRET_HERE" /c:"PUT_SERVER_ID_HERE" ".env" >nul
-if not errorlevel 1 (
-  echo.
-  echo First setup: fill in the Discord Client ID, Client Secret and Server ID.
-  echo See README_AR.txt for where to get them. SESSION_SECRET is generated automatically.
-  echo The page can still open in setup mode if you do not have the values ready.
-  start "" /wait notepad "%~dp0.env"
-)
+-- Startup gate removed: immediate visible menu and no stuck multi-step flow.
+local minimized=false
+conn(mini.MouseButton1Click,function()minimized=not minimized;side.Visible=not minimized;area.Visible=not minimized;status.Visible=not minimized;main.Size=minimized and UDim2.fromOffset(650,66) or UDim2.fromOffset(650,500);mini.Text=minimized and '+' or '−' end)
+local dragging,dragStart,frameStart=false,nil,nil
+conn(head.InputBegan,function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true;dragStart=i.Position;frameStart=main.Position end end)
+conn(UIS.InputChanged,function(i)if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then local d=i.Position-dragStart;main.Position=UDim2.new(frameStart.X.Scale,frameStart.X.Offset+d.X,frameStart.Y.Scale,frameStart.Y.Offset+d.Y) end end)
+conn(UIS.InputEnded,function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
+-- Visible FOV overlay. Radius is in screen pixels, not camera degrees.
+for _,oldFov in ipairs({'Lx_NexusFOV_V77','Lx_NexusFOV_V76','Lx_NexusFOV_V75','Lx_NexusFOV_V74','Lx_NexusFOV_V73','Lx_NexusFOV_V72','Lx_NexusFOV_V71','Lx_NexusFOV_V56','Lx_NexusFOV_V70','Lx_NexusFOV_V69','Lx_NexusFOV_V68','Lx_NexusFOV_V67','Lx_NexusFOV_V55','Lx_NexusFOV_V54','Lx_NexusFOV_V53','Lx_NexusFOV_V52'}) do
+ local old=PG:FindFirstChild(oldFov)
+ if old then old:Destroy() end
+end
+local fovGui=inst('ScreenGui',{
+ Name='Lx_NexusFOV_V77',ResetOnSpawn=false,IgnoreGuiInset=true,
+ DisplayOrder=89,ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+},PG)
+local fovCircle=inst('Frame',{
+ Name='FOVCircle',AnchorPoint=Vector2.new(.5,.5),
+ BackgroundTransparency=1,BorderSizePixel=0,Visible=false
+},fovGui)
+round(fovCircle,1000)
+inst('UIStroke',{Color=C.purple,Thickness=2,Transparency=.1},fovCircle)
+local fovDot=inst('Frame',{
+ Name='Center',Size=UDim2.fromOffset(4,4),AnchorPoint=Vector2.new(.5,.5),
+ Position=UDim2.fromScale(.5,.5),BackgroundColor3=C.purple,BorderSizePixel=0
+},fovCircle);round(fovDot,100)
+local function updateCircle(cam)
+ local enabled=S.Aim and cam~=nil
+ fovCircle.Visible=enabled
+ if not enabled then return end
+ local radius=math.clamp(S.FOV,10,150)
+ fovCircle.Size=UDim2.fromOffset(radius*2,radius*2)
+ local vp=cam.ViewportSize
+ fovCircle.Position=UDim2.fromOffset(vp.X*.5,vp.Y*.5)
+end
+-- Vehicle assist v42: restores the earlier velocity-based approach.
+-- Client-side vehicle control is best-effort; server-owned vehicles may ignore it.
+local savedSeat,savedMaxSpeed,savedTorque
+local vehicleState='مساعد السرعة متوقف'
+local flyBody=nil
+local flyAttachment=nil
+local flyLastSeat=nil
+local flyVelocity=nil
+local flyOrientation=nil
+stopCarFly=function(descend)
+ -- Exactly one actuator set is owned by this script. Remove it completely
+ -- so the ordinary suspension / gravity controller can take over on OFF.
+ local body=flyBody
+ if flyVelocity then pcall(function()flyVelocity:Destroy()end) end
+ if flyOrientation then pcall(function()flyOrientation:Destroy()end) end
+ if flyAttachment then pcall(function()flyAttachment:Destroy()end) end
+ flyVelocity=nil;flyOrientation=nil;flyAttachment=nil
+ if body and body.Parent then
+  for _,obj in ipairs(body:GetChildren()) do
+   if obj.Name=='LxFlyVelocity' or obj.Name=='LxFlyOrientation' or obj.Name=='LxFlyAttachment' then
+    pcall(function()obj:Destroy()end)
+   end
+  end
+  if descend and not body.Anchored then
+   -- Zero an upward hover velocity without resetting ground momentum.
+   pcall(function()
+    local velocity=body.AssemblyLinearVelocity
+    if velocity.Y>0 then
+     body.AssemblyLinearVelocity=Vector3.new(velocity.X,0,velocity.Z)
+    end
+   end)
+  end
+ end
+ flyBody=nil;flyLastSeat=nil
+end
+updateCarFly=function()
+ if not S.CarFly then
+  if flyBody or flyVelocity or flyOrientation then stopCarFly() end
+  flyState='الطيران متوقف'
+  return
+ end
+ local h=hum()
+ local seat=h and h.SeatPart
+ if not seat or not seat:IsA('VehicleSeat') or seat.Occupant~=h then
+  stopCarFly();flyState='اجلس في مقعد سائق السيارة';return
+ end
+ local body=seat.AssemblyRootPart or seat
+ if not body or body.Anchored then
+  stopCarFly();flyState='جسم السيارة ثابت أو غير متاح';return
+ end
+ if body~=flyBody or not flyVelocity or not flyVelocity.Parent then
+  stopCarFly()
+  flyBody=body
+  flyLastSeat=seat
+  flyAttachment=Instance.new('Attachment');flyAttachment.Name='LxFlyAttachment';flyAttachment.Parent=body
+  flyVelocity=Instance.new('LinearVelocity')
+  flyVelocity.Name='LxFlyVelocity'
+  flyVelocity.Attachment0=flyAttachment
+  flyVelocity.RelativeTo=Enum.ActuatorRelativeTo.World
+  flyVelocity.VelocityConstraintMode=Enum.VelocityConstraintMode.Vector
+  flyVelocity.MaxForce=math.max(100000,body.AssemblyMass*2500)
+  flyVelocity.Parent=body
+  flyOrientation=Instance.new('AlignOrientation')
+  flyOrientation.Name='LxFlyOrientation'
+  flyOrientation.Attachment0=flyAttachment
+  flyOrientation.Mode=Enum.OrientationAlignmentMode.OneAttachment
+  flyOrientation.Responsiveness=12
+  flyOrientation.MaxTorque=math.max(100000,body.AssemblyMass*2500)
+  flyOrientation.Parent=body
+ end
+ local cam=WS.CurrentCamera
+ if not cam then flyState='الكاميرا غير متاحة';return end
+ local look=cam.CFrame.LookVector
+ local right=cam.CFrame.RightVector
+ local forward=Vector3.new(look.X,0,look.Z)
+ local side=Vector3.new(right.X,0,right.Z)
+ if forward.Magnitude<.01 then forward=Vector3.new(seat.CFrame.LookVector.X,0,seat.CFrame.LookVector.Z) end
+ if forward.Magnitude<.01 then forward=Vector3.new(0,0,-1) end
+ forward=forward.Unit
+ if side.Magnitude<.01 then side=Vector3.new(-forward.Z,0,forward.X) end
+ side=side.Unit
+ local input=Vector3.zero
+ if not UIS:GetFocusedTextBox() and (UIS:IsKeyDown(Enum.KeyCode.W) or UIS:IsKeyDown(Enum.KeyCode.Up)) then input+=forward end
+ if not UIS:GetFocusedTextBox() and (UIS:IsKeyDown(Enum.KeyCode.S) or UIS:IsKeyDown(Enum.KeyCode.Down)) then input-=forward end
+ if not UIS:GetFocusedTextBox() and UIS:IsKeyDown(Enum.KeyCode.D) then input+=side end
+ if not UIS:GetFocusedTextBox() and UIS:IsKeyDown(Enum.KeyCode.A) then input-=side end
+ if not UIS:GetFocusedTextBox() and UIS:IsKeyDown(Enum.KeyCode.E) then input+=Vector3.yAxis end
+ if not UIS:GetFocusedTextBox() and UIS:IsKeyDown(Enum.KeyCode.Q) then input-=Vector3.yAxis end
+ local speed=math.clamp(S.FlySpeed,20,300)
+ flyVelocity.VectorVelocity=input.Magnitude>0 and input.Unit*speed or Vector3.zero
+ flyOrientation.CFrame=CFrame.lookAt(Vector3.zero,forward)
+ flyState=string.format('الطيران نشط | سرعة %.0f | الحركة %s',speed,input.Magnitude>0 and 'نعم' or 'ثبات')
+end
+local lastVehicleSpeed,vehicleSpeedStuckFor=0,0
+local function restoreSeat()
+ if savedSeat and savedSeat.Parent then
+  pcall(function() if savedMaxSpeed~=nil then savedSeat.MaxSpeed=savedMaxSpeed end end)
+  pcall(function() if savedTorque~=nil then savedSeat.Torque=savedTorque end end)
+ end
+ savedSeat=nil;savedMaxSpeed=nil;savedTorque=nil
+end
+clearVehicleBoost=function()
+ restoreSeat()
+ lastVehicleSpeed=0;vehicleSpeedStuckFor=0
+end
+local function updateVehicleBoost(dt)
+ if S.CarFly then
+  vehicleState='الطيران مفعّل؛ مساعد السرعة الأرضي معلّق'
+  return
+ end
+ if not S.CarSpeed then
+  vehicleState='مساعد السرعة متوقف'
+  if savedSeat then clearVehicleBoost() end
+  return
+ end
+ local h=hum()
+ local seat=h and h.SeatPart
+ if not seat or not seat:IsA('VehicleSeat') or seat.Occupant~=h then
+  vehicleState=seat and 'هذا الماب يستخدم مقعد قيادة مخصصًا' or 'اجلس في مقعد قيادة السيارة'
+  if savedSeat then clearVehicleBoost() end
+  return
+ end
+ local body=seat.AssemblyRootPart or seat
+ if not body or body.Anchored then
+  vehicleState='جسم السيارة مثبت ولا يقبل تغيير السرعة'
+  if savedSeat then clearVehicleBoost() end
+  return
+ end
+ if savedSeat~=seat then
+  restoreSeat()
+  savedSeat=seat
+  savedMaxSpeed=seat.MaxSpeed
+  savedTorque=seat.Torque
+ end
+ local target=math.clamp(tonumber(S.CarTarget) or 200,20,400)
+ -- Some vehicles use native VehicleSeat propulsion; adjust only on change.
+ pcall(function()
+  local wantedMax=math.max(savedMaxSpeed or 0,target)
+  if math.abs(seat.MaxSpeed-wantedMax)>0.1 then seat.MaxSpeed=wantedMax end
+  local wantedTorque=math.max(savedTorque or 0,math.min(18000,target*45))
+  if math.abs(seat.Torque-wantedTorque)>0.1 then seat.Torque=wantedTorque end
+ end)
+ if UIS:GetFocusedTextBox() then
+  vehicleState='كتابة قيمة السرعة؛ لا يوجد دفع أثناء الكتابة'
+  return
+ end
+ local nativeThrottle=seat.ThrottleFloat
+ local wantsForward=UIS:IsKeyDown(Enum.KeyCode.W) or UIS:IsKeyDown(Enum.KeyCode.Up)
+ local wantsReverse=UIS:IsKeyDown(Enum.KeyCode.S) or UIS:IsKeyDown(Enum.KeyCode.Down)
+ local drive=0
+ if wantsForward~=wantsReverse then
+  drive=wantsForward and 1 or -1
+ elseif math.abs(nativeThrottle)>0.1 then
+  drive=nativeThrottle>0 and 1 or -1
+ end
+ local velocity=body.AssemblyLinearVelocity
+ local horizontal=Vector3.new(velocity.X,0,velocity.Z)
+ if drive==0 then
+  vehicleState=('انتظار W / S | الحالية %.1f | الهدف %.0f'):format(horizontal.Magnitude,target)
+  vehicleSpeedStuckFor=0
+  return
+ end
+ local forward=seat.CFrame.LookVector * S.CarDirection * drive
+ local flat=Vector3.new(forward.X,0,forward.Z)
+ if flat.Magnitude<0.05 then vehicleState='اتجاه مقعد القيادة غير صالح';return end
+ flat=flat.Unit
+ -- Drive in the requested direction without destroying sideways motion on turns.
+ local aligned=horizontal:Dot(flat)
+ local desired=math.min(target,math.max(0,aligned)+math.clamp(dt,0,0.12)*math.max(45,target*0.65))
+ local gain=math.clamp(desired-aligned,0,math.max(45,target*0.65)*math.clamp(dt,0,0.12))
+ if gain>0.01 then
+  local candidate=horizontal+flat*gain
+  -- Never write a huge impulse when the car is already moving faster than target.
+  if candidate.Magnitude<=target+math.max(12,target*0.15) then
+   local ok,err=pcall(function()
+    body.AssemblyLinearVelocity=Vector3.new(candidate.X,velocity.Y,candidate.Z)
+   end)
+   if not ok then vehicleState='تعذر تعديل السرعة: '..tostring(err):sub(1,45);return end
+  end
+ end
+ local actual=body.AssemblyLinearVelocity
+ local now=Vector3.new(actual.X,0,actual.Z).Magnitude
+ if now<target*0.35 and math.abs(now-lastVehicleSpeed)<0.15 then
+  vehicleSpeedStuckFor+=math.clamp(dt,0,0.12)
+ else
+  vehicleSpeedStuckFor=0
+ end
+ lastVehicleSpeed=now
+ vehicleState=('سرعة فعلية %.1f / %.0f | %s'):format(now,target,drive>0 and 'أمام' or 'خلف')
+ if vehicleSpeedStuckFor>2.5 then
+  vehicleState='السيارة لا تستجيب للتسارع المحلي؛ ربما يتحكم السيرفر أو نظام السيارة'
+ end
+end
+-- Character flight: client-side actuation only. Server corrections remain authoritative.
+characterFly.stop=function()
+ local cf=characterFly
+ if cf.velocity then pcall(function()cf.velocity:Destroy()end) end
+ if cf.orientation then pcall(function()cf.orientation:Destroy()end) end
+ if cf.attachment then pcall(function()cf.attachment:Destroy()end) end
+ cf.velocity=nil;cf.orientation=nil;cf.attachment=nil;cf.root=nil
+ if cf.humanoid and cf.humanoid.Parent then
+  pcall(function()
+   if cf.oldAutoRotate~=nil then cf.humanoid.AutoRotate=cf.oldAutoRotate end
+   if cf.oldPlatformStand~=nil then cf.humanoid.PlatformStand=cf.oldPlatformStand end
+  end)
+ end
+ cf.humanoid=nil;cf.oldAutoRotate=nil;cf.oldPlatformStand=nil
+end
+characterFly.update=function()
+ local cf=characterFly
+ if not S.PlayerFly then return end
+ local h=hum()
+ local r=root()
+ if not h or not r or h.Health<=0 then
+  if cf.root then cf.stop() end
+  cf.problem='في انتظار الشخصية'
+  return
+ end
+ if h.SeatPart then
+  if cf.root then cf.stop() end
+  cf.problem='انزل من السيارة أولاً'
+  return
+ end
+ if r.Anchored then
+  if cf.root then cf.stop() end
+  cf.problem='جسم اللاعب ثابت بسبب الماب'
+  return
+ end
+ if cf.root~=r or not cf.velocity or not cf.velocity.Parent then
+  cf.stop()
+  cf.root=r
+  cf.humanoid=h
+  cf.oldAutoRotate=h.AutoRotate
+  cf.oldPlatformStand=h.PlatformStand
+  local a=Instance.new('Attachment')
+  a.Name='LxCharacterFlightAttachment';a.Parent=r
+  cf.attachment=a
+  local v=Instance.new('LinearVelocity')
+  v.Name='LxCharacterFlightVelocity'
+  v.Attachment0=a
+  v.RelativeTo=Enum.ActuatorRelativeTo.World
+  v.VelocityConstraintMode=Enum.VelocityConstraintMode.Vector
+  v.MaxForce=math.max(50000,r.AssemblyMass*3000)
+  v.VectorVelocity=Vector3.zero
+  v.Parent=r
+  cf.velocity=v
+  local o=Instance.new('AlignOrientation')
+  o.Name='LxCharacterFlightOrientation'
+  o.Attachment0=a
+  o.Mode=Enum.OrientationAlignmentMode.OneAttachment
+  o.Responsiveness=14
+  o.MaxTorque=math.max(50000,r.AssemblyMass*3000)
+  o.Parent=r
+  cf.orientation=o
+  h.AutoRotate=false
+  h.PlatformStand=true
+ end
+ local cam=WS.CurrentCamera
+ if not cam then cf.problem='الكاميرا غير جاهزة';return end
+ local forward=Vector3.new(cam.CFrame.LookVector.X,0,cam.CFrame.LookVector.Z)
+ if forward.Magnitude<0.01 then forward=Vector3.new(r.CFrame.LookVector.X,0,r.CFrame.LookVector.Z) end
+ if forward.Magnitude<0.01 then forward=Vector3.new(0,0,-1) end
+ forward=forward.Unit
+ local right=Vector3.new(cam.CFrame.RightVector.X,0,cam.CFrame.RightVector.Z)
+ if right.Magnitude<0.01 then right=Vector3.new(-forward.Z,0,forward.X) end
+ right=right.Unit
+ local vector=Vector3.zero
+ if not UIS:GetFocusedTextBox() then
+  if UIS:IsKeyDown(Enum.KeyCode.W) or UIS:IsKeyDown(Enum.KeyCode.Up) then vector+=forward end
+  if UIS:IsKeyDown(Enum.KeyCode.S) or UIS:IsKeyDown(Enum.KeyCode.Down) then vector-=forward end
+  if UIS:IsKeyDown(Enum.KeyCode.A) then vector-=right end
+  if UIS:IsKeyDown(Enum.KeyCode.D) then vector+=right end
+  if UIS:IsKeyDown(Enum.KeyCode.E) then vector+=Vector3.yAxis end
+  if UIS:IsKeyDown(Enum.KeyCode.Q) then vector-=Vector3.yAxis end
+ end
+ local speed=math.clamp(S.PlayerFlySpeed,15,120)
+ cf.velocity.VectorVelocity=vector.Magnitude>0 and vector.Unit*speed or Vector3.zero
+ cf.orientation.CFrame=CFrame.lookAt(Vector3.zero,forward)
+ if (S._protectionCount or 0)>0 and os.clock()-(S._protectionLast or 0)<2.5 then
+  cf.problem='طيران محلي • رُصد انتقال كبير؛ سببه غير مؤكد'
+ else
+  cf.problem=('نشط محليًا | السرعة %.0f | %s'):format(speed,vector.Magnitude>0 and 'حركة' or 'ثبات')
+ end
+end
 
-if not exist "node_modules\express\package.json" (
-  echo.
-  echo Installing required packages. Internet access is needed for this step...
-  call npm install --no-audit --no-fund
-  if errorlevel 1 (
-    echo.
-    echo ERROR: npm install failed. Check your internet connection and try again.
-    pause
-    exit /b 1
-  )
-)
+local function cleanup()
+ if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.CarFly=false;S.PlayerFly=false;S.Speed=false;S.Fog=false;S.Fullbright=false
+ if characterFly and characterFly.stop then pcall(characterFly.stop) end
+ if stopCarFly then pcall(stopCarFly) end
+ if clearVehicleBoost then pcall(clearVehicleBoost) end
+ pcall(clearMarkers);pcall(clearResourceMarkers)
+ pcall(function()resourceAlertText:Destroy()end)
+ if merchantMarker then pcall(function()merchantMarker:Destroy()end) end
+ pcall(applyVisuals)
+ if fovGui and fovGui.Parent then pcall(function()fovGui:Destroy()end) end
+ if speedHum and speedHum.Parent and originalSpeed then pcall(function()speedHum.WalkSpeed=originalSpeed end) end
+ for _,c in ipairs(conns) do c:Disconnect() end
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV77')end)
+ if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
+ gui:Destroy()
+end
+env.XHubCleanup=cleanup
+conn(close.MouseButton1Click,cleanup)
+local timer=0;local characterFlyTimer=0;local flyUpdateTimer=0;local groundUpdateTimer=0;local walkUpdateTimer=0;local aimTarget=nil;local aimTimer=0;local fitTimer=0;local listTimer=0;local extrasTimer=0;local visualTimer=0
+conn(RunService.Heartbeat,function(dt)
+ if not alive then return end
+ timer+=dt;fitTimer+=dt;listTimer+=dt;extrasTimer+=dt;visualTimer+=dt;if fitTimer>=1 then fitTimer=0;fitScreen() end
+ walkUpdateTimer+=dt
+ if S.Speed and walkUpdateTimer>=0.25 then
+  walkUpdateTimer=0
+  local h=hum()
+  if h then
+   if speedHum~=h then speedHum=h;originalSpeed=h.WalkSpeed end
+   if math.abs(h.WalkSpeed-S.Walk)>0.1 then h.WalkSpeed=S.Walk end
+  end
+ end
+ -- Update flight physics at 30Hz, not every rendered frame.
+ characterFlyTimer+=dt
+ if S.PlayerFly and characterFlyTimer>=1/30 then
+  characterFlyTimer=0
+  local ok,err=pcall(characterFly.update)
+  if not ok then characterFly.problem='خطأ طيران اللاعب: '..tostring(err):sub(1,60);S.PlayerFly=false;characterFly.stop();if togglePaints.PlayerFly then togglePaints.PlayerFly() end end
+ elseif not S.PlayerFly then
+  characterFlyTimer=0
+ end
+ -- Vehicle flight uses its own independent actuator.
+ flyUpdateTimer+=dt
+ groundUpdateTimer+=dt
+ if S.CarFly and flyUpdateTimer>=1/30 then
+  flyUpdateTimer=0
+  local ok,err=pcall(updateCarFly)
+  if not ok then
+   S.CarFly=false
+   pcall(stopCarFly,true)
+   if togglePaints.CarFly then togglePaints.CarFly() end
+   flyState='تم إيقاف الطيران بعد خطأ: '..tostring(err):sub(1,55)
+   warn('[Lx car flight]',err)
+  end
+ elseif not S.CarFly then
+  flyUpdateTimer=0
+ end
+ if S.CarSpeed and not S.CarFly and groundUpdateTimer>=0.10 then
+  local ok,err=pcall(updateVehicleBoost,groundUpdateTimer)
+  groundUpdateTimer=0
+  if not ok then
+   S.CarSpeed=false
+   pcall(clearVehicleBoost)
+   if togglePaints.CarSpeed then togglePaints.CarSpeed() end
+   vehicleState='تم إيقاف مساعد السرعة بعد خطأ: '..tostring(err):sub(1,45)
+   warn('[Lx vehicle speed]',err)
+  end
+ elseif not S.CarSpeed then
+  groundUpdateTimer=0
+ end
+ if timer>=1.5 then
+  timer=0
+  if S.Radar or S.Aim or S.RareAlert then local ok,err=pcall(refreshCache);if not ok then warn('[Lx radar]',err) end end
+  if S.RareAlert then local ok,err=pcall(checkRareSpawn);if not ok then warn('[Lx rare]',err) end elseif rareBanner.Visible then rareBanner.Visible=false end
+  if extrasTimer>=8 then extrasTimer=0;if S.ResourceESP or S.ResourceAlert or S.Merchant then local ok,err=pcall(refreshExtrasESP);if not ok then warn('[Lx extras]',err) end end end
+  if S.Radar then
+   local count=0
+   for _ in pairs(indexed) do count+=1 end
+   local diag=radarDiag:FindFirstChildOfClass('TextLabel')
+   if diag then diag.Text='تشخيص الكاشف: '..count..' ضب محتمل | '..#scanQueue..' مجسم في الفهرس' end
+   local r=root()
+   local visible={}
+   for _,e in ipairs(cache) do
+    local d=r and (e.part.Position-r.Position).Magnitude or math.huge
+    if d<=S.RadarRange then visible[#visible+1]={e=e,d=d} end
+   end
+   table.sort(visible,function(a,b)return a.d<b.d end)
+   local shown=0
+   local kept={}
+   for _,item in ipairs(visible) do
+    local e=item.e
+    local d=item.d
+    local match=living(e.model) and lizard(e.model) and (S.Filter=='الكل' or rarity(e.model)==S.Filter)
+    if match and shown<8 then
+     shown+=1
+     kept[e.model]=true
+     makeMarker(e);local bb=markers[e.model];if bb then bb.MaxDistance=S.RadarRange;local t=bb:FindFirstChildOfClass('TextLabel');if t then
+      local weight=animalWeight(e.model);local size=animalSize(e.model)
+      t.Text=speciesName(e.model)..' | '..rarity(e.model)..'\nحجم '..size..'  •  وزن '..weight..'  •  '..math.floor(d)..' وحدة'
+      t.TextColor3=rarityColors[rarity(e.model)] or C.white
+     end end
+    elseif markers[e.model] then markers[e.model]:Destroy();markers[e.model]=nil end
+   end
+   for m,bb in pairs(markers) do
+    local p=part(m)
+    local d=(r and p and p.Parent) and (p.Position-r.Position).Magnitude or math.huge
+    if not kept[m] or not m.Parent or not living(m) or not lizard(m) or d>S.RadarRange or (S.Filter~='الكل' and rarity(m)~=S.Filter) then
+     bb:Destroy();markers[m]=nil
+    end
+   end
+   local e,d=nearest(S.Filter);nearestText.Text=e and ('أقرب ضب: '..e.model.Name..' | حجم '..animalSize(e.model)..' | '..math.floor(d)..' وحدة') or 'أقرب ضب: لا يوجد'
+  else clearMarkers() end
+  if S.Radar and listTimer>=3 then listTimer=0;rebuildAnimalList() elseif not S.Radar then listTimer=0 end
+  if S.Merchant and extrasTimer==0 then local p,d=findMerchant();merchantText.Text=p and ('أقرب تاجر: '..math.floor(d)..' وحدة') or 'أقرب تاجر: غير مكتشف' end
+  if characterFly.diagnosticText and characterFly.diagnosticText.Parent then characterFly.diagnosticText.Text='طيران اللاعب: '..characterFly.problem end
+  if vehicleDiagnosticText then vehicleDiagnosticText.Text='التشخيص: '..(S.CarFly and flyState or vehicleState) end
+  -- Do not reapply Lighting periodically: repeated writes can cause flashes.
+  if visualTimer>=2.5 then visualTimer=0 end
+ end
+end)
+-- Apply aim after Roblox's camera update, so the camera does not fight the controller.
+local aimBinding='Lx_NexusAimV77'
+RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
+ if not alive then return end
+ if not S.Aim then return end
+ updateCircle(WS.CurrentCamera)
+ aimTimer=aimTimer+dt
+ if aimTimer<0.05 then return end
+ aimTimer=0
+ local cam=WS.CurrentCamera
+ updateCircle(cam)
+ if not S.Aim or not cam then return end
+ local r=root();if not r then return end
+ local vp=cam.ViewportSize
+ local center=Vector2.new(vp.X*.5,vp.Y*.5)
+ local best,bestPixelDistance=nil,math.huge
+ for _,e in ipairs(cache) do
+  if e.model.Parent and e.part.Parent and lizard(e.model) and living(e.model) then
+   local head=e.model:FindFirstChild('Head',true) or e.model:FindFirstChild('head',true) or e.model:FindFirstChild('رأس',true)
+   local targetPart=(head and head:IsA('BasePart')) and head or nil
+   local worldDistance=targetPart and (targetPart.Position-r.Position).Magnitude or math.huge
+   if targetPart and worldDistance<=S.AimRange then
+    local point,onScreen=cam:WorldToViewportPoint(targetPart.Position)
+    if onScreen and point.Z>0 then
+     local pixelDistance=(Vector2.new(point.X,point.Y)-center).Magnitude
+     if pixelDistance<=S.FOV and pixelDistance<bestPixelDistance then
+      best=targetPart
+      bestPixelDistance=pixelDistance
+     end
+    end
+   end
+  end
+ end
+ if best then
+  local desired=CFrame.lookAt(cam.CFrame.Position,best.Position)
+  local alpha=1-math.exp(-math.clamp(S.AimSmooth,.02,1)*30*math.min(dt,.1))
+  cam.CFrame=cam.CFrame:Lerp(desired,math.clamp(alpha,0,1))
+ end
+end)
+msg('Lx REDLINE v77 | تشغيل مستقر + مراقبة تغيّرات الموقع')
+print('[Lx REDLINE PRO] v77 loaded')
+end -- initializeFeatures
 
-echo.
-echo Starting the membership gate on http://localhost:3000
-echo Keep this window open while using the page.
-start "" /b powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Sleep -Seconds 3; Start-Process 'http://localhost:3000'"
-call npm start
-set EXITCODE=%ERRORLEVEL%
-echo.
-echo Server stopped with code %EXITCODE%.
-echo If the page says settings are missing, edit .env and restart this file.
-pause
-exit /b %EXITCODE%
+task.defer(function()
+ local ok, err=xpcall(initializeFeatures,function(e)
+  if debug and debug.traceback then return debug.traceback(tostring(e),2) end
+  return tostring(e)
+ end)
+ if not ok then
+  warn('[Lx REDLINE v77 FEATURES]',err)
+  showFeatureError(err)
+ end
+end)
+end -- launchRedline
+local ok, issue=xpcall(launchRedline,function(err)
+ local trace=(debug and debug.traceback and debug.traceback(tostring(err),2)) or tostring(err)
+ warn('[Lx REDLINE v77 STARTUP ERROR] '..trace)
+ return trace
+end)
+if not ok then
+ local success,uierr=pcall(function()
+  local player=game:GetService('Players').LocalPlayer
+  if not player then return end
+  local pg=player:FindFirstChildOfClass('PlayerGui')
+  if not pg then return end
+  local previous=pg:FindFirstChild('Lx_Error_v77')
+  if previous then previous:Destroy() end
+  local gui=Instance.new('ScreenGui');gui.Name='Lx_Error_v77';gui.ResetOnSpawn=false;gui.DisplayOrder=10000;gui.Parent=pg
+  local frame=Instance.new('Frame');frame.Size=UDim2.fromOffset(540,195);frame.Position=UDim2.new(.5,-270,.32,0);frame.BackgroundColor3=Color3.fromRGB(30,17,18);frame.Parent=gui
+  local corner=Instance.new('UICorner');corner.Parent=frame
+  local lab=Instance.new('TextLabel');lab.Size=UDim2.new(1,-24,1,-62);lab.Position=UDim2.fromOffset(12,10);lab.BackgroundTransparency=1;lab.TextWrapped=true;lab.TextXAlignment=Enum.TextXAlignment.Left;lab.TextYAlignment=Enum.TextYAlignment.Top;lab.TextSize=15;lab.Font=Enum.Font.Code;lab.TextColor3=Color3.new(1,1,1);lab.Text='Lx REDLINE v77 - STARTUP ERROR\n'..tostring(issue):sub(1,350);lab.Parent=frame
+  local close=Instance.new('TextButton');close.Size=UDim2.new(1,-24,0,35);close.Position=UDim2.new(0,12,1,-45);close.Text='إغلاق';close.TextSize=17;close.TextColor3=Color3.new(1,1,1);close.BackgroundColor3=Color3.fromRGB(209,28,41);close.Parent=frame
+  close.MouseButton1Click:Connect(function()gui:Destroy()end)
+ end)
+ if not success then warn('Lx diagnostic UI failed:',uierr) end
+end
