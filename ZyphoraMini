@@ -79,11 +79,10 @@ end
 local function openDiscord()
     pcall(function()
         if setclipboard then
-            setclipboard(DISCOED_LINK)
+            setclipboard(DISCORD_LINK)
         end
     end)
 
-    -- إذا كان الـ executor يدعم فتح رابط مباشر، استخدمه:
     pcall(function()
         if syn and syn.queue_on_teleport then
             syn.queue_on_teleport("setclipboard('" .. DISCORD_LINK .. "')")
@@ -197,11 +196,6 @@ if not passed then
     warn("Discord guard failed")
     return
 end
-
--- =========================================================
--- هنا يبدأ السكربت الحقيقي
--- =========================================================
--- launchRedline()
 
 task.spawn(function()
     while true do
