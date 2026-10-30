@@ -1,7 +1,8 @@
 -- =========================================================
--- Discord Guard - Final Fixed Version
--- Stops the script until Discord is active
--- If Discord closes while running, it locks the script again
+-- Discord Guard - Real Startup Lock
+-- Stops execution until Discord is actually active
+-- Re-locks if Discord closes while script is running
+-- Shows runtime errors in an on-screen panel
 -- =========================================================
 
 local Players = game:GetService("Players")
@@ -22,6 +23,7 @@ local DISCORD_LINK = "https://discord.gg/7HyFER45Y"
 local DISCORD_PORTS = {6463, 6464}
 
 local guardGui = nil
+local isLocked = false
 
 local function getDiscordRequestFunction()
     if syn and type(syn.request) == "function" then
@@ -39,52 +41,13 @@ local function getDiscordRequestFunction()
     return nil
 end
 
-local function discordIsAlive()
-    local reqFn = getDiscordRequestFunction()
-    if not reqFn then
-        return false
-    end
-
-    for _, port in ipairs(DISCORD_PORTS) do
-        local ok, res = pcall(function()
-            return reqFn({
-                Url = "http://127.0.0.1:" .. port .. "/",
-                Method = "GET",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                }
-            })
-        end)
-
-        if ok and res ~= nil then
-            if type(res) == "table" then
-                if res.Success ~= false and (res.StatusCode == nil or res.StatusCode >= 200) then
-                    return true
-                end
-
-                if type(res.Body) == "string" and res.Body ~= "" then
-                    return true
-                end
-            elseif type(res) == "string" then
-                if res ~= "" then
-                    return true
-                end
-            end
-        end
-    end
-
-    return false
-end
-
 local function openDiscord()
-    -- Copy invite link
     pcall(function()
         if setclipboard then
             setclipboard(DISCORD_LINK)
         end
     end)
 
-    -- Try to open via executor support if available
     pcall(function()
         local env = getgenv and getgenv() or _G
         if env and type(env.openUrl) == "function" then
@@ -92,7 +55,6 @@ local function openDiscord()
         end
     end)
 
-    -- Some executors support queue_on_teleport
     pcall(function()
         if syn and syn.queue_on_teleport then
             syn.queue_on_teleport("setclipboard('" .. DISCORD_LINK .. "')")
@@ -118,9 +80,9 @@ local function createGuardPanel(titleText, messageText, buttonText)
 
     local panel = Instance.new("Frame")
     panel.Name = "Panel"
-    panel.Size = UDim2.fromOffset(420, 180)
-    panel.Position = UDim2.new(0.5, -210, 0.5, -90)
-    panel.BackgroundColor3 = Color3.fromRGB(21, 21, 23)
+    panel.Size = UDim2.fromOffset(430, 185)
+    panel.Position = UDim2.new(0.5, -215, 0.5, -92)
+    panel.BackgroundColor3 = Color3.fromRGB(18, 18, 20)
     panel.BorderSizePixel = 0
     panel.Parent = gui
 
@@ -128,10 +90,10 @@ local function createGuardPanel(titleText, messageText, buttonText)
     corner.CornerRadius = UDim.new(0, 10)
     corner.Parent = panel
 
-    local border = Instance.new("UIStroke")
-    border.Color = Color3.fromRGB(239, 28, 37)
-    border.Thickness = 2
-    border.Parent = panel
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(239, 28, 37)
+    stroke.Thickness = 2
+    stroke.Parent = panel
 
     local icon = Instance.new("TextLabel")
     icon.Size = UDim2.new(0, 28, 0, 28)
@@ -155,7 +117,7 @@ local function createGuardPanel(titleText, messageText, buttonText)
     title.Parent = panel
 
     local bodyText = Instance.new("TextLabel")
-    bodyText.Size = UDim2.new(1, -40, 0, 70)
+    bodyText.Size = UDim2.new(1, -40, 0, 75)
     bodyText.Position = UDim2.new(0, 20, 0, 58)
     bodyText.BackgroundTransparency = 1
     bodyText.Text = messageText
@@ -188,7 +150,58 @@ local function createGuardPanel(titleText, messageText, buttonText)
     return gui, bodyText, button
 end
 
+local function showErrorPanel(details)
+    createGuardPanel(
+        "Startup Error",
+        "خطأ في التشغيل:\n" .. tostring(details):sub(1, 420),
+        "فتح رابط Discord"
+    )
+end
+
+local function discordIsAlive()
+    local reqFn = getDiscordRequestFunction()
+    if not reqFn then
+        return false
+    end
+
+    for _, port in ipairs(DISCORD_PORTS) do
+        local ok, res = pcall(function()
+            return reqFn({
+                Url = "http://127.0.0.1:" .. port .. "/",
+                Method = "GET",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Timeout = 800
+            })
+        end)
+
+        if ok and res ~= nil then
+            if type(res) == "table" then
+                local status = tonumber(res.StatusCode) or 0
+                local body = type(res.Body) == "string" and res.Body or ""
+                local bodyLower = body:lower()
+
+                if res.Success ~= false then
+                    if status == 0 or (status >= 200 and status < 500) then
+                        if body ~= "" and (bodyLower:find("discord") or bodyLower:find("api") or bodyLower:find("rpc")) then
+                            return true
+                        end
+                    end
+                end
+            elseif type(res) == "string" then
+                if res ~= "" then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
 local function waitForDiscord()
+    isLocked = true
     createGuardPanel(
         "Discord مطلوب",
         "✕ Discord غير مفتوح أو غير متصل\nالسكربت لا يعمل إلا بعد الدخول إلى الخادم.",
@@ -198,39 +211,62 @@ local function waitForDiscord()
     while true do
         if discordIsAlive() then
             destroyGuard()
+            isLocked = false
             return true
         end
         task.wait(2)
     end
 end
 
-local passed = waitForDiscord()
-if not passed then
-    warn("Discord guard failed")
-    return
+local function startWatchdog()
+    task.spawn(function()
+        while true do
+            task.wait(2)
+
+            if not discordIsAlive() then
+                if not isLocked then
+                    isLocked = true
+                    createGuardPanel(
+                        "Discord مطلوب",
+                        "✕ تم اكتشاف خروجك من Discord\nتم قفل السكربت مؤقتًا.",
+                        "فتح رابط Discord"
+                    )
+                end
+
+                while not discordIsAlive() do
+                    task.wait(2)
+                end
+
+                destroyGuard()
+                isLocked = false
+            end
+        end
+    end)
 end
 
--- =========================================================
--- السكربت الحقيقي يبدأ هنا
--- =========================================================
--- launchRedline()
-
-task.spawn(function()
-    while true do
-        task.wait(2)
-
-        if not discordIsAlive() then
-            createGuardPanel(
-                "Discord مطلوب",
-                "✕ تم اكتشاف خروجك من Discord\nتم قفل السكربت مؤقتًا.",
-                "فتح رابط Discord"
-            )
-
-            while not discordIsAlive() do
-                task.wait(2)
-            end
-
-            destroyGuard()
+local function runProtectedMain()
+    local ok, err = xpcall(function()
+        if not waitForDiscord() then
+            warn("Discord guard failed")
+            return
         end
+
+        startWatchdog()
+
+        -- =========================================================
+        -- السكربت الحقيقي يبدأ هنا
+        -- =========================================================
+        -- launchRedline()
+
+    end, function(e)
+        warn("Lx startup error:", e)
+        showErrorPanel(e)
+        return e
+    end)
+
+    if not ok then
+        warn("Startup failed")
     end
-end)
+end
+
+runProtectedMain()
