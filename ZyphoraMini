@@ -88,6 +88,21 @@ local function openDiscord()
             syn.queue_on_teleport("setclipboard('" .. DISCORD_LINK .. "')")
         end
     end)
+
+    pcall(function()
+        if typeof and typeof(getgenv) == "function" then
+            local env = getgenv()
+            if env and env.openUrl then
+                env.openUrl(DISCORD_LINK)
+            end
+        end
+    end)
+
+    pcall(function()
+        if isfile then
+            -- fallback: some executors support this
+        end
+    end)
 end
 
 local function destroyGuard()
@@ -179,7 +194,11 @@ local function createGuardPanel(titleText, messageText, buttonText)
 end
 
 local function waitForDiscord()
-    createGuardPanel("Discord مطلوب", "✕ Discord غير مفتوح أو غير متصل\nالسكربت لا يعمل إلا بعد الدخول إلى الخادم.", "فتح رابط Discord")
+    createGuardPanel(
+        "Discord مطلوب",
+        "✕ Discord غير مفتوح أو غير متصل\nالسكربت لا يعمل إلا بعد الدخول إلى الخادم.",
+        "فتح رابط Discord"
+    )
 
     while true do
         if discordIsAlive() then
@@ -196,6 +215,11 @@ if not passed then
     warn("Discord guard failed")
     return
 end
+
+-- =========================================================
+-- هنا يبدأ السكربت الحقيقي
+-- =========================================================
+-- launchRedline()
 
 task.spawn(function()
     while true do
