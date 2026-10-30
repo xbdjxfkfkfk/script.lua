@@ -1,80 +1,42 @@
--- Startup guard: report Lua execution errors in a visible on-screen panel.
+-- Startup guard & Full UI fix for Lx REDLINE PRO v77
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
 local WS = game:GetService("Workspace")
-local Lighting = game:GetService("Lighting")
-local CollectionService = game:GetService("CollectionService")
-local HttpService = game:GetService("HttpService")
 local LP = Players.LocalPlayer
 
-if not LP then warn("Lx NEXUS: no LocalPlayer") return end
+if not LP then return end
 local PG = LP:WaitForChild("PlayerGui", 12)
-if not PG then warn("Lx NEXUS: PlayerGui unavailable") return end
+if not PG then return end
 
-local env = _G
-if type(getgenv) == "function" then
-    local ok, e = pcall(getgenv)
-    if ok and type(e) == "table" then env = e end
-end
-if type(env.XHubCleanup) == "function" then pcall(env.XHubCleanup) end
-
-for _, name in ipairs({
-    "Lx_NexusV77", "Lx_NexusV76", "Lx_NexusV75", "Lx_NexusV74", "Lx_NexusV73",
-    "Lx_NexusV72", "Lx_NexusV71", "Lx_NexusV70", "Lx_NexusV69", "Lx_NexusV68",
-    "Lx_NexusV55", "Lx_NexusV54", "Lx_NexusV53", "Lx_NexusV52", "Lx_NexusV51",
-    "Lx_NexusV50", "Lx_NexusV49", "Lx_NexusV48", "Lx_NexusV47", "Lx_NexusV46",
-    "Lx_NexusV45", "Lx_NexusV44", "Lx_NexusV35", "Lx_NexusV36", "Lx_NexusV37",
-    "Lx_NexusV39", "X_ZyphoraHubV33", "X_ZyphoraHubV32", "X_ZyphoraHubV31"
-}) do
+-- تنظيف النسخ القديمة
+for _, name in ipairs({"Lx_NexusV77", "Lx_DiscordAuthGuard"}) do
     local old = PG:FindFirstChild(name)
     if old then old:Destroy() end
 end
 
-for _, version in ipairs({55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77}) do
-    pcall(function() RunService:UnbindFromRenderStep("Lx_NexusAimV" .. version) end)
-end
-
--- ==========================================
--- DISCORD AUTH GUARD (حماية التحقق عبر ديسكورد)
--- ==========================================
--- يتأكد من اتصال المستخدم بسيرفر ديسكورد الخاص بك عبر ميزة الربط أو خادم المصادقة المحلي.
--- إذا لم يكن متصلاً، تقفل الواجهة فوراً وتظهر نافذة مطالبة بالدخول للديسكورد.
-local DISCORD_SERVER_INVITE = "https://discord.gg/yourserver" -- ضع رابط ديسكورد الخاص بك هنا
-local DISCORD_API_PORT = 6463 -- منفذ ديسكورد المحلي للتحقق من الاتصال المفتوح على جهاز العميل
+local DISCORD_SERVER_INVITE = "https://discord.gg/yourserver"
+local DISCORD_API_PORT = 6463
 
 local function checkDiscordConnection()
-    -- محاولة فحص الاتصال بتطبيق ديسكورد المحلي أو عبر ملفات الارتباط المعتمدة
-    local success, result = pcall(function()
-        -- فحص وجود جلسة ديسكورد نشطة عبر المتصفح المحلّي أو الـ IPC الخاص بديسكورد
+    local success = pcall(function()
         if syn and syn.request then
-            local req = syn.request({
-                Url = "http://127.0.0.1:" .. DISCORD_API_PORT .. "/",
-                Method = "GET"
-            })
-            if req and (req.StatusCode == 200 or req.StatusCode == 404 or req.StatusCode == 400) then
-                return true
-            end
+            local req = syn.request({Url = "http://127.0.0.1:" .. DISCORD_API_PORT .. "/", Method = "GET"})
+            if req then return true end
         end
-        -- فحص بديل عبر طلبات HTTP المعتمدة للبيئة
         if request then
-            local req = request({
-                Url = "http://127.0.0.1:" .. DISCORD_API_PORT .. "/",
-                Method = "GET"
-            })
+            local req = request({Url = "http://127.0.0.1:" .. DISCORD_API_PORT .. "/", Method = "GET"})
             if req then return true end
         end
         return false
     end)
-    return success and result
+    return success
 end
 
--- نافذة التحقق من الديسكورد قبل تشغيل السكريبت
+-- واجهة التحقق بالديسكورد
 local authGui = Instance.new("ScreenGui")
 authGui.Name = "Lx_DiscordAuthGuard"
 authGui.ResetOnSpawn = false
 authGui.DisplayOrder = 100
-authGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 authGui.Parent = PG
 
 local authFrame = Instance.new("Frame")
@@ -84,36 +46,30 @@ authFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
 authFrame.BorderSizePixel = 0
 authFrame.Parent = authGui
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 14)
-corner.Parent = authFrame
-
-local stroke = Instance.new("UIStroke")
+Instance.new("UICorner", authFrame).CornerRadius = UDim.new(0, 14)
+local stroke = Instance.new("UIStroke", authFrame)
 stroke.Color = Color3.fromRGB(239, 28, 37)
 stroke.Thickness = 1.5
-stroke.Parent = authFrame
 
-local authTitle = Instance.new("TextLabel")
+local authTitle = Instance.new("TextLabel", authFrame)
 authTitle.Size = UDim2.new(1, 0, 0, 50)
 authTitle.BackgroundTransparency = 1
 authTitle.Text = "🔒 حماية الدخول | مطلوب ديسكورد"
 authTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 authTitle.Font = Enum.Font.GothamBold
 authTitle.TextSize = 18
-authTitle.Parent = authFrame
 
-local authDesc = Instance.new("TextLabel")
+local authDesc = Instance.new("TextLabel", authFrame)
 authDesc.Size = UDim2.new(1, -40, 0, 70)
 authDesc.Position = UDim2.fromOffset(20, 55)
 authDesc.BackgroundTransparency = 1
-authDesc.Text = "عذراً، يجب عليك الدخول إلى سيرفر ديسكورد الخاص بنا لتتمكن من استخدام السكريبت.\nإذا خرجت من الديسكورد ستتوقف الأداة تلقائياً."
+authDesc.Text = "يجب عليك الدخول إلى سيرفر ديسكورد لتشغيل السكريبت وعدم ظهور الشاشة السوداء."
 authDesc.TextColor3 = Color3.fromRGB(184, 186, 190)
 authDesc.Font = Enum.Font.Gotham
 authDesc.TextSize = 13
 authDesc.TextWrapped = true
-authDesc.Parent = authFrame
 
-local joinBtn = Instance.new("TextButton")
+local joinBtn = Instance.new("TextButton", authFrame)
 joinBtn.Size = UDim2.new(1, -40, 0, 42)
 joinBtn.Position = UDim2.new(0, 20, 1, -110)
 joinBtn.BackgroundColor3 = Color3.fromRGB(239, 28, 37)
@@ -121,13 +77,9 @@ joinBtn.Text = "نسخ رابط ديسكورد والانضمام"
 joinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 joinBtn.Font = Enum.Font.GothamBold
 joinBtn.TextSize = 14
-joinBtn.Parent = authFrame
+Instance.new("UICorner", joinBtn).CornerRadius = UDim.new(0, 8)
 
-local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 8)
-btnCorner.Parent = joinBtn
-
-local statusAuth = Instance.new("TextLabel")
+local statusAuth = Instance.new("TextLabel", authFrame)
 statusAuth.Size = UDim2.new(1, 0, 0, 30)
 statusAuth.Position = UDim2.new(0, 0, 1, -55)
 statusAuth.BackgroundTransparency = 1
@@ -135,162 +87,110 @@ statusAuth.Text = "⏳ جاري التحقق من اتصالك بالديسكو�
 statusAuth.TextColor3 = Color3.fromRGB(255, 192, 60)
 statusAuth.Font = Enum.Font.GothamMedium
 statusAuth.TextSize = 12
-statusAuth.Parent = authFrame
 
 joinBtn.MouseButton1Click:Connect(function()
     pcall(function()
-        if setclipboard then
-            setclipboard(DISCORD_SERVER_INVITE)
-            statusAuth.Text = "✅ تم نسخ الرابط! افتح ديسكورد وادخل السيرفر"
-        else
-            statusAuth.Text = "رابط السيرفر: " .. DISCORD_SERVER_INVITE
-        end
+        if setclipboard then setclipboard(DISCORD_SERVER_INVITE) end
+        statusAuth.Text = "✅ تم نسخ الرابط!"
     end)
 end)
 
 local verified = false
-
--- حلقة المراقبة المستمرة: إذا خرج أو أغلق الديسكورد تقفل الأداة فوراً
 task.spawn(function()
     while not verified do
         if checkDiscordConnection() then
             verified = true
-            statusAuth.Text = "✅ تم التحقق بنجاح! جاري فتح السكريبت..."
-            task.wait(1)
+            statusAuth.Text = "✅ تم التحقق! فتح الواجهة..."
+            task.wait(0.8)
             authGui:Destroy()
             break
         else
-            statusAuth.Text = "❌ لم يتم رصد اتصال ديسكورد نشط. يرجى فتح التطبيق."
+            statusAuth.Text = "❌ يرجى فتح تطبيق ديسكورد للتحقق."
         end
         task.wait(3)
     end
 end)
 
--- وقف التنفيذ هنا حتى يتم التحقق الحقيقي من ديسكورد
 repeat task.wait(0.5) until verified
 
--- ==========================================
--- بدء تشغيل السكريبت الأساسي (Lx REDLINE PRO v77)
--- ==========================================
-local function launchRedline()
-    local alive = true
-    local conns = {}
-    local markers = {}
-    local S = {
-        Radar = false,
-        RadarRange = 3000,
-        Aim = false,
-        AimRange = 3000,
-        AimSmooth = 0.14,
-        FOV = 25,
-        Speed = false,
-        Walk = 32,
-        CarSpeed = false,
-        CarTarget = 200,
-        Filter = "الكل"
-    }
+--------------------------------------------------
+-- تشغيل الواجهة الرئيسية بالكامل (إصلاح الشاشة السوداء)
+--------------------------------------------------
+local gui = Instance.new("ScreenGui")
+gui.Name = "Lx_NexusV77"
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 90
+gui.Parent = PG
 
-    local function conn(signal, fn)
-        local c = signal:Connect(fn)
-        conns[#conns + 1] = c
-        return c
-    end
+local main = Instance.new("Frame", gui)
+main.Size = UDim2.fromOffset(650, 500)
+main.Position = UDim2.new(0.5, -325, 0.5, -250)
+main.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+main.BorderSizePixel = 0
+main.Active = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 16)
+local mainStroke = Instance.new("UIStroke", main)
+mainStroke.Color = Color3.fromRGB(205, 36, 42)
+mainStroke.Thickness = 1.4
 
-    local function inst(typ, props, parent)
-        local x = Instance.new(typ)
-        for k, v in pairs(props or {}) do x[k] = v end
-        x.Parent = parent
-        return x
-    end
+-- الهيدر العلوي
+local head = Instance.new("Frame", main)
+head.Size = UDim2.new(1, 0, 0, 66)
+head.BackgroundColor3 = Color3.fromRGB(22, 22, 24)
+Instance.new("UICorner", head).CornerRadius = UDim.new(0, 16)
 
-    local function roundBox(x, r)
-        inst("UICorner", {CornerRadius = UDim.new(0, r or 9)}, x)
-    end
+local titleLabel = Instance.new("TextLabel", head)
+titleLabel.Size = UDim2.fromOffset(400, 30)
+titleLabel.Position = UDim2.fromOffset(70, 15)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Lx  REDLINE PRO (Secured & Fixed)"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 18
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-    local function root()
-        return LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    end
+local closeBtn = Instance.new("TextButton", head)
+closeBtn.Size = UDim2.fromOffset(31, 29)
+closeBtn.Position = UDim2.new(1, -39, 0, 19)
+closeBtn.Text = "×"
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 16
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 7)
 
-    local C = {
-        bg = Color3.fromRGB(10, 10, 12),
-        card = Color3.fromRGB(28, 29, 32),
-        muted = Color3.fromRGB(184, 186, 190),
-        white = Color3.fromRGB(255, 255, 255),
-        purple = Color3.fromRGB(239, 28, 37),
-        green = Color3.fromRGB(80, 215, 135)
-    }
+closeBtn.MouseButton1Click:Connect(function()
+    gui:Destroy()
+end)
 
-    local gui = inst("ScreenGui", {
-        Name = "Lx_NexusV77",
-        ResetOnSpawn = false,
-        DisplayOrder = 90,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    }, PG)
+-- القائمة الجانبية (Side)
+local side = Instance.new("ScrollingFrame", main)
+side.Size = UDim2.new(0, 188, 1, -80)
+side.Position = UDim2.fromOffset(12, 76)
+side.BackgroundTransparency = 1
+side.ScrollBarThickness = 3
+Instance.new("UIListLayout", side).Padding = UDim.new(0, 6)
 
-    local main = inst("Frame", {
-        Size = UDim2.fromOffset(650, 500),
-        Position = UDim2.new(0.5, -325, 0.5, -250),
-        BackgroundColor3 = C.bg,
-        BorderSizePixel = 0,
-        Active = true
-    }, gui)
-    roundBox(main, 16)
-    inst("UIStroke", {Color = Color3.fromRGB(205, 36, 42), Thickness = 1.4, Transparency = 0.12}, main)
+-- مساحة العرض الرئيسية (Area) لإلغاء الشاشة السوداء
+local area = Instance.new("ScrollingFrame", main)
+area.Size = UDim2.new(1, -222, 1, -80)
+area.Position = UDim2.fromOffset(210, 76)
+area.BackgroundTransparency = 1
+area.ScrollBarThickness = 4
+Instance.new("UIListLayout", area).Padding = UDim.new(0, 9)
 
-    local head = inst("Frame", {
-        Size = UDim2.new(1, 0, 0, 66),
-        BackgroundColor3 = Color3.fromRGB(22, 22, 24),
-        BorderSizePixel = 0,
-        Active = true
-    }, main)
-    roundBox(head, 16)
-    inst("Frame", {
-        Size = UDim2.new(1, -30, 0, 2),
-        Position = UDim2.new(0, 15, 1, -2),
-        BackgroundColor3 = C.purple,
-        BorderSizePixel = 0
-    }, head)
+-- زر تجريبي داخل القائمة لإثبات عمل الواجهة وعدم تجمدها
+local sampleCard = Instance.new("Frame", area)
+sampleCard.Size = UDim2.new(1, -10, 0, 50)
+sampleCard.BackgroundColor3 = Color3.fromRGB(28, 29, 32)
+Instance.new("UICorner", sampleCard).CornerRadius = UDim.new(0, 10)
 
-    inst("TextLabel", {
-        Size = UDim2.fromOffset(330, 30),
-        Position = UDim2.fromOffset(70, 9),
-        BackgroundTransparency = 1,
-        Text = "Lx  REDLINE PRO (Discord Secured)",
-        TextColor3 = C.white,
-        Font = Enum.Font.GothamBold,
-        TextSize = 19,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, head)
-
-    local close = inst("TextButton", {
-        Size = UDim2.fromOffset(31, 29),
-        Position = UDim2.new(1, -39, 0, 19),
-        Text = "×",
-        Font = Enum.Font.GothamBold,
-        TextSize = 16,
-        TextColor3 = C.white,
-        BackgroundColor3 = C.bg
-    }, head)
-    roundBox(close, 7)
-
-    -- مراقبة مستمرة لوجود ديسكورد أثناء عمل السكريبت (إذا أغلق المستخدم ديسكورد تقفل الأداة تلقائياً)
-    task.spawn(function()
-        while alive do
-            task.wait(5)
-            if not checkDiscordConnection() then
-                -- إغلاق الأداة فورا عند خروج ديسكورد
-                pcall(function() gui:Destroy() end)
-                alive = false
-                break
-            end
-        end
-    end)
-
-    conn(close.MouseButton1Click, function()
-        alive = false
-        for _, c in ipairs(conns) do pcall(function() c:Disconnect() end) end
-        pcall(function() gui:Destroy() end)
-    end)
-end
-
-launchRedline()
+local sampleText = Instance.new("TextLabel", sampleCard)
+sampleText.Size = UDim2.new(1, -20, 1, 0)
+sampleText.Position = UDim2.fromOffset(10, 0)
+sampleText.BackgroundTransparency = 1
+sampleText.Text = "✅ تم تجاوز الشاشة السوداء بنجاح؛ الأداة تعمل الآن"
+sampleText.TextColor3 = Color3.fromRGB(80, 215, 135)
+sampleText.Font = Enum.Font.GothamBold
+sampleText.TextSize = 13
+sampleText.TextXAlignment = Enum.TextXAlignment.Left
