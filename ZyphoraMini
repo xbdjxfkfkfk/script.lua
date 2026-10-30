@@ -1,75 +1,128 @@
 -- =========================================================
--- Discord Guard - Real Startup Lock
--- Stops execution until Discord is actually active
--- Re-locks if Discord closes while script is running
--- Shows runtime errors in an on-screen panel
+-- Discord Guard v2 — Real Membership Verification
+-- Requires: backend at API_BASE (see server.js)
 -- =========================================================
 
 local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
 local LP = Players.LocalPlayer
 
-if not LP then
-    warn("Lx: no LocalPlayer")
-    return
-end
+if not LP then warn("Guard: no LocalPlayer") return end
 
 local PG = LP:WaitForChild("PlayerGui", 12)
-if not PG then
-    warn("Lx: PlayerGui unavailable")
-    return
-end
+if not PG then warn("Guard: PlayerGui unavailable") return end
 
-local DISCORD_LINK = "https://discord.gg/7HyFER45Y"
-local DISCORD_PORTS = {6463, 6464}
+-- ================== CONFIG ==================
+local API_BASE       = "https://FILL-YOUR-BACKEND.example.com"  -- بدون / في النهاية
+local AUTH_URL       = API_BASE .. "/auth"                      -- صفحة OAuth
+local POLL_INTERVAL  = 60     -- ثواني بين كل فحص
+local FAIL_TOLERANCE = 2      -- كم فشل متتالي قبل القفل (يحمي من انقطاع الشبكة)
+local KEY_FILE       = "discord_guard_key.txt"
+-- ============================================
 
-local guardGui = nil
-local isLocked = false
+local guardGui   = nil
+local isLocked   = false
+local failCount  = 0
+local currentKey = nil
 
-local function getDiscordRequestFunction()
-    if syn and type(syn.request) == "function" then
-        return syn.request
-    end
-
-    if http and type(http.request) == "function" then
-        return http.request
-    end
-
-    if type(request) == "function" then
-        return request
-    end
-
+-- ---------- executor HTTP ----------
+local function getRequestFn()
+    if syn and type(syn.request) == "function" then return syn.request end
+    if http and type(http.request) == "function" then return http.request end
+    if type(request) == "function" then return request end
+    if type(http_request) == "function" then return http_request end
     return nil
 end
 
-local function openDiscord()
-    pcall(function()
-        if setclipboard then
-            setclipboard(DISCORD_LINK)
-        end
-    end)
+local function urlEncode(s)
+    return (tostring(s):gsub("([^%w%-%._~])", function(c)
+        return string.format("%%%02X", string.byte(c))
+    end))
+end
 
+-- ---------- key storage ----------
+local function saveKey(k)
     pcall(function()
-        local env = getgenv and getgenv() or _G
-        if env and type(env.openUrl) == "function" then
-            env.openUrl(DISCORD_LINK)
-        end
-    end)
-
-    pcall(function()
-        if syn and syn.queue_on_teleport then
-            syn.queue_on_teleport("setclipboard('" .. DISCORD_LINK .. "')")
-        end
+        if writefile then writefile(KEY_FILE, k) end
     end)
 end
 
-local function destroyGuard()
-    if guardGui and guardGui.Parent then
-        guardGui:Destroy()
+local function loadKey()
+    local k = nil
+    pcall(function()
+        if isfile and isfile(KEY_FILE) and readfile then
+            k = readfile(KEY_FILE)
+        end
+    end)
+    if k then k = k:gsub("%s+", "") end
+    if k == "" then k = nil end
+    return k
+end
+
+local function clearKey()
+    pcall(function()
+        if delfile and isfile and isfile(KEY_FILE) then delfile(KEY_FILE) end
+    end)
+end
+
+-- ---------- backend call ----------
+-- returns: ok(boolean), status(string), reason(string|nil)
+local function checkMembership(key)
+    local reqFn = getRequestFn()
+    if not reqFn then return false, "no_http", "Executor لا يدعم طلبات HTTP" end
+    if not key or key == "" then return false, "no_key", "لا يوجد مفتاح" end
+
+    local ok, res = pcall(function()
+        return reqFn({
+            Url = API_BASE .. "/check?key=" .. urlEncode(key),
+            Method = "GET",
+            Headers = { ["Content-Type"] = "application/json" },
+            Timeout = 10000,
+        })
+    end)
+
+    if not ok or res == nil then return false, "net_fail", "تعذر الاتصال بالسيرفر" end
+
+    local body = nil
+    if type(res) == "table" then
+        body = res.Body or res.body
+    elseif type(res) == "string" then
+        body = res
     end
+    if not body or body == "" then return false, "empty", "رد فارغ من السيرفر" end
+
+    local decoded
+    local pok, parsed = pcall(function() return HttpService:JSONDecode(body) end)
+    if not pok or type(parsed) ~= "table" then
+        return false, "bad_json", "رد غير صالح"
+    end
+    decoded = parsed
+
+    if decoded.ok == true then
+        return true, "ok", nil
+    end
+    return false, tostring(decoded.reason or "denied"), tostring(decoded.message or "غير مصرح")
+end
+
+-- ---------- clipboard / open link ----------
+local function copyAuthLink()
+    pcall(function() if setclipboard then setclipboard(AUTH_URL) end end)
+end
+
+local function openAuthLink()
+    pcall(function()
+        local env = getgenv and getgenv() or _G
+        if env and type(env.openUrl) == "function" then env.openUrl(AUTH_URL) end
+    end)
+end
+
+-- ---------- GUI ----------
+local function destroyGuard()
+    if guardGui and guardGui.Parent then guardGui:Destroy() end
     guardGui = nil
 end
 
-local function createGuardPanel(titleText, messageText, buttonText)
+local function buildPanel(cfg)
     destroyGuard()
 
     local gui = Instance.new("ScreenGui")
@@ -79,9 +132,8 @@ local function createGuardPanel(titleText, messageText, buttonText)
     gui.Parent = PG
 
     local panel = Instance.new("Frame")
-    panel.Name = "Panel"
-    panel.Size = UDim2.fromOffset(430, 185)
-    panel.Position = UDim2.new(0.5, -215, 0.5, -92)
+    panel.Size = UDim2.fromOffset(460, cfg.height or 240)
+    panel.Position = UDim2.new(0.5, -230, 0.5, -(cfg.height or 240)/2)
     panel.BackgroundColor3 = Color3.fromRGB(18, 18, 20)
     panel.BorderSizePixel = 0
     panel.Parent = gui
@@ -95,178 +147,187 @@ local function createGuardPanel(titleText, messageText, buttonText)
     stroke.Thickness = 2
     stroke.Parent = panel
 
-    local icon = Instance.new("TextLabel")
-    icon.Size = UDim2.new(0, 28, 0, 28)
-    icon.Position = UDim2.new(0, 18, 0, 20)
-    icon.BackgroundTransparency = 1
-    icon.Text = "🔒"
-    icon.TextColor3 = Color3.fromRGB(255, 255, 255)
-    icon.Font = Enum.Font.GothamBold
-    icon.TextSize = 22
-    icon.Parent = panel
-
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -70, 0, 30)
-    title.Position = UDim2.new(0, 56, 0, 15)
+    title.Size = UDim2.new(1, -40, 0, 30)
+    title.Position = UDim2.new(0, 20, 0, 15)
     title.BackgroundTransparency = 1
-    title.Text = titleText
+    title.Text = cfg.title or "Discord مطلوب"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBold
-    title.TextSize = 20
+    title.TextSize = 18
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = panel
 
-    local bodyText = Instance.new("TextLabel")
-    bodyText.Size = UDim2.new(1, -40, 0, 75)
-    bodyText.Position = UDim2.new(0, 20, 0, 58)
-    bodyText.BackgroundTransparency = 1
-    bodyText.Text = messageText
-    bodyText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    bodyText.Font = Enum.Font.Gotham
-    bodyText.TextSize = 13
-    bodyText.TextWrapped = true
-    bodyText.TextYAlignment = Enum.TextYAlignment.Top
-    bodyText.Parent = panel
+    local body = Instance.new("TextLabel")
+    body.Size = UDim2.new(1, -40, 0, 60)
+    body.Position = UDim2.new(0, 20, 0, 50)
+    body.BackgroundTransparency = 1
+    body.Text = cfg.message or ""
+    body.TextColor3 = Color3.fromRGB(220, 220, 220)
+    body.Font = Enum.Font.Gotham
+    body.TextSize = 13
+    body.TextWrapped = true
+    body.TextYAlignment = Enum.TextYAlignment.Top
+    body.Parent = panel
 
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(1, -28, 0, 42)
-    button.Position = UDim2.new(0, 14, 1, -52)
-    button.BackgroundColor3 = Color3.fromRGB(239, 28, 37)
-    button.Text = buttonText
-    button.TextColor3 = Color3.fromRGB(255, 255, 255)
-    button.Font = Enum.Font.GothamBold
-    button.TextSize = 14
-    button.Parent = panel
+    local input
+    if cfg.showInput then
+        input = Instance.new("TextBox")
+        input.Size = UDim2.new(1, -40, 0, 36)
+        input.Position = UDim2.new(0, 20, 0, 118)
+        input.BackgroundColor3 = Color3.fromRGB(30, 30, 34)
+        input.TextColor3 = Color3.fromRGB(255, 255, 255)
+        input.PlaceholderText = "الصق المفتاح هنا"
+        input.PlaceholderColor3 = Color3.fromRGB(120, 120, 125)
+        input.Font = Enum.Font.Code
+        input.TextSize = 13
+        input.ClearTextOnFocus = false
+        input.Text = ""
+        input.Parent = panel
 
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 8)
-    btnCorner.Parent = button
-
-    button.MouseButton1Click:Connect(function()
-        openDiscord()
-    end)
-
-    guardGui = gui
-    return gui, bodyText, button
-end
-
-local function showErrorPanel(details)
-    createGuardPanel(
-        "Startup Error",
-        "خطأ في التشغيل:\n" .. tostring(details):sub(1, 420),
-        "فتح رابط Discord"
-    )
-end
-
-local function discordIsAlive()
-    local reqFn = getDiscordRequestFunction()
-    if not reqFn then
-        return false
+        local inCorner = Instance.new("UICorner")
+        inCorner.CornerRadius = UDim.new(0, 6)
+        inCorner.Parent = input
     end
 
-    for _, port in ipairs(DISCORD_PORTS) do
-        local ok, res = pcall(function()
-            return reqFn({
-                Url = "http://127.0.0.1:" .. port .. "/",
-                Method = "GET",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
-                Timeout = 800
-            })
+    -- buttons row
+    local btnY = (cfg.height or 240) - 52
+    local function makeBtn(text, xOff, width, color, cb)
+        local b = Instance.new("TextButton")
+        b.Size = UDim2.new(0, width, 0, 40)
+        b.Position = UDim2.new(0, xOff, 1, -52)
+        b.BackgroundColor3 = color
+        b.Text = text
+        b.TextColor3 = Color3.fromRGB(255, 255, 255)
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 13
+        b.Parent = panel
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, 8)
+        c.Parent = b
+        b.MouseButton1Click:Connect(cb)
+        return b
+    end
+
+    if cfg.showInput then
+        makeBtn("تحقق", 20, 130, Color3.fromRGB(239, 28, 37), function()
+            if not input then return end
+            local k = input.Text:gsub("%s+", "")
+            if k == "" then
+                body.Text = "أدخل المفتاح أولاً."
+                return
+            end
+            body.Text = "جاري التحقق..."
+            local ok, reason, msg = checkMembership(k)
+            if ok then
+                currentKey = k
+                saveKey(k)
+                destroyGuard()
+                isLocked = false
+                failCount = 0
+                if cfg.onVerified then cfg.onVerified() end
+            else
+                body.Text = "✕ فشل التحقق: " .. tostring(msg or reason)
+            end
         end)
 
-        if ok and res ~= nil then
-            if type(res) == "table" then
-                local status = tonumber(res.StatusCode) or 0
-                local body = type(res.Body) == "string" and res.Body or ""
-                local bodyLower = body:lower()
-
-                if res.Success ~= false then
-                    if status == 0 or (status >= 200 and status < 500) then
-                        if body ~= "" and (bodyLower:find("discord") or bodyLower:find("api") or bodyLower:find("rpc")) then
-                            return true
-                        end
-                    end
-                end
-            elseif type(res) == "string" then
-                if res ~= "" then
-                    return true
-                end
-            end
-        end
+        makeBtn("احصل على مفتاح", 170, 200, Color3.fromRGB(88, 101, 242), function()
+            copyAuthLink()
+            openAuthLink()
+            body.Text = "تم فتح الرابط. سجّل الدخول ثم الصق المفتاح."
+        end)
+    else
+        makeBtn(cfg.buttonText or "فتح رابط Discord", 20, 420, Color3.fromRGB(239, 28, 37), function()
+            copyAuthLink()
+            openAuthLink()
+        end)
     end
 
-    return false
+    guardGui = gui
+    return body
 end
 
-local function waitForDiscord()
+-- ---------- lock screens ----------
+local function showKeyPanel(message)
     isLocked = true
-    createGuardPanel(
-        "Discord مطلوب",
-        "✕ Discord غير مفتوح أو غير متصل\nالسكربت لا يعمل إلا بعد الدخول إلى الخادم.",
-        "فتح رابط Discord"
-    )
+    buildPanel({
+        title = "Discord مطلوب",
+        message = message or "تحتاج مفتاح تحقق من سيرفر Discord.\nاضغط \"احصل على مفتاح\" ثم الصق المفتاح.",
+        showInput = true,
+        height = 260,
+    })
+end
 
-    while true do
-        if discordIsAlive() then
-            destroyGuard()
-            isLocked = false
-            return true
-        end
-        task.wait(2)
+local function showLockPanel(message, buttonText)
+    isLocked = true
+    buildPanel({
+        title = "Discord مطلوب",
+        message = message,
+        showInput = false,
+        buttonText = buttonText or "فتح رابط Discord",
+        height = 190,
+    })
+end
+
+-- ---------- main flow ----------
+local function runMain()
+    -- =========================================================
+    -- السكربت الحقيقي يبدأ هنا
+    -- =========================================================
+    -- launchRedline()
+end
+
+local verifiedOnce = false
+
+local function onVerified()
+    if not verifiedOnce then
+        verifiedOnce = true
+        runMain()
     end
 end
 
 local function startWatchdog()
     task.spawn(function()
         while true do
-            task.wait(2)
+            task.wait(POLL_INTERVAL)
 
-            if not discordIsAlive() then
-                if not isLocked then
-                    isLocked = true
-                    createGuardPanel(
-                        "Discord مطلوب",
-                        "✕ تم اكتشاف خروجك من Discord\nتم قفل السكربت مؤقتًا.",
-                        "فتح رابط Discord"
-                    )
+            local ok = checkMembership(currentKey)
+            if ok then
+                failCount = 0
+                if isLocked then
+                    destroyGuard()
+                    isLocked = false
                 end
-
-                while not discordIsAlive() do
-                    task.wait(2)
+            else
+                failCount = failCount + 1
+                if failCount >= FAIL_TOLERANCE and not isLocked then
+                    showLockPanel("✕ تم إيقاف التحقق من العضوية\nأعد الدخول للسيرفر أو أعد إدخال المفتاح.", "فتح رابط Discord")
                 end
-
-                destroyGuard()
-                isLocked = false
             end
         end
     end)
 end
 
-local function runProtectedMain()
-    local ok, err = xpcall(function()
-        if not waitForDiscord() then
-            warn("Discord guard failed")
+local function boot()
+    local saved = loadKey()
+    if saved then
+        local ok, reason, msg = checkMembership(saved)
+        if ok then
+            currentKey = saved
+            destroyGuard()
+            isLocked = false
+            onVerified()
+            startWatchdog()
             return
         end
-
-        startWatchdog()
-
-        -- =========================================================
-        -- السكربت الحقيقي يبدأ هنا
-        -- =========================================================
-        -- launchRedline()
-
-    end, function(e)
-        warn("Lx startup error:", e)
-        showErrorPanel(e)
-        return e
-    end)
-
-    if not ok then
-        warn("Startup failed")
+        clearKey()
     end
+
+    showKeyPanel()
 end
 
-runProtectedMain()
+local ok, err = pcall(boot)
+if not ok then
+    warn("Guard startup error:", err)
+    showLockPanel("حدث خطأ أثناء التشغيل:\n" .. tostring(err):sub(1, 380), "إعادة المحاولة")
+end
