@@ -1,23 +1,24 @@
--- ============================================================
--- Discord strict guard
--- If Discord is not open / logged in, script stays locked
--- If Discord disconnects while running, script shuts down
--- ============================================================
+-- =========================================================
+-- Discord Guard - exact style like the image
+-- Blocks script until Discord is active
+-- If Discord closes while running, script locks again
+-- =========================================================
 
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
+
 if not LP then
-    warn("No LocalPlayer")
+    warn("Lx: no LocalPlayer")
     return
 end
 
 local PG = LP:WaitForChild("PlayerGui", 12)
 if not PG then
-    warn("PlayerGui unavailable")
+    warn("Lx: PlayerGui unavailable")
     return
 end
 
-local DISCORD_INVITE = "https://discord.gg/7HyFER45Y"
+local DISCORD_LINK = "https://discord.gg/7HyFER45Y"
 local DISCORD_PORTS = {6463, 6464}
 
 local function discordIsAlive()
@@ -66,129 +67,142 @@ local function discordIsAlive()
     return false
 end
 
-local function openDiscordInvite()
+local function openDiscord()
     pcall(function()
         if setclipboard then
-            setclipboard(DISCORD_INVITE)
+            setclipboard(DISCOED_LINK)
+        end
+    end)
+
+    pcall(function()
+        if isfolder and syn then
+            -- some executors can open browser URL
+            -- but usually setclipboard is enough
         end
     end)
 end
 
-local function createGuardGui()
+local function createGuardPanel()
     local gui = Instance.new("ScreenGui")
-    gui.Name = "Lx_DiscordGuard"
+    gui.Name = "DiscordGuard"
     gui.ResetOnSpawn = false
-    gui.DisplayOrder = 999999
+    gui.DisplayOrder = 9999
     gui.Parent = PG
 
-    local bg = Instance.new("Frame")
-    bg.Size = UDim2.fromOffset(430, 220)
-    bg.Position = UDim2.new(0.5, -215, 0.5, -110)
-    bg.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-    bg.BorderSizePixel = 0
-    bg.Parent = gui
+    local panel = Instance.new("Frame")
+    panel.Name = "Panel"
+    panel.Size = UDim2.fromOffset(420, 180)
+    panel.Position = UDim2.new(0.5, -210, 0.5, -90)
+    panel.BackgroundColor3 = Color3.fromRGB(21, 21, 23)
+    panel.BorderSizePixel = 0
+    panel.Parent = gui
 
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 16)
-    corner.Parent = bg
+    local panelCorner = Instance.new("UICorner")
+    panelCorner.CornerRadius = UDim.new(0, 10)
+    panelCorner.Parent = panel
 
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(239, 28, 37)
-    stroke.Thickness = 1.5
-    stroke.Parent = bg
+    local border = Instance.new("UIStroke")
+    border.Color = Color3.fromRGB(239, 28, 37)
+    border.Thickness = 2
+    border.Parent = panel
+
+    local icon = Instance.new("TextLabel")
+    icon.Size = UDim2.new(0, 28, 0, 28)
+    icon.Position = UDim2.new(0, 18, 0, 20)
+    icon.BackgroundTransparency = 1
+    icon.Text = "🔒"
+    icon.TextColor3 = Color3.fromRGB(255, 255, 255)
+    icon.Font = Enum.Font.GothamBold
+    icon.TextSize = 22
+    icon.Parent = panel
 
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -30, 0, 42)
-    title.Position = UDim2.fromOffset(15, 18)
+    title.Size = UDim2.new(1, -70, 0, 30)
+    title.Position = UDim2.new(0, 56, 0, 15)
     title.BackgroundTransparency = 1
-    title.Text = "🔒 Discord مطلوب"
+    title.Text = "Discord مطلوب"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBold
-    title.TextSize = 18
-    title.Parent = bg
+    title.TextSize = 20
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = panel
 
-    local status = Instance.new("TextLabel")
-    status.Size = UDim2.new(1, -30, 0, 82)
-    status.Position = UDim2.fromOffset(15, 62)
-    status.BackgroundTransparency = 1
-    status.Text = "يجب أن يكون Discord مفتوحًا داخل الحساب الحقيقي.\nالسكربت مقفل حتى يتم التحقق."
-    status.TextColor3 = Color3.fromRGB(188, 191, 198)
-    status.Font = Enum.Font.Gotham
-    status.TextSize = 13
-    status.TextWrapped = true
-    status.Parent = bg
+    local errorText = Instance.new("TextLabel")
+    errorText.Size = UDim2.new(1, -40, 0, 70)
+    errorText.Position = UDim2.new(0, 20, 0, 58)
+    errorText.BackgroundTransparency = 1
+    errorText.Text = "✕ Discord غير مفتوح أو غير متصل\nالسكربت لا يعمل إلا بعد الدخول إلى الخادم."
+    errorText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    errorText.Font = Enum.Font.Gotham
+    errorText.TextSize = 13
+    errorText.TextWrapped = true
+    errorText.TextYAlignment = Enum.TextYAlignment.Top
+    errorText.Parent = panel
 
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -30, 0, 42)
-    btn.Position = UDim2.new(0, 15, 1, -54)
-    btn.Text = "فتح رابط Discord"
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 13
-    btn.BackgroundColor3 = Color3.fromRGB(239, 28, 37)
-    btn.Parent = bg
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, -28, 0, 42)
+    button.Position = UDim2.new(0, 14, 1, -52)
+    button.BackgroundColor3 = Color3.fromRGB(239, 28, 37)
+    button.Text = "فتح رابط Discord"
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Font = Enum.Font.GothamBold
+    button.TextSize = 14
+    button.Parent = panel
 
     local btnCorner = Instance.new("UICorner")
     btnCorner.CornerRadius = UDim.new(0, 8)
-    btnCorner.Parent = btn
+    btnCorner.Parent = button
 
-    btn.MouseButton1Click:Connect(function()
-        openDiscordInvite()
+    button.MouseButton1Click:Connect(function()
+        pcall(function()
+            if setclipboard then
+                setclipboard(DISCOED_LINK)
+            end
+        end)
     end)
 
-    return gui, status
+    return gui, errorText, button
 end
 
 local function waitForDiscord()
-    local guardGui, status = createGuardGui()
+    local gui, errorText, button = createGuardPanel()
 
     while true do
         if discordIsAlive() then
-            status.Text = "✅ تم التحقق من Discord\nجارٍ فتح السكربت..."
-            task.wait(1)
-            guardGui:Destroy()
+            gui:Destroy()
             return true
         end
 
-        status.Text = "❌ Discord غير مفتوح أو غير متصل\nالسكربت لا يعمل حتى تنضم إلى الخادم."
-        openDiscordInvite()
-        task.wait(3)
+        errorText.Text = "✕ Discord غير مفتوح أو غير متصل\nالسكربت لا يعمل إلا بعد الدخول إلى الخادم."
+        button.Text = "فتح رابط Discord"
+        task.wait(2)
     end
 end
 
--- Guard startup
 local passed = waitForDiscord()
 if not passed then
     warn("Discord guard failed")
     return
 end
 
--- ============================================================
--- إذا وصل هنا، معنى هذا أن Discord فعلاً مفتوح
--- وبعدها تبدأ السكربت الرئيسي
--- ============================================================
-
--- مثال:
+-- =========================================================
+-- هنا يبدأ السكربت الحقيقي
+-- =========================================================
 -- launchRedline()
 
--- مراقبة خروج Discord أثناء التشغيل
 task.spawn(function()
     while true do
         task.wait(2)
-
         if not discordIsAlive() then
-            local guardGui, status = createGuardGui()
-            status.Text = "❌ تم اكتشاف خروجك من Discord\nتم قفل السكربت مؤقتًا."
+            local lockGui, lockText, lockBtn = createGuardPanel()
+            lockText.Text = "✕ تم اكتشاف خروجك من Discord\nتم قفل السكربت مؤقتًا."
+            lockBtn.Text = "فتح رابط Discord"
 
             while not discordIsAlive() do
-                status.Text = "❌ Discord غير متصل\nانتظر حتى تعود إليه."
-                openDiscordInvite()
                 task.wait(2)
             end
 
-            guardGui:Destroy()
-            -- لو تريد إيقاف السكربت بالكامل عند الخروج:
-            -- return
+            lockGui:Destroy()
         end
     end
 end)
