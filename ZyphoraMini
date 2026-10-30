@@ -1,5 +1,5 @@
 -- =========================================================
--- Discord Guard - exact style like the image
+-- Discord Guard - fixed and stable
 -- Blocks script until Discord is active
 -- If Discord closes while running, script locks again
 -- =========================================================
@@ -21,39 +21,48 @@ end
 local DISCORD_LINK = "https://discord.gg/7HyFER45Y"
 local DISCORD_PORTS = {6463, 6464}
 
+local guardGui = nil
+
+local function getDiscordRequestFunction()
+    if syn and syn.request then
+        return syn.request
+    end
+
+    if http and http.request then
+        return http.request
+    end
+
+    if request then
+        return request
+    end
+
+    return nil
+end
+
 local function discordIsAlive()
+    local reqFn = getDiscordRequestFunction()
+    if not reqFn then
+        return false
+    end
+
     for _, port in ipairs(DISCORD_PORTS) do
         local ok, res = pcall(function()
-            if syn and syn.request then
-                return syn.request({
-                    Url = "http://127.0.0.1:" .. port .. "/",
-                    Method = "GET",
-                    Headers = {["Content-Type"] = "application/json"}
-                })
-            end
-
-            if http and http.request then
-                return http.request({
-                    Url = "http://127.0.0.1:" .. port .. "/",
-                    Method = "GET",
-                    Headers = {["Content-Type"] = "application/json"}
-                })
-            end
-
-            if request then
-                return request({
-                    Url = "http://127.0.0.1:" .. port .. "/",
-                    Method = "GET",
-                    Headers = {["Content-Type"] = "application/json"}
-                })
-            end
-
-            return nil
+            return reqFn({
+                Url = "http://127.0.0.1:" .. port .. "/",
+                Method = "GET",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                }
+            })
         end)
 
-        if ok and res then
+        if ok and res ~= nil then
             if type(res) == "table" then
                 if res.Success ~= false and (res.StatusCode == nil or res.StatusCode >= 200) then
+                    return true
+                end
+
+                if type(res.Body) == "string" and res.Body ~= "" then
                     return true
                 end
             elseif type(res) == "string" then
@@ -74,15 +83,24 @@ local function openDiscord()
         end
     end)
 
+    -- إذا كان الـ executor يدعم فتح رابط مباشر، استخدمه:
     pcall(function()
-        if isfolder and syn then
-            -- some executors can open browser URL
-            -- but usually setclipboard is enough
+        if syn and syn.queue_on_teleport then
+            syn.queue_on_teleport("setclipboard('" .. DISCORD_LINK .. "')")
         end
     end)
 end
 
-local function createGuardPanel()
+local function destroyGuard()
+    if guardGui and guardGui.Parent then
+        guardGui:Destroy()
+    end
+    guardGui = nil
+end
+
+local function createGuardPanel(titleText, messageText, buttonText)
+    destroyGuard()
+
     local gui = Instance.new("ScreenGui")
     gui.Name = "DiscordGuard"
     gui.ResetOnSpawn = false
@@ -120,7 +138,7 @@ local function createGuardPanel()
     title.Size = UDim2.new(1, -70, 0, 30)
     title.Position = UDim2.new(0, 56, 0, 15)
     title.BackgroundTransparency = 1
-    title.Text = "Discord مطلوب"
+    title.Text = titleText
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 20
@@ -131,7 +149,7 @@ local function createGuardPanel()
     errorText.Size = UDim2.new(1, -40, 0, 70)
     errorText.Position = UDim2.new(0, 20, 0, 58)
     errorText.BackgroundTransparency = 1
-    errorText.Text = "✕ Discord غير مفتوح أو غير متصل\nالسكربت لا يعمل إلا بعد الدخول إلى الخادم."
+    errorText.Text = messageText
     errorText.TextColor3 = Color3.fromRGB(255, 255, 255)
     errorText.Font = Enum.Font.Gotham
     errorText.TextSize = 13
@@ -143,7 +161,7 @@ local function createGuardPanel()
     button.Size = UDim2.new(1, -28, 0, 42)
     button.Position = UDim2.new(0, 14, 1, -52)
     button.BackgroundColor3 = Color3.fromRGB(239, 28, 37)
-    button.Text = "فتح رابط Discord"
+    button.Text = buttonText
     button.TextColor3 = Color3.fromRGB(255, 255, 255)
     button.Font = Enum.Font.GothamBold
     button.TextSize = 14
@@ -154,27 +172,22 @@ local function createGuardPanel()
     btnCorner.Parent = button
 
     button.MouseButton1Click:Connect(function()
-        pcall(function()
-            if setclipboard then
-                setclipboard(DISCOED_LINK)
-            end
-        end)
+        openDiscord()
     end)
 
+    guardGui = gui
     return gui, errorText, button
 end
 
 local function waitForDiscord()
-    local gui, errorText, button = createGuardPanel()
+    createGuardPanel("Discord مطلوب", "✕ Discord غير مفتوح أو غير متصل\nالسكربت لا يعمل إلا بعد الدخول إلى الخادم.", "فتح رابط Discord")
 
     while true do
         if discordIsAlive() then
-            gui:Destroy()
+            destroyGuard()
             return true
         end
 
-        errorText.Text = "✕ Discord غير مفتوح أو غير متصل\nالسكربت لا يعمل إلا بعد الدخول إلى الخادم."
-        button.Text = "فتح رابط Discord"
         task.wait(2)
     end
 end
@@ -193,16 +206,19 @@ end
 task.spawn(function()
     while true do
         task.wait(2)
+
         if not discordIsAlive() then
-            local lockGui, lockText, lockBtn = createGuardPanel()
-            lockText.Text = "✕ تم اكتشاف خروجك من Discord\nتم قفل السكربت مؤقتًا."
-            lockBtn.Text = "فتح رابط Discord"
+            createGuardPanel(
+                "Discord مطلوب",
+                "✕ تم اكتشاف خروجك من Discord\nتم قفل السكربت مؤقتًا.",
+                "فتح رابط Discord"
+            )
 
             while not discordIsAlive() do
                 task.wait(2)
             end
 
-            lockGui:Destroy()
+            destroyGuard()
         end
     end
 end)
