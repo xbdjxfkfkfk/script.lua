@@ -1,8 +1,8 @@
--- ============================================
--- Discord Auth Guard
--- Requires real Discord client to be running
--- If Discord closes, script locks itself
--- ============================================
+-- ============================================================
+-- Discord strict guard
+-- If Discord is not open / logged in, script stays locked
+-- If Discord disconnects while running, script shuts down
+-- ============================================================
 
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
@@ -66,7 +66,15 @@ local function discordIsAlive()
     return false
 end
 
-local function createLockGui()
+local function openDiscordInvite()
+    pcall(function()
+        if setclipboard then
+            setclipboard(DISCORD_INVITE)
+        end
+    end)
+end
+
+local function createGuardGui()
     local gui = Instance.new("ScreenGui")
     gui.Name = "Lx_DiscordGuard"
     gui.ResetOnSpawn = false
@@ -76,12 +84,13 @@ local function createLockGui()
     local bg = Instance.new("Frame")
     bg.Size = UDim2.fromOffset(430, 220)
     bg.Position = UDim2.new(0.5, -215, 0.5, -110)
-    bg.BackgroundColor3 = Color3.fromRGB(15,15,18)
+    bg.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
     bg.BorderSizePixel = 0
     bg.Parent = gui
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 16)
-    c.Parent = bg
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 16)
+    corner.Parent = bg
 
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.fromRGB(239, 28, 37)
@@ -93,7 +102,7 @@ local function createLockGui()
     title.Position = UDim2.fromOffset(15, 18)
     title.BackgroundTransparency = 1
     title.Text = "🔒 Discord مطلوب"
-    title.TextColor3 = Color3.fromRGB(255,255,255)
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 18
     title.Parent = bg
@@ -102,7 +111,7 @@ local function createLockGui()
     status.Size = UDim2.new(1, -30, 0, 82)
     status.Position = UDim2.fromOffset(15, 62)
     status.BackgroundTransparency = 1
-    status.Text = "يجب أن يكون Discord مفتوحًا ومسجلًا داخل الحساب الحقيقي.\nالسكربت مقفل حتى يتم التحقق."
+    status.Text = "يجب أن يكون Discord مفتوحًا داخل الحساب الحقيقي.\nالسكربت مقفل حتى يتم التحقق."
     status.TextColor3 = Color3.fromRGB(188, 191, 198)
     status.Font = Enum.Font.Gotham
     status.TextSize = 13
@@ -113,28 +122,25 @@ local function createLockGui()
     btn.Size = UDim2.new(1, -30, 0, 42)
     btn.Position = UDim2.new(0, 15, 1, -54)
     btn.Text = "فتح رابط Discord"
-    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 13
     btn.BackgroundColor3 = Color3.fromRGB(239, 28, 37)
     btn.Parent = bg
+
     local btnCorner = Instance.new("UICorner")
     btnCorner.CornerRadius = UDim.new(0, 8)
     btnCorner.Parent = btn
 
     btn.MouseButton1Click:Connect(function()
-        pcall(function()
-            if setclipboard then
-                setclipboard(DISCORD_INVITE)
-            end
-        end)
+        openDiscordInvite()
     end)
 
     return gui, status
 end
 
-local function lockScript()
-    local guardGui, status = createLockGui()
+local function waitForDiscord()
+    local guardGui, status = createGuardGui()
 
     while true do
         if discordIsAlive() then
@@ -142,43 +148,47 @@ local function lockScript()
             task.wait(1)
             guardGui:Destroy()
             return true
-        else
-            status.Text = "❌ Discord غير مفتوح أو غير متصل\nيجب الدخول للحساب الحقيقي أولاً."
-            task.wait(2)
         end
+
+        status.Text = "❌ Discord غير مفتوح أو غير متصل\nالسكربت لا يعمل حتى تنضم إلى الخادم."
+        openDiscordInvite()
+        task.wait(3)
     end
 end
 
-local function monitorDiscord()
-    task.spawn(function()
-        while true do
-            task.wait(2)
-
-            if not discordIsAlive() then
-                local guardGui, status = createLockGui()
-                status.Text = "❌ تم اكتشاف خروجك من Discord\nتم قفل السكربت مؤقتًا."
-
-                while not discordIsAlive() do
-                    status.Text = "❌ Discord خارج الخدمة\nانتظر حتى تعود إليه."
-                    task.wait(2)
-                end
-
-                guardGui:Destroy()
-            end
-        end
-    end)
-end
-
--- Start guard
-local passed = lockScript()
+-- Guard startup
+local passed = waitForDiscord()
 if not passed then
     warn("Discord guard failed")
     return
 end
 
--- THIS IS THE PART WHERE YOUR SCRIPT STARTS
--- Example:
+-- ============================================================
+-- إذا وصل هنا، معنى هذا أن Discord فعلاً مفتوح
+-- وبعدها تبدأ السكربت الرئيسي
+-- ============================================================
+
+-- مثال:
 -- launchRedline()
 
--- monitor Discord while script is running
-monitorDiscord()
+-- مراقبة خروج Discord أثناء التشغيل
+task.spawn(function()
+    while true do
+        task.wait(2)
+
+        if not discordIsAlive() then
+            local guardGui, status = createGuardGui()
+            status.Text = "❌ تم اكتشاف خروجك من Discord\nتم قفل السكربت مؤقتًا."
+
+            while not discordIsAlive() do
+                status.Text = "❌ Discord غير متصل\nانتظر حتى تعود إليه."
+                openDiscordInvite()
+                task.wait(2)
+            end
+
+            guardGui:Destroy()
+            -- لو تريد إيقاف السكربت بالكامل عند الخروج:
+            -- return
+        end
+    end
+end)
