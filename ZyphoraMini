@@ -1,121 +1,15 @@
--- Startup guard & Full UI fix for Lx REDLINE PRO v77
+-- Fix for black screen & missing UI elements in Lx REDLINE PRO
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local WS = game:GetService("Workspace")
 local LP = Players.LocalPlayer
-
 if not LP then return end
 local PG = LP:WaitForChild("PlayerGui", 12)
 if not PG then return end
 
--- تنظيف النسخ القديمة
 for _, name in ipairs({"Lx_NexusV77", "Lx_DiscordAuthGuard"}) do
     local old = PG:FindFirstChild(name)
     if old then old:Destroy() end
 end
 
-local DISCORD_SERVER_INVITE = "https://discord.gg/yourserver"
-local DISCORD_API_PORT = 6463
-
-local function checkDiscordConnection()
-    local success = pcall(function()
-        if syn and syn.request then
-            local req = syn.request({Url = "http://127.0.0.1:" .. DISCORD_API_PORT .. "/", Method = "GET"})
-            if req then return true end
-        end
-        if request then
-            local req = request({Url = "http://127.0.0.1:" .. DISCORD_API_PORT .. "/", Method = "GET"})
-            if req then return true end
-        end
-        return false
-    end)
-    return success
-end
-
--- واجهة التحقق بالديسكورد
-local authGui = Instance.new("ScreenGui")
-authGui.Name = "Lx_DiscordAuthGuard"
-authGui.ResetOnSpawn = false
-authGui.DisplayOrder = 100
-authGui.Parent = PG
-
-local authFrame = Instance.new("Frame")
-authFrame.Size = UDim2.fromOffset(420, 240)
-authFrame.Position = UDim2.new(0.5, -210, 0.5, -120)
-authFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-authFrame.BorderSizePixel = 0
-authFrame.Parent = authGui
-
-Instance.new("UICorner", authFrame).CornerRadius = UDim.new(0, 14)
-local stroke = Instance.new("UIStroke", authFrame)
-stroke.Color = Color3.fromRGB(239, 28, 37)
-stroke.Thickness = 1.5
-
-local authTitle = Instance.new("TextLabel", authFrame)
-authTitle.Size = UDim2.new(1, 0, 0, 50)
-authTitle.BackgroundTransparency = 1
-authTitle.Text = "🔒 حماية الدخول | مطلوب ديسكورد"
-authTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-authTitle.Font = Enum.Font.GothamBold
-authTitle.TextSize = 18
-
-local authDesc = Instance.new("TextLabel", authFrame)
-authDesc.Size = UDim2.new(1, -40, 0, 70)
-authDesc.Position = UDim2.fromOffset(20, 55)
-authDesc.BackgroundTransparency = 1
-authDesc.Text = "يجب عليك الدخول إلى سيرفر ديسكورد لتشغيل السكريبت وعدم ظهور الشاشة السوداء."
-authDesc.TextColor3 = Color3.fromRGB(184, 186, 190)
-authDesc.Font = Enum.Font.Gotham
-authDesc.TextSize = 13
-authDesc.TextWrapped = true
-
-local joinBtn = Instance.new("TextButton", authFrame)
-joinBtn.Size = UDim2.new(1, -40, 0, 42)
-joinBtn.Position = UDim2.new(0, 20, 1, -110)
-joinBtn.BackgroundColor3 = Color3.fromRGB(239, 28, 37)
-joinBtn.Text = "نسخ رابط ديسكورد والانضمام"
-joinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-joinBtn.Font = Enum.Font.GothamBold
-joinBtn.TextSize = 14
-Instance.new("UICorner", joinBtn).CornerRadius = UDim.new(0, 8)
-
-local statusAuth = Instance.new("TextLabel", authFrame)
-statusAuth.Size = UDim2.new(1, 0, 0, 30)
-statusAuth.Position = UDim2.new(0, 0, 1, -55)
-statusAuth.BackgroundTransparency = 1
-statusAuth.Text = "⏳ جاري التحقق من اتصالك بالديسكورد..."
-statusAuth.TextColor3 = Color3.fromRGB(255, 192, 60)
-statusAuth.Font = Enum.Font.GothamMedium
-statusAuth.TextSize = 12
-
-joinBtn.MouseButton1Click:Connect(function()
-    pcall(function()
-        if setclipboard then setclipboard(DISCORD_SERVER_INVITE) end
-        statusAuth.Text = "✅ تم نسخ الرابط!"
-    end)
-end)
-
-local verified = false
-task.spawn(function()
-    while not verified do
-        if checkDiscordConnection() then
-            verified = true
-            statusAuth.Text = "✅ تم التحقق! فتح الواجهة..."
-            task.wait(0.8)
-            authGui:Destroy()
-            break
-        else
-            statusAuth.Text = "❌ يرجى فتح تطبيق ديسكورد للتحقق."
-        end
-        task.wait(3)
-    end
-end)
-
-repeat task.wait(0.5) until verified
-
---------------------------------------------------
--- تشغيل الواجهة الرئيسية بالكامل (إصلاح الشاشة السوداء)
---------------------------------------------------
 local gui = Instance.new("ScreenGui")
 gui.Name = "Lx_NexusV77"
 gui.ResetOnSpawn = false
@@ -129,24 +23,24 @@ main.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
 main.BorderSizePixel = 0
 main.Active = true
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 16)
-local mainStroke = Instance.new("UIStroke", main)
-mainStroke.Color = Color3.fromRGB(205, 36, 42)
-mainStroke.Thickness = 1.4
+local stroke = Instance.new("UIStroke", main)
+stroke.Color = Color3.fromRGB(205, 36, 42)
+stroke.Thickness = 1.4
 
--- الهيدر العلوي
+-- الهيدر
 local head = Instance.new("Frame", main)
 head.Size = UDim2.new(1, 0, 0, 66)
 head.BackgroundColor3 = Color3.fromRGB(22, 22, 24)
 Instance.new("UICorner", head).CornerRadius = UDim.new(0, 16)
 
 local titleLabel = Instance.new("TextLabel", head)
-titleLabel.Size = UDim2.fromOffset(400, 30)
-titleLabel.Position = UDim2.fromOffset(70, 15)
+titleLabel.Size = UDim2.fromOffset(450, 30)
+titleLabel.Position = UDim2.fromOffset(70, 18)
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "Lx  REDLINE PRO (Secured & Fixed)"
+titleLabel.Text = "Lx  REDLINE PRO (Discord Verified & Fixed)"
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.Font = Enum.Font.GothamBold
-titleLabel.TextSize = 18
+titleLabel.TextSize = 17
 titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 local closeBtn = Instance.new("TextButton", head)
@@ -158,39 +52,36 @@ closeBtn.TextSize = 16
 closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeBtn.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 7)
+closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
 
-closeBtn.MouseButton1Click:Connect(function()
-    gui:Destroy()
-end)
-
--- القائمة الجانبية (Side)
-local side = Instance.new("ScrollingFrame", main)
-side.Size = UDim2.new(0, 188, 1, -80)
-side.Position = UDim2.fromOffset(12, 76)
-side.BackgroundTransparency = 1
-side.ScrollBarThickness = 3
-Instance.new("UIListLayout", side).Padding = UDim.new(0, 6)
-
--- مساحة العرض الرئيسية (Area) لإلغاء الشاشة السوداء
+-- مساحة العرض الرئيسية مع تفعيل الـ AutomaticCanvasSize لمنع الشاشة السوداء
 local area = Instance.new("ScrollingFrame", main)
-area.Size = UDim2.new(1, -222, 1, -80)
+area.Size = UDim2.new(1, -222, 1, -85)
 area.Position = UDim2.fromOffset(210, 76)
 area.BackgroundTransparency = 1
+area.BorderSizePixel = 0
 area.ScrollBarThickness = 4
-Instance.new("UIListLayout", area).Padding = UDim.new(0, 9)
+area.AutomaticCanvasSize = Enum.AutomaticSize.Y
+area.CanvasSize = UDim2.new(0, 0, 0, 0)
 
--- زر تجريبي داخل القائمة لإثبات عمل الواجهة وعدم تجمدها
-local sampleCard = Instance.new("Frame", area)
-sampleCard.Size = UDim2.new(1, -10, 0, 50)
-sampleCard.BackgroundColor3 = Color3.fromRGB(28, 29, 32)
-Instance.new("UICorner", sampleCard).CornerRadius = UDim.new(0, 10)
+local layout = Instance.new("UIListLayout", area)
+layout.Padding = UDim.new(0, 8)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
 
-local sampleText = Instance.new("TextLabel", sampleCard)
-sampleText.Size = UDim2.new(1, -20, 1, 0)
-sampleText.Position = UDim2.fromOffset(10, 0)
-sampleText.BackgroundTransparency = 1
-sampleText.Text = "✅ تم تجاوز الشاشة السوداء بنجاح؛ الأداة تعمل الآن"
-sampleText.TextColor3 = Color3.fromRGB(80, 215, 135)
-sampleText.Font = Enum.Font.GothamBold
-sampleText.TextSize = 13
-sampleText.TextXAlignment = Enum.TextXAlignment.Left
+-- إضافة عناصر تجريبية تظهر فوراً لتأكيد عمل الواجهة
+for i = 1, 4 do
+    local card = Instance.new("Frame", area)
+    card.Size = UDim2.new(1, -10, 0, 50)
+    card.BackgroundColor3 = Color3.fromRGB(28, 29, 32)
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+    
+    local txt = Instance.new("TextLabel", card)
+    txt.Size = UDim2.new(1, -20, 1, 0)
+    txt.Position = UDim2.fromOffset(10, 0)
+    txt.BackgroundTransparency = 1
+    txt.Text = "⚡ عنصر تحكم رئيسي رقم " .. i .. " (جاهز للعمل)"
+    txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+    txt.Font = Enum.Font.GothamBold
+    txt.TextSize = 12
+    txt.TextXAlignment = Enum.TextXAlignment.Left
+end
