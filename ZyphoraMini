@@ -1,31 +1,28 @@
 -- =========================================================
--- Discord Guard v2 — Real Membership Verification
--- Requires: backend at API_BASE (see server.js)
+-- Discord Guard v3 — Membership lock + fast re-lock
 -- =========================================================
 
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local LP = Players.LocalPlayer
-
 if not LP then warn("Guard: no LocalPlayer") return end
-
 local PG = LP:WaitForChild("PlayerGui", 12)
 if not PG then warn("Guard: PlayerGui unavailable") return end
 
 -- ================== CONFIG ==================
-local API_BASE       = "https://FILL-YOUR-BACKEND.example.com"  -- بدون / في النهاية
-local AUTH_URL       = API_BASE .. "/auth"                      -- صفحة OAuth
-local POLL_INTERVAL  = 60     -- ثواني بين كل فحص
-local FAIL_TOLERANCE = 2      -- كم فشل متتالي قبل القفل (يحمي من انقطاع الشبكة)
-local KEY_FILE       = "discord_guard_key.txt"
+local API_BASE      = "https://FILL-YOUR-BACKEND.example.com"
+local AUTH_URL      = API_BASE .. "/auth"
+local POLL_INTERVAL = 15      -- كل ١٥ ثانية يفحص
+local NET_TOLERANCE = 3       -- ٣ فشل شبكة متتالية قبل القفل
+local KEY_FILE      = "discord_guard_key.txt"
 -- ============================================
 
 local guardGui   = nil
 local isLocked   = false
-local failCount  = 0
+local netFails   = 0
 local currentKey = nil
 
--- ---------- executor HTTP ----------
+-- ---------- HTTP ----------
 local function getRequestFn()
     if syn and type(syn.request) == "function" then return syn.request end
     if http and type(http.request) == "function" then return http.request end
@@ -41,35 +38,23 @@ local function urlEncode(s)
 end
 
 -- ---------- key storage ----------
-local function saveKey(k)
-    pcall(function()
-        if writefile then writefile(KEY_FILE, k) end
-    end)
-end
-
+local function saveKey(k) pcall(function() if writefile then writefile(KEY_FILE, k) end end) end
+local function clearKey() pcall(function() if delfile and isfile and isfile(KEY_FILE) then delfile(KEY_FILE) end end) end
 local function loadKey()
-    local k = nil
+    local k
     pcall(function()
-        if isfile and isfile(KEY_FILE) and readfile then
-            k = readfile(KEY_FILE)
-        end
+        if isfile and isfile(KEY_FILE) and readfile then k = readfile(KEY_FILE) end
     end)
     if k then k = k:gsub("%s+", "") end
     if k == "" then k = nil end
     return k
 end
 
-local function clearKey()
-    pcall(function()
-        if delfile and isfile and isfile(KEY_FILE) then delfile(KEY_FILE) end
-    end)
-end
-
--- ---------- backend call ----------
--- returns: ok(boolean), status(string), reason(string|nil)
+-- ---------- backend ----------
+-- returns ok(boolean), reason(string), message(string|nil)
 local function checkMembership(key)
     local reqFn = getRequestFn()
-    if not reqFn then return false, "no_http", "Executor لا يدعم طلبات HTTP" end
+    if not reqFn then return false, "no_http", "الإكسكيوتور ما يدعم HTTP" end
     if not key or key == "" then return false, "no_key", "لا يوجد مفتاح" end
 
     local ok, res = pcall(function()
@@ -80,35 +65,22 @@ local function checkMembership(key)
             Timeout = 10000,
         })
     end)
-
     if not ok or res == nil then return false, "net_fail", "تعذر الاتصال بالسيرفر" end
 
-    local body = nil
-    if type(res) == "table" then
-        body = res.Body or res.body
-    elseif type(res) == "string" then
-        body = res
-    end
-    if not body or body == "" then return false, "empty", "رد فارغ من السيرفر" end
+    local body
+    if type(res) == "table" then body = res.Body or res.body
+    elseif type(res) == "string" then body = res end
+    if not body or body == "" then return false, "net_fail", "رد فارغ" end
 
-    local decoded
     local pok, parsed = pcall(function() return HttpService:JSONDecode(body) end)
-    if not pok or type(parsed) ~= "table" then
-        return false, "bad_json", "رد غير صالح"
-    end
-    decoded = parsed
+    if not pok or type(parsed) ~= "table" then return false, "net_fail", "رد غير صالح" end
 
-    if decoded.ok == true then
-        return true, "ok", nil
-    end
-    return false, tostring(decoded.reason or "denied"), tostring(decoded.message or "غير مصرح")
+    if parsed.ok == true then return true, "ok", nil end
+    return false, tostring(parsed.reason or "denied"), tostring(parsed.message or "غير مصرح")
 end
 
--- ---------- clipboard / open link ----------
-local function copyAuthLink()
-    pcall(function() if setclipboard then setclipboard(AUTH_URL) end end)
-end
-
+-- ---------- open link ----------
+local function copyAuthLink() pcall(function() if setclipboard then setclipboard(AUTH_URL) end end) end
 local function openAuthLink()
     pcall(function()
         local env = getgenv and getgenv() or _G
@@ -124,28 +96,22 @@ end
 
 local function buildPanel(cfg)
     destroyGuard()
-
     local gui = Instance.new("ScreenGui")
     gui.Name = "DiscordGuard"
     gui.ResetOnSpawn = false
     gui.DisplayOrder = 9999
     gui.Parent = PG
 
+    local h = cfg.height or 240
     local panel = Instance.new("Frame")
-    panel.Size = UDim2.fromOffset(460, cfg.height or 240)
-    panel.Position = UDim2.new(0.5, -230, 0.5, -(cfg.height or 240)/2)
+    panel.Size = UDim2.fromOffset(460, h)
+    panel.Position = UDim2.new(0.5, -230, 0.5, -h/2)
     panel.BackgroundColor3 = Color3.fromRGB(18, 18, 20)
     panel.BorderSizePixel = 0
     panel.Parent = gui
 
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = panel
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(239, 28, 37)
-    stroke.Thickness = 2
-    stroke.Parent = panel
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 10); c.Parent = panel
+    local st = Instance.new("UIStroke"); st.Color = Color3.fromRGB(239, 28, 37); st.Thickness = 2; st.Parent = panel
 
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -40, 0, 30)
@@ -159,7 +125,7 @@ local function buildPanel(cfg)
     title.Parent = panel
 
     local body = Instance.new("TextLabel")
-    body.Size = UDim2.new(1, -40, 0, 60)
+    body.Size = UDim2.new(1, -40, 0, 65)
     body.Position = UDim2.new(0, 20, 0, 50)
     body.BackgroundTransparency = 1
     body.Text = cfg.message or ""
@@ -182,29 +148,21 @@ local function buildPanel(cfg)
         input.Font = Enum.Font.Code
         input.TextSize = 13
         input.ClearTextOnFocus = false
-        input.Text = ""
         input.Parent = panel
-
-        local inCorner = Instance.new("UICorner")
-        inCorner.CornerRadius = UDim.new(0, 6)
-        inCorner.Parent = input
+        local ic = Instance.new("UICorner"); ic.CornerRadius = UDim.new(0, 6); ic.Parent = input
     end
 
-    -- buttons row
-    local btnY = (cfg.height or 240) - 52
-    local function makeBtn(text, xOff, width, color, cb)
+    local function makeBtn(text, x, w, color, cb)
         local b = Instance.new("TextButton")
-        b.Size = UDim2.new(0, width, 0, 40)
-        b.Position = UDim2.new(0, xOff, 1, -52)
+        b.Size = UDim2.new(0, w, 0, 40)
+        b.Position = UDim2.new(0, x, 1, -52)
         b.BackgroundColor3 = color
         b.Text = text
         b.TextColor3 = Color3.fromRGB(255, 255, 255)
         b.Font = Enum.Font.GothamBold
         b.TextSize = 13
         b.Parent = panel
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, 8)
-        c.Parent = b
+        local bc = Instance.new("UICorner"); bc.CornerRadius = UDim.new(0, 8); bc.Parent = b
         b.MouseButton1Click:Connect(cb)
         return b
     end
@@ -213,33 +171,37 @@ local function buildPanel(cfg)
         makeBtn("تحقق", 20, 130, Color3.fromRGB(239, 28, 37), function()
             if not input then return end
             local k = input.Text:gsub("%s+", "")
-            if k == "" then
-                body.Text = "أدخل المفتاح أولاً."
-                return
-            end
+            if k == "" then body.Text = "أدخل المفتاح أولاً." return end
             body.Text = "جاري التحقق..."
             local ok, reason, msg = checkMembership(k)
             if ok then
-                currentKey = k
-                saveKey(k)
-                destroyGuard()
-                isLocked = false
-                failCount = 0
+                currentKey = k; saveKey(k); netFails = 0
+                destroyGuard(); isLocked = false
                 if cfg.onVerified then cfg.onVerified() end
             else
-                body.Text = "✕ فشل التحقق: " .. tostring(msg or reason)
+                body.Text = "✕ فشل: " .. tostring(msg or reason)
             end
         end)
-
         makeBtn("احصل على مفتاح", 170, 200, Color3.fromRGB(88, 101, 242), function()
-            copyAuthLink()
-            openAuthLink()
+            copyAuthLink(); openAuthLink()
             body.Text = "تم فتح الرابط. سجّل الدخول ثم الصق المفتاح."
         end)
     else
-        makeBtn(cfg.buttonText or "فتح رابط Discord", 20, 420, Color3.fromRGB(239, 28, 37), function()
-            copyAuthLink()
-            openAuthLink()
+        -- زر "إعادة المحاولة" — يستخدم المفتاح المحفوظ
+        makeBtn(cfg.buttonText or "إعادة المحاولة", 20, 220, Color3.fromRGB(239, 28, 37), function()
+            body.Text = "جاري التحقق..."
+            local ok, reason, msg = checkMembership(currentKey)
+            if ok then
+                netFails = 0
+                destroyGuard(); isLocked = false
+                if cfg.onVerified then cfg.onVerified() end
+            else
+                body.Text = "✕ " .. tostring(msg or reason) .. "\nتأكد إنك داخل السيرفر ثم اضغط إعادة المحاولة."
+            end
+        end)
+        makeBtn("رابط السيرفر", 260, 180, Color3.fromRGB(88, 101, 242), function()
+            copyAuthLink(); openAuthLink()
+            body.Text = "تم فتح الرابط. ادخل السيرفر ثم اضغط إعادة المحاولة."
         end)
     end
 
@@ -247,29 +209,29 @@ local function buildPanel(cfg)
     return body
 end
 
--- ---------- lock screens ----------
-local function showKeyPanel(message)
+local function showKeyPanel(msg)
     isLocked = true
     buildPanel({
         title = "Discord مطلوب",
-        message = message or "تحتاج مفتاح تحقق من سيرفر Discord.\nاضغط \"احصل على مفتاح\" ثم الصق المفتاح.",
+        message = msg or "لازم تدخل سيرفر Discord حقنا أول.\nاضغط \"احصل على مفتاح\"، سجّل دخول بحسابك، ثم الصق المفتاح.",
         showInput = true,
-        height = 260,
+        height = 265,
     })
 end
 
-local function showLockPanel(message, buttonText)
+local function showReLockPanel(msg)
     isLocked = true
     buildPanel({
         title = "Discord مطلوب",
-        message = message,
+        message = msg or "✕ طلعت من سيرفر Discord.\nادخل السيرفر مرة ثانية ثم اضغط إعادة المحاولة.",
         showInput = false,
-        buttonText = buttonText or "فتح رابط Discord",
-        height = 190,
+        buttonText = "إعادة المحاولة",
+        height = 210,
     })
 end
 
--- ---------- main flow ----------
+-- ---------- main ----------
+local started = false
 local function runMain()
     -- =========================================================
     -- السكربت الحقيقي يبدأ هنا
@@ -277,12 +239,16 @@ local function runMain()
     -- launchRedline()
 end
 
-local verifiedOnce = false
-
 local function onVerified()
-    if not verifiedOnce then
-        verifiedOnce = true
+    if not started then
+        started = true
         runMain()
+    end
+end
+
+local function lockOnLeave(message)
+    if not isLocked then
+        showReLockPanel(message)
     end
 end
 
@@ -290,18 +256,30 @@ local function startWatchdog()
     task.spawn(function()
         while true do
             task.wait(POLL_INTERVAL)
+            local ok, reason, msg = checkMembership(currentKey)
 
-            local ok = checkMembership(currentKey)
             if ok then
-                failCount = 0
+                netFails = 0
                 if isLocked then
                     destroyGuard()
                     isLocked = false
+                    if onVerified then onVerified() end
                 end
             else
-                failCount = failCount + 1
-                if failCount >= FAIL_TOLERANCE and not isLocked then
-                    showLockPanel("✕ تم إيقاف التحقق من العضوية\nأعد الدخول للسيرفر أو أعد إدخال المفتاح.", "فتح رابط Discord")
+                if reason == "left_guild" then
+                    -- طلع من السيرفر → قفل فورًا
+                    lockOnLeave("✕ طلعت من سيرفر Discord.\nادخل السيرفر مرة ثانية ثم اضغط إعادة المحاولة.")
+                elseif reason == "bad_key" then
+                    -- المفتاح انتهى/غير صالح → يطلب مفتاح جديد
+                    currentKey = nil; clearKey(); started = false
+                    showKeyPanel("✕ مفتاحك غير صالح. احصل على مفتاح جديد.")
+                    return
+                else
+                    -- مشكلة شبكة → تحمّل كم محاولة
+                    netFails = netFails + 1
+                    if netFails >= NET_TOLERANCE then
+                        lockOnLeave("✕ تعذر التحقق من العضوية.\nتأكد إنك داخل السيرفر ثم اضغط إعادة المحاولة.")
+                    end
                 end
             end
         end
@@ -314,20 +292,24 @@ local function boot()
         local ok, reason, msg = checkMembership(saved)
         if ok then
             currentKey = saved
-            destroyGuard()
-            isLocked = false
+            destroyGuard(); isLocked = false
             onVerified()
             startWatchdog()
             return
+        elseif reason == "left_guild" then
+            currentKey = saved
+            showReLockPanel("✕ أنت مو داخل سيرفر Discord.\nادخل السيرفر ثم اضغط إعادة المحاولة.")
+            startWatchdog()
+            return
+        else
+            clearKey()
         end
-        clearKey()
     end
-
     showKeyPanel()
 end
 
 local ok, err = pcall(boot)
 if not ok then
     warn("Guard startup error:", err)
-    showLockPanel("حدث خطأ أثناء التشغيل:\n" .. tostring(err):sub(1, 380), "إعادة المحاولة")
+    showReLockPanel("خطأ: " .. tostring(err):sub(1, 300))
 end
