@@ -1,35 +1,33 @@
--- =========================================================
--- Discord gate: block script until real Discord is active
--- If Discord disconnects while running, lock again
--- =========================================================
+-- ============================================
+-- Discord Auth Guard
+-- Requires real Discord client to be running
+-- If Discord closes, script locks itself
+-- ============================================
+
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 if not LP then
-    warn("Lx: no LocalPlayer")
+    warn("No LocalPlayer")
     return
 end
 
 local PG = LP:WaitForChild("PlayerGui", 12)
 if not PG then
-    warn("Lx: PlayerGui unavailable")
+    warn("PlayerGui unavailable")
     return
 end
 
--- To be honest: inside Roblox you cannot truly prove "real Discord account"
--- from the client alone. The practical method is verifying the local Discord
--- RPC server is active on localhost:6463.
+local DISCORD_INVITE = "https://discord.gg/7HyFER45Y"
 local DISCORD_PORTS = {6463, 6464}
 
 local function discordIsAlive()
     for _, port in ipairs(DISCORD_PORTS) do
-        local ok, result = pcall(function()
+        local ok, res = pcall(function()
             if syn and syn.request then
                 return syn.request({
                     Url = "http://127.0.0.1:" .. port .. "/",
                     Method = "GET",
-                    Headers = {
-                        ["Content-Type"] = "application/json"
-                    }
+                    Headers = {["Content-Type"] = "application/json"}
                 })
             end
 
@@ -37,9 +35,7 @@ local function discordIsAlive()
                 return http.request({
                     Url = "http://127.0.0.1:" .. port .. "/",
                     Method = "GET",
-                    Headers = {
-                        ["Content-Type"] = "application/json"
-                    }
+                    Headers = {["Content-Type"] = "application/json"}
                 })
             end
 
@@ -47,27 +43,20 @@ local function discordIsAlive()
                 return request({
                     Url = "http://127.0.0.1:" .. port .. "/",
                     Method = "GET",
-                    Headers = {
-                        ["Content-Type"] = "application/json"
-                    }
+                    Headers = {["Content-Type"] = "application/json"}
                 })
             end
 
             return nil
         end)
 
-        if ok and result then
-            -- syn/http/request return different shapes depending on executor
-            if type(result) == "table" then
-                if result.Success ~= false and (result.StatusCode == nil or result.StatusCode >= 200) then
+        if ok and res then
+            if type(res) == "table" then
+                if res.Success ~= false and (res.StatusCode == nil or res.StatusCode >= 200) then
                     return true
                 end
-            elseif type(result) == "string" then
-                if result ~= "" then
-                    return true
-                end
-            elseif typeof(result) == "Instance" then
-                if result.StatusCode ~= nil and result.StatusCode >= 200 then
+            elseif type(res) == "string" then
+                if res ~= "" then
                     return true
                 end
             end
@@ -77,22 +66,22 @@ local function discordIsAlive()
     return false
 end
 
-local function createGuardGui()
+local function createLockGui()
     local gui = Instance.new("ScreenGui")
-    gui.Name = "Lx_DiscordAuthGuard"
+    gui.Name = "Lx_DiscordGuard"
     gui.ResetOnSpawn = false
-    gui.DisplayOrder = 1000
+    gui.DisplayOrder = 999999
     gui.Parent = PG
 
     local bg = Instance.new("Frame")
     bg.Size = UDim2.fromOffset(430, 220)
     bg.Position = UDim2.new(0.5, -215, 0.5, -110)
-    bg.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+    bg.BackgroundColor3 = Color3.fromRGB(15,15,18)
     bg.BorderSizePixel = 0
     bg.Parent = gui
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 16)
-    corner.Parent = bg
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 16)
+    c.Parent = bg
 
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.fromRGB(239, 28, 37)
@@ -100,45 +89,43 @@ local function createGuardGui()
     stroke.Parent = bg
 
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -30, 0, 40)
+    title.Size = UDim2.new(1, -30, 0, 42)
     title.Position = UDim2.fromOffset(15, 18)
     title.BackgroundTransparency = 1
-    title.Text = "🔒 حماية الدخول | Discord مطلوب"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.Text = "🔒 Discord مطلوب"
+    title.TextColor3 = Color3.fromRGB(255,255,255)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 18
     title.Parent = bg
 
     local status = Instance.new("TextLabel")
-    status.Size = UDim2.new(1, -30, 0, 90)
-    status.Position = UDim2.fromOffset(15, 60)
+    status.Size = UDim2.new(1, -30, 0, 82)
+    status.Position = UDim2.fromOffset(15, 62)
     status.BackgroundTransparency = 1
-    status.Text = "تأكد من فتح Discord الحقيقي أولاً\nالسكربت مقفل حتى يتم التحقق."
-    status.TextColor3 = Color3.fromRGB(200, 200, 210)
+    status.Text = "يجب أن يكون Discord مفتوحًا ومسجلًا داخل الحساب الحقيقي.\nالسكربت مقفل حتى يتم التحقق."
+    status.TextColor3 = Color3.fromRGB(188, 191, 198)
     status.Font = Enum.Font.Gotham
     status.TextSize = 13
     status.TextWrapped = true
-    status.TextYAlignment = Enum.TextYAlignment.Top
     status.Parent = bg
 
-    local openBtn = Instance.new("TextButton")
-    openBtn.Size = UDim2.new(1, -30, 0, 40)
-    openBtn.Position = UDim2.new(0, 15, 1, -52)
-    openBtn.Text = "فتح رابط Discord"
-    openBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    openBtn.Font = Enum.Font.GothamBold
-    openBtn.TextSize = 13
-    openBtn.BackgroundColor3 = Color3.fromRGB(239, 28, 37)
-    openBtn.Parent = bg
-
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -30, 0, 42)
+    btn.Position = UDim2.new(0, 15, 1, -54)
+    btn.Text = "فتح رابط Discord"
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    btn.BackgroundColor3 = Color3.fromRGB(239, 28, 37)
+    btn.Parent = bg
     local btnCorner = Instance.new("UICorner")
     btnCorner.CornerRadius = UDim.new(0, 8)
-    btnCorner.Parent = openBtn
+    btnCorner.Parent = btn
 
-    openBtn.MouseButton1Click:Connect(function()
+    btn.MouseButton1Click:Connect(function()
         pcall(function()
             if setclipboard then
-                setclipboard("https://discord.gg/yourserver")
+                setclipboard(DISCORD_INVITE)
             end
         end)
     end)
@@ -146,60 +133,52 @@ local function createGuardGui()
     return gui, status
 end
 
-local function waitForDiscord()
-    local guardGui, status = createGuardGui()
+local function lockScript()
+    local guardGui, status = createLockGui()
 
-    local ticks = 0
     while true do
         if discordIsAlive() then
-            status.Text = "✅ تم التحقق: Discord مفتوح\nجاري فتح السكربت..."
+            status.Text = "✅ تم التحقق من Discord\nجارٍ فتح السكربت..."
             task.wait(1)
             guardGui:Destroy()
             return true
-        end
-
-        ticks += 1
-        if ticks % 2 == 0 then
-            status.Text = "❌ لازم تدخل Discord الحقيقي أولاً\nالسكربت مقفل حتى تفتح التطبيق."
         else
-            status.Text = "🔒 تم منع التشغيل\nDiscord مطلوب ليبدأ السكربت."
+            status.Text = "❌ Discord غير مفتوح أو غير متصل\nيجب الدخول للحساب الحقيقي أولاً."
+            task.wait(2)
         end
-
-        task.wait(2)
     end
 end
 
--- Startup gate
-local ok = waitForDiscord()
-if not ok then
-    warn("Lx: Discord check failed")
+local function monitorDiscord()
+    task.spawn(function()
+        while true do
+            task.wait(2)
+
+            if not discordIsAlive() then
+                local guardGui, status = createLockGui()
+                status.Text = "❌ تم اكتشاف خروجك من Discord\nتم قفل السكربت مؤقتًا."
+
+                while not discordIsAlive() do
+                    status.Text = "❌ Discord خارج الخدمة\nانتظر حتى تعود إليه."
+                    task.wait(2)
+                end
+
+                guardGui:Destroy()
+            end
+        end
+    end)
+end
+
+-- Start guard
+local passed = lockScript()
+if not passed then
+    warn("Discord guard failed")
     return
 end
 
--- =========================================================
--- AFTER THIS POINT: keep monitoring Discord while script runs
--- =========================================================
-task.spawn(function()
-    while true do
-        task.wait(2)
-
-        if not discordIsAlive() then
-            local lockGui, lockStatus = createGuardGui()
-            lockStatus.Text = "❌ تم اكتشاف خروجك من Discord\nتم قفل السكربت مؤقتًا."
-
-            while not discordIsAlive() do
-                lockStatus.Text = "❌ Discord غير متصل\nانتظر حتى تعود إلى التطبيق."
-                task.wait(2)
-            end
-
-            lockGui:Destroy()
-            -- If you want to truly stop the script after disconnect:
-            -- return
-            -- But for most executor scripts the safer pattern is:
-            -- keep waiting until Discord returns then continue.
-        end
-    end
-end)
-
--- الآن ابدأ السكربت الحقيقي
+-- THIS IS THE PART WHERE YOUR SCRIPT STARTS
+-- Example:
 -- launchRedline()
+
+-- monitor Discord while script is running
+monitorDiscord()
