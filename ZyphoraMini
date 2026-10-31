@@ -1,507 +1,177 @@
---====================================
--- الجزء 3: Aimbot الحقيقي + التشغيل
---====================================
+-- HUNTER HUB - نسخة مختصرة مضمونة
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local LP = Players.LocalPlayer
+local Mouse = LP:GetMouse()
 
--- FOV Circle
-local fovGui = inst("ScreenGui", {
-    Name = "HunterFOV",
-    ResetOnSpawn = false,
-    IgnoreGuiInset = true,
-    DisplayOrder = 89
-}, PlayerGui)
+-- إعدادات
+local ESP = false
+local AIM = false
+local CARSPEED = false
+local WALKSPEED = false
+local FLY = false
 
-local fovCircle = inst("Frame", {
-    Name = "FOVCircle",
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    Visible = false
-}, fovGui)
-round(fovCircle, 1000)
+-- GUI
+local SG = Instance.new("ScreenGui")
+SG.Name = "HunterHub"
+SG.ResetOnSpawn = false
+SG.Parent = LP:WaitForChild("PlayerGui")
 
-inst("UIStroke", {Color = C.accent, Thickness = 2, Transparency = 0.1}, fovCircle)
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 220, 0, 320)
+Main.Position = UDim2.new(0, 20, 0.5, -160)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+Main.Active = true
+Main.Draggable = true
+Main.Parent = SG
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 
-local fovDot = inst("Frame", {
-    Name = "Center",
-    Size = UDim2.fromOffset(4, 4),
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    Position = UDim2.fromScale(0.5, 0.5),
-    BackgroundColor3 = C.accent,
-    BorderSizePixel = 0
-}, fovCircle)
-round(fovDot, 100)
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+Title.Text = "🦎 HUNTER HUB"
+Title.TextColor3 = Color3.fromRGB(255, 200, 50)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.Parent = Main
+Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 10)
 
-local function updateCircle()
-    local enabled = Config.Aim and Camera
-    fovCircle.Visible = enabled
-    if not enabled then return end
-    local radius = math.clamp(Config.FOV, 10, 150)
-    fovCircle.Size = UDim2.fromOffset(radius * 2, radius * 2)
-    local vp = Camera.ViewportSize
-    fovCircle.Position = UDim2.fromOffset(vp.X * 0.5, vp.Y * 0.5)
+local function Btn(text, y, color, fn)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1, -20, 0, 35)
+    b.Position = UDim2.new(0, 10, 0, y)
+    b.BackgroundColor3 = color
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 12
+    b.Parent = Main
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+    b.MouseButton1Click:Connect(fn)
+    return b
 end
 
---====================================
--- AIMBOT الحقيقي
---====================================
-local aimConnection = nil
-
-local function StartAimbot()
-    -- إيقاف أي اتصال سابق
-    if aimConnection then
-        aimConnection:Disconnect()
-        aimConnection = nil
+-- ESP
+Btn("👁️ ESP: OFF", 45, Color3.fromRGB(40, 40, 50), function()
+    ESP = not ESP
+    for _, v in pairs(SG:GetChildren()) do
+        if v:IsA("Highlight") then v:Destroy() end
     end
-    
-    aimConnection = RunService.RenderStepped:Connect(function(dt)
-        if not alive then return end
-        if not Config.Aim then return end
-        
-        updateCircle()
-        
-        local cam = Camera
-        if not cam then return end
-        
-        local r = root()
-        if not r then return end
-        
-        local vp = cam.ViewportSize
-        local center = Vector2.new(vp.X * 0.5, vp.Y * 0.5)
-        
-        -- البحث عن أقرب ضب للمركز
-        local best, bestDist = nil, math.huge
-        
-        for _, e in ipairs(cache) do
-            if e.model.Parent and e.part.Parent and living(e.model) and lizard(e.model) then
-                local head = e.model:FindFirstChild("Head", true) or 
-                             e.model:FindFirstChild("head", true) or 
-                             e.model:FindFirstChild("رأس", true) or
-                             e.part
-                
-                if head and head:IsA("BasePart") then
-                    local worldDist = (head.Position - r.Position).Magnitude
-                    
-                    if worldDist <= Config.AimRange then
-                        local point, onScreen = cam:WorldToViewportPoint(head.Position)
-                        if onScreen and point.Z > 0 then
-                            local pixelDist = (Vector2.new(point.X, point.Y) - center).Magnitude
-                            if pixelDist <= Config.FOV and pixelDist < bestDist then
-                                best = head
-                                bestDist = pixelDist
+    if ESP then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LP and p.Character then
+                local h = Instance.new("Highlight")
+                h.FillColor = Color3.new(1, 0, 0)
+                h.Adornee = p.Character
+                h.Parent = SG
+            end
+        end
+    end
+end)
+
+-- Aimbot
+local aimConn = nil
+Btn("🎯 AIMBOT: OFF", 90, Color3.fromRGB(40, 40, 50), function()
+    AIM = not AIM
+    if AIM then
+        aimConn = RunService.RenderStepped:Connect(function()
+            local cam = workspace.CurrentCamera
+            local closest = nil
+            local closestDist = 100
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= LP and p.Character then
+                    local head = p.Character:FindFirstChild("Head")
+                    if head then
+                        local pos, onScreen = cam:WorldToViewportPoint(head.Position)
+                        if onScreen then
+                            local dist = (Vector2.new(pos.X, pos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+                            if dist < closestDist then
+                                closestDist = dist
+                                closest = head
                             end
                         end
                     end
                 end
             end
-        end
-        
-        -- تصويب حقيقي
-        if best then
-            local desired = CFrame.lookAt(cam.CFrame.Position, best.Position)
-            local alpha = 1 - math.exp(-math.clamp(Config.AimSmooth, 0.02, 1) * 30 * math.min(dt, 0.1))
-            cam.CFrame = cam.CFrame:Lerp(desired, math.clamp(alpha, 0, 1))
-        end
-    end)
-end
-
-local function StopAimbot()
-    Config.Aim = false
-    if aimConnection then
-        aimConnection:Disconnect()
-        aimConnection = nil
-    end
-    fovCircle.Visible = false
-end
-
--- ربط Aimbot بالتفعيل
-local oldAimToggle = togglePaints.Aim
-togglePaints.Aim = function()
-    if oldAimToggle then oldAimToggle() end
-    if Config.Aim then
-        StartAimbot()
-    else
-        StopAimbot()
-    end
-end
-
---====================================
--- Car Fly System
---====================================
-local flyBody = nil
-local flyVelocity = nil
-local flyOrientation = nil
-local flyAttachment = nil
-
-local function stopCarFly()
-    if flyVelocity then pcall(function() flyVelocity:Destroy() end) end
-    if flyOrientation then pcall(function() flyOrientation:Destroy() end) end
-    if flyAttachment then pcall(function() flyAttachment:Destroy() end) end
-    flyVelocity = nil
-    flyOrientation = nil
-    flyAttachment = nil
-    flyBody = nil
-end
-
-local function updateCarFly()
-    if not Config.CarFly then
-        stopCarFly()
-        return
-    end
-    
-    local h = hum()
-    if not h or not h.SeatPart then
-        stopCarFly()
-        return
-    end
-    
-    local seat = h.SeatPart
-    if not seat:IsA("VehicleSeat") then return end
-    
-    local body = seat.AssemblyRootPart or seat
-    if not body or body.Anchored then return end
-    
-    if body ~= flyBody or not flyVelocity or not flyVelocity.Parent then
-        stopCarFly()
-        flyBody = body
-        
-        flyAttachment = Instance.new("Attachment")
-        flyAttachment.Name = "HunterFly"
-        flyAttachment.Parent = body
-        
-        flyVelocity = Instance.new("LinearVelocity")
-        flyVelocity.Name = "HunterFly"
-        flyVelocity.Attachment0 = flyAttachment
-        flyVelocity.RelativeTo = Enum.ActuatorRelativeTo.World
-        flyVelocity.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
-        flyVelocity.MaxForce = math.max(100000, body.AssemblyMass * 2500)
-        flyVelocity.Parent = body
-        
-        flyOrientation = Instance.new("AlignOrientation")
-        flyOrientation.Name = "HunterFly"
-        flyOrientation.Attachment0 = flyAttachment
-        flyOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
-        flyOrientation.Responsiveness = 12
-        flyOrientation.MaxTorque = math.max(100000, body.AssemblyMass * 2500)
-        flyOrientation.Parent = body
-    end
-    
-    local cam = Camera
-    if not cam then return end
-    
-    local look = cam.CFrame.LookVector
-    local right = cam.CFrame.RightVector
-    
-    local forward = Vector3.new(look.X, 0, look.Z)
-    local side = Vector3.new(right.X, 0, right.Z)
-    
-    if forward.Magnitude < 0.01 then forward = Vector3.new(0, 0, -1) end
-    forward = forward.Unit
-    if side.Magnitude < 0.01 then side = Vector3.new(-forward.Z, 0, forward.X) end
-    side = side.Unit
-    
-    local input = Vector3.zero
-    if not UserInputService:GetFocusedTextBox() then
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) then input += forward end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down) then input -= forward end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then input += side end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then input -= side end
-        if UserInputService:IsKeyDown(Enum.KeyCode.E) then input += Vector3.yAxis end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Q) then input -= Vector3.yAxis end
-    end
-    
-    local speed = math.clamp(Config.FlySpeed, 20, 300)
-    flyVelocity.VectorVelocity = input.Magnitude > 0 and input.Unit * speed or Vector3.zero
-    flyOrientation.CFrame = CFrame.lookAt(Vector3.zero, forward)
-end
-
---====================================
--- Player Fly
---====================================
-local charFly = {
-    root = nil, humanoid = nil, attachment = nil,
-    velocity = nil, orientation = nil,
-    oldAutoRotate = nil, oldPlatformStand = nil
-}
-
-charFly.stop = function()
-    local cf = charFly
-    if cf.velocity then pcall(function() cf.velocity:Destroy() end) end
-    if cf.orientation then pcall(function() cf.orientation:Destroy() end) end
-    if cf.attachment then pcall(function() cf.attachment:Destroy() end) end
-    cf.velocity = nil
-    cf.orientation = nil
-    cf.attachment = nil
-    cf.root = nil
-    if cf.humanoid and cf.humanoid.Parent then
-        pcall(function()
-            if cf.oldAutoRotate ~= nil then cf.humanoid.AutoRotate = cf.oldAutoRotate end
-            if cf.oldPlatformStand ~= nil then cf.humanoid.PlatformStand = cf.oldPlatformStand end
+            if closest then
+                cam.CFrame = CFrame.new(cam.CFrame.Position, closest.Position)
+            end
         end)
+    else
+        if aimConn then aimConn:Disconnect() aimConn = nil end
     end
-    cf.humanoid = nil
-end
+end)
 
-charFly.update = function()
-    if not Config.PlayerFly then return end
-    local h = hum()
-    local r = root()
-    if not h or not r or h.Health <= 0 then
-        if charFly.root then charFly.stop() end
-        return
-    end
-    if h.SeatPart then
-        if charFly.root then charFly.stop() end
-        return
-    end
-    
-    if charFly.root ~= r or not charFly.velocity or not charFly.velocity.Parent then
-        charFly.stop()
-        charFly.root = r
-        charFly.humanoid = h
-        charFly.oldAutoRotate = h.AutoRotate
-        charFly.oldPlatformStand = h.PlatformStand
-        
-        local a = Instance.new("Attachment")
-        a.Name = "HunterFly"
-        a.Parent = r
-        charFly.attachment = a
-        
-        local v = Instance.new("LinearVelocity")
-        v.Name = "HunterFly"
-        v.Attachment0 = a
-        v.RelativeTo = Enum.ActuatorRelativeTo.World
-        v.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
-        v.MaxForce = math.max(50000, r.AssemblyMass * 3000)
-        v.VectorVelocity = Vector3.zero
-        v.Parent = r
-        charFly.velocity = v
-        
-        local o = Instance.new("AlignOrientation")
-        o.Name = "HunterFly"
-        o.Attachment0 = a
-        o.Mode = Enum.OrientationAlignmentMode.OneAttachment
-        o.Responsiveness = 14
-        o.MaxTorque = math.max(50000, r.AssemblyMass * 3000)
-        o.Parent = r
-        charFly.orientation = o
-        
-        h.AutoRotate = false
-        h.PlatformStand = true
-    end
-    
-    local cam = Camera
-    if not cam then return end
-    
-    local forward = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
-    if forward.Magnitude < 0.01 then forward = Vector3.new(r.CFrame.LookVector.X, 0, r.CFrame.LookVector.Z) end
-    if forward.Magnitude < 0.01 then forward = Vector3.new(0, 0, -1) end
-    forward = forward.Unit
-    
-    local right = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z)
-    if right.Magnitude < 0.01 then right = Vector3.new(-forward.Z, 0, forward.X) end
-    right = right.Unit
-    
-    local vector = Vector3.zero
-    if not UserInputService:GetFocusedTextBox() then
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then vector += forward end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then vector -= forward end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then vector -= right end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then vector += right end
-        if UserInputService:IsKeyDown(Enum.KeyCode.E) then vector += Vector3.yAxis end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Q) then vector -= Vector3.yAxis end
-    end
-    
-    local speed = math.clamp(Config.PlayerFlySpeed, 15, 120)
-    charFly.velocity.VectorVelocity = vector.Magnitude > 0 and vector.Unit * speed or Vector3.zero
-    charFly.orientation.CFrame = CFrame.lookAt(Vector3.zero, forward)
-end
-
---====================================
--- Main Loop
---====================================
-local timer = 0
-local flyTimer = 0
-local charFlyTimer = 0
-local speedTimer = 0
-
-conn(RunService.Heartbeat, function(dt)
-    if not alive then return end
-    
-    timer += dt
-    flyTimer += dt
-    charFlyTimer += dt
-    speedTimer += dt
-    
-    -- Speed
-    if Config.Speed and speedTimer >= 0.25 then
-        speedTimer = 0
-        local h = hum()
-        if h and math.abs(h.WalkSpeed - Config.Walk) > 0.1 then
-            h.WalkSpeed = Config.Walk
-        end
-    end
-    
-    -- Car Fly
-    if Config.CarFly and flyTimer >= 1/30 then
-        flyTimer = 0
-        pcall(updateCarFly)
-    end
-    
-    -- Player Fly
-    if Config.PlayerFly and charFlyTimer >= 1/30 then
-        charFlyTimer = 0
-        pcall(charFly.update)
-    end
-    
-    -- Radar Update
-    if timer >= 1.5 then
-        timer = 0
-        
-        if Config.Radar or Config.Aim or Config.RareAlert then
-            pcall(refreshCache)
-        end
-        
-        if Config.Radar then
-            local r = root()
-            local visible = {}
-            
-            for _, e in ipairs(cache) do
-                local d = r and (e.part.Position - r.Position).Magnitude or math.huge
-                if d <= Config.RadarRange then
-                    visible[#visible + 1] = {e = e, d = d}
-                end
+-- Car Speed
+Btn("🚗 CAR SPEED: OFF", 135, Color3.fromRGB(40, 40, 50), function()
+    CARSPEED = not CARSPEED
+    local char = LP.Character
+    if char then
+        local hum = char:FindFirstChild("Humanoid")
+        if hum and hum.SeatPart then
+            local seat = hum.SeatPart
+            if CARSPEED then
+                seat.MaxSpeed = 200
+            else
+                seat.MaxSpeed = 20
             end
-            
-            table.sort(visible, function(a, b) return a.d < b.d end)
-            
-            local shown = 0
-            local kept = {}
-            
-            for _, item in ipairs(visible) do
-                local e = item.e
-                local d = item.d
-                local match = living(e.model) and lizard(e.model) and 
-                             (Config.Filter == "الكل" or rarity(e.model) == Config.Filter)
-                
-                if match and shown < 8 then
-                    shown += 1
-                    kept[e.model] = true
-                    makeMarker(e)
-                    local bb = markers[e.model]
-                    if bb then
-                        bb.MaxDistance = Config.RadarRange
-                        local t = bb:FindFirstChildOfClass("TextLabel")
-                        if t then
-                            t.Text = speciesName(e.model) .. " | " .. rarity(e.model) .. "\n" .. math.floor(d) .. " وحدة"
-                            t.TextColor3 = rarityColors[rarity(e.model)] or C.white
-                        end
-                    end
-                elseif markers[e.model] then
-                    markers[e.model]:Destroy()
-                    markers[e.model] = nil
-                end
-            end
-            
-            for m, bb in pairs(markers) do
-                local p = part(m)
-                local d = (r and p and p.Parent) and (p.Position - r.Position).Magnitude or math.huge
-                if not kept[m] or not m.Parent or not living(m) or not lizard(m) or d > Config.RadarRange then
-                    bb:Destroy()
-                    markers[m] = nil
-                end
-            end
-            
-            local e, d = nearest(Config.Filter)
-            if nearestText then
-                nearestText.Text = e and ("أقرب ضب: " .. e.model.Name .. " | " .. math.floor(d) .. " وحدة") or "أقرب ضب: لا يوجد"
-            end
-        else
-            clearMarkers()
         end
     end
 end)
 
---====================================
--- Cleanup
---====================================
-local function cleanup()
-    if not alive then return end
-    alive = false
-    
-    Config.Radar = false
-    Config.Aim = false
-    Config.CarSpeed = false
-    Config.CarFly = false
-    Config.PlayerFly = false
-    Config.Speed = false
-    
-    StopAimbot()
-    stopCarFly()
-    charFly.stop()
-    clearMarkers()
-    
-    if fovGui and fovGui.Parent then fovGui:Destroy() end
-    
-    for _, c in ipairs(conns) do
-        pcall(function() c:Disconnect() end)
-    end
-    
-    gui:Destroy()
-end
-
--- Close button
-conn(close.MouseButton1Click, cleanup)
-
--- Minimize
-local minimized = false
-conn(mini.MouseButton1Click, function()
-    minimized = not minimized
-    side.Visible = not minimized
-    area.Visible = not minimized
-    status.Visible = not minimized
-    main.Size = minimized and UDim2.fromOffset(650, 66) or UDim2.fromOffset(650, 500)
-    mini.Text = minimized and "+" or "−"
-end)
-
--- Dragging
-local dragging, dragStart, frameStart = false, nil, nil
-conn(head.InputBegan, function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = i.Position
-        frameStart = main.Position
+-- Walk Speed
+Btn("🏃 SPEED: OFF", 180, Color3.fromRGB(40, 40, 50), function()
+    WALKSPEED = not WALKSPEED
+    local char = LP.Character
+    if char then
+        local hum = char:FindFirstChild("Humanoid")
+        if hum then
+            hum.WalkSpeed = WALKSPEED and 100 or 16
+        end
     end
 end)
 
-conn(UserInputService.InputChanged, function(i)
-    if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-        local d = i.Position - dragStart
-        main.Position = UDim2.new(frameStart.X.Scale, frameStart.X.Offset + d.X, frameStart.Y.Scale, frameStart.Y.Offset + d.Y)
+-- Fly
+local flyConn = nil
+Btn("✈️ FLY: OFF", 225, Color3.fromRGB(40, 40, 50), function()
+    FLY = not FLY
+    local char = LP.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    if FLY then
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        bv.Velocity = Vector3.new(0, 50, 0)
+        bv.Parent = root
+        flyConn = RunService.Heartbeat:Connect(function()
+            local cam = workspace.CurrentCamera
+            local dir = Vector3.new(0, 0, 0)
+            if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
+            if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0, 1, 0) end
+            bv.Velocity = dir * 100
+        end)
+    else
+        if flyConn then flyConn:Disconnect() flyConn = nil end
+        for _, v in pairs(root:GetChildren()) do
+            if v:IsA("BodyVelocity") then v:Destroy() end
+        end
     end
 end)
 
-conn(UserInputService.InputEnded, function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = false
+-- Teleport
+Btn("📍 TP TO MOUSE", 270, Color3.fromRGB(0, 120, 200), function()
+    local char = LP.Character
+    if char then
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 5, 0))
+        end
     end
 end)
 
--- Keybinds
-conn(UserInputService.InputBegan, function(input, gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        main.Visible = not main.Visible
-    end
-end)
-
--- Camera update
-conn(workspace:GetPropertyChangedSignal("CurrentCamera"), function()
-    Camera = workspace.CurrentCamera
-end)
-
-msg("HUNTER HUB v4.0 | كل المميزات شغالة ✅")
-print("✅ HUNTER HUB ULTRA v4.0 LOADED")
-print("🎯 Aimbot: يصيب الضبان تلقائياً")
-print("👁️ Radar: كشف محدد حسب الندرة")
-print("🚗 CarFly: طيران + سرعة")
-print("🏃 PlayerFly: طيران لاعب")
+print("✅ HUNTER HUB LOADED")
