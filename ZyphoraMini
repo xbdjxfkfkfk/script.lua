@@ -1,315 +1,917 @@
--- =========================================================
--- Discord Guard v3 — Membership lock + fast re-lock
--- =========================================================
+--[[
+    ╔══════════════════════════════════════════════════════════╗
+    ║           ⚡ ZYPHORA HUB ULTRA v2.0 ⚡                    ║
+    ║          Professional Roblox Script Hub                  ║
+    ╚══════════════════════════════════════════════════════════╝
+]]
 
+--====================================
+-- Services
+--====================================
 local Players = game:GetService("Players")
-local HttpService = game:GetService("HttpService")
-local LP = Players.LocalPlayer
-if not LP then warn("Guard: no LocalPlayer") return end
-local PG = LP:WaitForChild("PlayerGui", 12)
-if not PG then warn("Guard: PlayerGui unavailable") return end
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
 
--- ================== CONFIG ==================
-local API_BASE      = "https://FILL-YOUR-BACKEND.example.com"
-local AUTH_URL      = API_BASE .. "/auth"
-local POLL_INTERVAL = 15      -- كل ١٥ ثانية يفحص
-local NET_TOLERANCE = 3       -- ٣ فشل شبكة متتالية قبل القفل
-local KEY_FILE      = "discord_guard_key.txt"
--- ============================================
+--====================================
+-- Configuration
+--====================================
+local Config = {
+    -- ESP
+    ESP = false,
+    ESPColor = Color3.fromRGB(255, 50, 50),
+    ESPDistance = 1000,
+    ShowNames = true,
+    ShowDistance = true,
+    ShowHealth = true,
+    
+    -- Car Fly
+    CarFly = false,
+    FlySpeed = 100,
+    FlyHeight = 50,
+    
+    -- Movement
+    SpeedEnabled = false,
+    WalkSpeed = 16,
+    JumpPower = 50,
+    Noclip = false,
+    InfiniteJump = false,
+    
+    -- Auto
+    AutoCollect = false,
+    CollectRange = 50,
+    
+    -- Teleport
+    ClickTP = false,
+    
+    -- UI
+    Theme = {
+        Background = Color3.fromRGB(12, 12, 18),
+        Secondary = Color3.fromRGB(20, 20, 30),
+        Accent = Color3.fromRGB(0, 170, 255),
+        Accent2 = Color3.fromRGB(255, 100, 200),
+        Text = Color3.fromRGB(240, 240, 240),
+        Dark = Color3.fromRGB(35, 35, 45)
+    }
+}
 
-local guardGui   = nil
-local isLocked   = false
-local netFails   = 0
-local currentKey = nil
+--====================================
+-- Variables
+--====================================
+local connections = {}
+local espObjects = {}
+local flyObjects = {}
+local collectConnection = nil
+local noclipConnection = nil
 
--- ---------- HTTP ----------
-local function getRequestFn()
-    if syn and type(syn.request) == "function" then return syn.request end
-    if http and type(http.request) == "function" then return http.request end
-    if type(request) == "function" then return request end
-    if type(http_request) == "function" then return http_request end
-    return nil
+--====================================
+-- UI Creation
+--====================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ZyphoraUltra"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 999
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 260, 0, 420)
+MainFrame.Position = UDim2.new(0, 30, 0.5, -210)
+MainFrame.BackgroundColor3 = Config.Theme.Background
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 14)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Config.Theme.Accent
+MainStroke.Thickness = 2
+MainStroke.Transparency = 0.3
+MainStroke.Parent = MainFrame
+
+-- Shadow Effect
+local Shadow = Instance.new("ImageLabel")
+Shadow.Name = "Shadow"
+Shadow.Size = UDim2.new(1, 40, 1, 40)
+Shadow.Position = UDim2.new(0, -20, 0, -20)
+Shadow.BackgroundTransparency = 1
+Shadow.Image = "rbxassetid://5554236805"
+Shadow.ImageColor3 = Color3.new(0, 0, 0)
+Shadow.ImageTransparency = 0.5
+Shadow.ScaleType = Enum.ScaleType.Slice
+Shadow.SliceCenter = Rect.new(23, 23, 277, 277)
+Shadow.Parent = MainFrame
+
+-- Header
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1, 0, 0, 50)
+Header.BackgroundColor3 = Config.Theme.Secondary
+Header.BorderSizePixel = 0
+Header.Parent = MainFrame
+
+local HeaderCorner = Instance.new("UICorner")
+HeaderCorner.CornerRadius = UDim.new(0, 14)
+HeaderCorner.Parent = Header
+
+local HeaderFix = Instance.new("Frame")
+HeaderFix.Size = UDim2.new(1, 0, 0, 14)
+HeaderFix.Position = UDim2.new(0, 0, 1, -14)
+HeaderFix.BackgroundColor3 = Config.Theme.Secondary
+HeaderFix.BorderSizePixel = 0
+HeaderFix.Parent = Header
+
+-- Logo/Title
+local TitleIcon = Instance.new("TextLabel")
+TitleIcon.Size = UDim2.new(0, 35, 0, 35)
+TitleIcon.Position = UDim2.new(0, 12, 0, 8)
+TitleIcon.BackgroundColor3 = Config.Theme.Accent
+TitleIcon.Text = "⚡"
+TitleIcon.TextColor3 = Color3.new(1, 1, 1)
+TitleIcon.Font = Enum.Font.GothamBold
+TitleIcon.TextSize = 18
+TitleIcon.Parent = Header
+Instance.new("UICorner", TitleIcon).CornerRadius = UDim.new(0, 8)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -100, 1, 0)
+Title.Position = UDim2.new(0, 55, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "ZYPHORA ULTRA"
+Title.TextColor3 = Config.Theme.Accent
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 16
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+local Version = Instance.new("TextLabel")
+Version.Size = UDim2.new(0, 40, 0, 20)
+Version.Position = UDim2.new(0, 55, 0, 28)
+Version.BackgroundTransparency = 1
+Version.Text = "v2.0"
+Version.TextColor3 = Color3.fromRGB(150, 150, 150)
+Version.Font = Enum.Font.Gotham
+Version.TextSize = 11
+Version.TextXAlignment = Enum.TextXAlignment.Left
+Version.Parent = Header
+
+-- Close Button
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 32, 0, 32)
+CloseBtn.Position = UDim2.new(1, -42, 0, 9)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.new(1, 1, 1)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = Header
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
+
+-- Minimize Button
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 32, 0, 32)
+MinBtn.Position = UDim2.new(1, -80, 0, 9)
+MinBtn.BackgroundColor3 = Config.Theme.Dark
+MinBtn.Text = "─"
+MinBtn.TextColor3 = Color3.new(1, 1, 1)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 14
+MinBtn.Parent = Header
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 8)
+
+-- Content Container
+local Content = Instance.new("ScrollingFrame")
+Content.Size = UDim2.new(1, -16, 1, -66)
+Content.Position = UDim2.new(0, 8, 0, 58)
+Content.BackgroundTransparency = 1
+Content.BorderSizePixel = 0
+Content.ScrollBarThickness = 3
+Content.ScrollBarImageColor3 = Config.Theme.Accent
+Content.CanvasSize = UDim2.new(0, 0, 0, 0)
+Content.Parent = MainFrame
+
+local UIList = Instance.new("UIListLayout")
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Padding = UDim.new(0, 8)
+UIList.Parent = Content
+
+--====================================
+-- UI Components
+--====================================
+
+local function CreateSection(text, order)
+    local section = Instance.new("Frame")
+    section.Size = UDim2.new(1, 0, 0, 30)
+    section.BackgroundTransparency = 1
+    section.LayoutOrder = order
+    section.Parent = Content
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -10, 1, 0)
+    label.Position = UDim2.new(0, 5, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "  " .. text
+    label.TextColor3 = Config.Theme.Accent
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = section
+    
+    local line = Instance.new("Frame")
+    line.Size = UDim2.new(1, -10, 0, 1)
+    line.Position = UDim2.new(0, 5, 1, -5)
+    line.BackgroundColor3 = Config.Theme.Accent
+    line.BackgroundTransparency = 0.7
+    line.BorderSizePixel = 0
+    line.Parent = section
+    
+    return section
 end
 
-local function urlEncode(s)
-    return (tostring(s):gsub("([^%w%-%._~])", function(c)
-        return string.format("%%%02X", string.byte(c))
-    end))
-end
-
--- ---------- key storage ----------
-local function saveKey(k) pcall(function() if writefile then writefile(KEY_FILE, k) end end) end
-local function clearKey() pcall(function() if delfile and isfile and isfile(KEY_FILE) then delfile(KEY_FILE) end end) end
-local function loadKey()
-    local k
-    pcall(function()
-        if isfile and isfile(KEY_FILE) and readfile then k = readfile(KEY_FILE) end
+local function CreateToggle(text, order, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 40)
+    frame.BackgroundColor3 = Config.Theme.Secondary
+    frame.BorderSizePixel = 0
+    frame.LayoutOrder = order
+    frame.Parent = Content
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Config.Theme.Dark
+    stroke.Thickness = 1
+    stroke.Transparency = 0.5
+    stroke.Parent = frame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -60, 1, 0)
+    label.Position = UDim2.new(0, 12, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Config.Theme.Text
+    label.Font = Enum.Font.GothamSemibold
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+    
+    local switch = Instance.new("TextButton")
+    switch.Size = UDim2.new(0, 44, 0, 24)
+    switch.Position = UDim2.new(1, -54, 0.5, -12)
+    switch.BackgroundColor3 = Config.Theme.Dark
+    switch.Text = ""
+    switch.Parent = frame
+    Instance.new("UICorner", switch).CornerRadius = UDim.new(1, 0)
+    
+    local circle = Instance.new("Frame")
+    circle.Size = UDim2.new(0, 18, 0, 18)
+    circle.Position = UDim2.new(0, 3, 0.5, -9)
+    circle.BackgroundColor3 = Color3.new(1, 1, 1)
+    circle.BorderSizePixel = 0
+    circle.Parent = switch
+    Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
+    
+    local enabled = false
+    
+    local function Update()
+        if enabled then
+            TweenService:Create(circle, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+                Position = UDim2.new(1, -21, 0.5, -9)
+            }):Play()
+            TweenService:Create(switch, TweenInfo.new(0.2), {
+                BackgroundColor3 = Config.Theme.Accent
+            }):Play()
+        else
+            TweenService:Create(circle, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+                Position = UDim2.new(0, 3, 0.5, -9)
+            }):Play()
+            TweenService:Create(switch, TweenInfo.new(0.2), {
+                BackgroundColor3 = Config.Theme.Dark
+            }):Play()
+        end
+    end
+    
+    switch.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        Update()
+        callback(enabled)
     end)
-    if k then k = k:gsub("%s+", "") end
-    if k == "" then k = nil end
-    return k
+    
+    return frame
 end
 
--- ---------- backend ----------
--- returns ok(boolean), reason(string), message(string|nil)
-local function checkMembership(key)
-    local reqFn = getRequestFn()
-    if not reqFn then return false, "no_http", "الإكسكيوتور ما يدعم HTTP" end
-    if not key or key == "" then return false, "no_key", "لا يوجد مفتاح" end
-
-    local ok, res = pcall(function()
-        return reqFn({
-            Url = API_BASE .. "/check?key=" .. urlEncode(key),
-            Method = "GET",
-            Headers = { ["Content-Type"] = "application/json" },
-            Timeout = 10000,
-        })
+local function CreateSlider(text, order, min, max, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 55)
+    frame.BackgroundColor3 = Config.Theme.Secondary
+    frame.BorderSizePixel = 0
+    frame.LayoutOrder = order
+    frame.Parent = Content
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.6, 0, 0, 20)
+    label.Position = UDim2.new(0, 12, 0, 8)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Config.Theme.Text
+    label.Font = Enum.Font.GothamSemibold
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+    
+    local valueLabel = Instance.new("TextLabel")
+    valueLabel.Size = UDim2.new(0.3, -10, 0, 20)
+    valueLabel.Position = UDim2.new(0.7, 0, 0, 8)
+    valueLabel.BackgroundTransparency = 1
+    valueLabel.Text = tostring(default)
+    valueLabel.TextColor3 = Config.Theme.Accent
+    valueLabel.Font = Enum.Font.GothamBold
+    valueLabel.TextSize = 12
+    valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    valueLabel.Parent = frame
+    
+    local sliderBG = Instance.new("Frame")
+    sliderBG.Size = UDim2.new(1, -24, 0, 6)
+    sliderBG.Position = UDim2.new(0, 12, 0, 38)
+    sliderBG.BackgroundColor3 = Config.Theme.Dark
+    sliderBG.BorderSizePixel = 0
+    sliderBG.Parent = frame
+    Instance.new("UICorner", sliderBG).CornerRadius = UDim.new(1, 0)
+    
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+    fill.BackgroundColor3 = Config.Theme.Accent
+    fill.BorderSizePixel = 0
+    fill.Parent = sliderBG
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+    
+    local thumb = Instance.new("Frame")
+    thumb.Size = UDim2.new(0, 16, 0, 16)
+    thumb.Position = UDim2.new((default - min) / (max - min), -8, 0.5, -8)
+    thumb.BackgroundColor3 = Color3.new(1, 1, 1)
+    thumb.BorderSizePixel = 0
+    thumb.Parent = sliderBG
+    Instance.new("UICorner", thumb).CornerRadius = UDim.new(1, 0)
+    
+    local dragging = false
+    
+    local function Update(input)
+        local relX = math.clamp((input.Position.X - sliderBG.AbsolutePosition.X) / sliderBG.AbsoluteSize.X, 0, 1)
+        local value = math.floor(min + (max - min) * relX)
+        
+        fill.Size = UDim2.new(relX, 0, 1, 0)
+        thumb.Position = UDim2.new(relX, -8, 0.5, -8)
+        valueLabel.Text = tostring(value)
+        callback(value)
+    end
+    
+    thumb.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+        end
     end)
-    if not ok or res == nil then return false, "net_fail", "تعذر الاتصال بالسيرفر" end
-
-    local body
-    if type(res) == "table" then body = res.Body or res.body
-    elseif type(res) == "string" then body = res end
-    if not body or body == "" then return false, "net_fail", "رد فارغ" end
-
-    local pok, parsed = pcall(function() return HttpService:JSONDecode(body) end)
-    if not pok or type(parsed) ~= "table" then return false, "net_fail", "رد غير صالح" end
-
-    if parsed.ok == true then return true, "ok", nil end
-    return false, tostring(parsed.reason or "denied"), tostring(parsed.message or "غير مصرح")
-end
-
--- ---------- open link ----------
-local function copyAuthLink() pcall(function() if setclipboard then setclipboard(AUTH_URL) end end) end
-local function openAuthLink()
-    pcall(function()
-        local env = getgenv and getgenv() or _G
-        if env and type(env.openUrl) == "function" then env.openUrl(AUTH_URL) end
+    
+    sliderBG.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            Update(input)
+        end
     end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            Update(input)
+        end
+    end)
+    
+    return frame
 end
 
--- ---------- GUI ----------
-local function destroyGuard()
-    if guardGui and guardGui.Parent then guardGui:Destroy() end
-    guardGui = nil
+local function CreateButton(text, order, callback, color)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 38)
+    btn.BackgroundColor3 = color or Config.Theme.Accent
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    btn.LayoutOrder = order
+    btn.Parent = Content
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {
+            BackgroundColor3 = (color or Config.Theme.Accent):Lerp(Color3.new(1, 1, 1), 0.1)
+        }):Play()
+    end)
+    
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {
+            BackgroundColor3 = color or Config.Theme.Accent
+        }):Play()
+    end)
+    
+    btn.MouseButton1Click:Connect(callback)
+    
+    return btn
 end
 
-local function buildPanel(cfg)
-    destroyGuard()
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "DiscordGuard"
-    gui.ResetOnSpawn = false
-    gui.DisplayOrder = 9999
-    gui.Parent = PG
+--====================================
+-- Features
+--====================================
 
-    local h = cfg.height or 240
-    local panel = Instance.new("Frame")
-    panel.Size = UDim2.fromOffset(460, h)
-    panel.Position = UDim2.new(0.5, -230, 0.5, -h/2)
-    panel.BackgroundColor3 = Color3.fromRGB(18, 18, 20)
-    panel.BorderSizePixel = 0
-    panel.Parent = gui
-
-    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 10); c.Parent = panel
-    local st = Instance.new("UIStroke"); st.Color = Color3.fromRGB(239, 28, 37); st.Thickness = 2; st.Parent = panel
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -40, 0, 30)
-    title.Position = UDim2.new(0, 20, 0, 15)
-    title.BackgroundTransparency = 1
-    title.Text = cfg.title or "Discord مطلوب"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 18
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = panel
-
-    local body = Instance.new("TextLabel")
-    body.Size = UDim2.new(1, -40, 0, 65)
-    body.Position = UDim2.new(0, 20, 0, 50)
-    body.BackgroundTransparency = 1
-    body.Text = cfg.message or ""
-    body.TextColor3 = Color3.fromRGB(220, 220, 220)
-    body.Font = Enum.Font.Gotham
-    body.TextSize = 13
-    body.TextWrapped = true
-    body.TextYAlignment = Enum.TextYAlignment.Top
-    body.Parent = panel
-
-    local input
-    if cfg.showInput then
-        input = Instance.new("TextBox")
-        input.Size = UDim2.new(1, -40, 0, 36)
-        input.Position = UDim2.new(0, 20, 0, 118)
-        input.BackgroundColor3 = Color3.fromRGB(30, 30, 34)
-        input.TextColor3 = Color3.fromRGB(255, 255, 255)
-        input.PlaceholderText = "الصق المفتاح هنا"
-        input.PlaceholderColor3 = Color3.fromRGB(120, 120, 125)
-        input.Font = Enum.Font.Code
-        input.TextSize = 13
-        input.ClearTextOnFocus = false
-        input.Parent = panel
-        local ic = Instance.new("UICorner"); ic.CornerRadius = UDim.new(0, 6); ic.Parent = input
-    end
-
-    local function makeBtn(text, x, w, color, cb)
-        local b = Instance.new("TextButton")
-        b.Size = UDim2.new(0, w, 0, 40)
-        b.Position = UDim2.new(0, x, 1, -52)
-        b.BackgroundColor3 = color
-        b.Text = text
-        b.TextColor3 = Color3.fromRGB(255, 255, 255)
-        b.Font = Enum.Font.GothamBold
-        b.TextSize = 13
-        b.Parent = panel
-        local bc = Instance.new("UICorner"); bc.CornerRadius = UDim.new(0, 8); bc.Parent = b
-        b.MouseButton1Click:Connect(cb)
-        return b
-    end
-
-    if cfg.showInput then
-        makeBtn("تحقق", 20, 130, Color3.fromRGB(239, 28, 37), function()
-            if not input then return end
-            local k = input.Text:gsub("%s+", "")
-            if k == "" then body.Text = "أدخل المفتاح أولاً." return end
-            body.Text = "جاري التحقق..."
-            local ok, reason, msg = checkMembership(k)
-            if ok then
-                currentKey = k; saveKey(k); netFails = 0
-                destroyGuard(); isLocked = false
-                if cfg.onVerified then cfg.onVerified() end
-            else
-                body.Text = "✕ فشل: " .. tostring(msg or reason)
-            end
-        end)
-        makeBtn("احصل على مفتاح", 170, 200, Color3.fromRGB(88, 101, 242), function()
-            copyAuthLink(); openAuthLink()
-            body.Text = "تم فتح الرابط. سجّل الدخول ثم الصق المفتاح."
-        end)
-    else
-        -- زر "إعادة المحاولة" — يستخدم المفتاح المحفوظ
-        makeBtn(cfg.buttonText or "إعادة المحاولة", 20, 220, Color3.fromRGB(239, 28, 37), function()
-            body.Text = "جاري التحقق..."
-            local ok, reason, msg = checkMembership(currentKey)
-            if ok then
-                netFails = 0
-                destroyGuard(); isLocked = false
-                if cfg.onVerified then cfg.onVerified() end
-            else
-                body.Text = "✕ " .. tostring(msg or reason) .. "\nتأكد إنك داخل السيرفر ثم اضغط إعادة المحاولة."
-            end
-        end)
-        makeBtn("رابط السيرفر", 260, 180, Color3.fromRGB(88, 101, 242), function()
-            copyAuthLink(); openAuthLink()
-            body.Text = "تم فتح الرابط. ادخل السيرفر ثم اضغط إعادة المحاولة."
-        end)
-    end
-
-    guardGui = gui
-    return body
-end
-
-local function showKeyPanel(msg)
-    isLocked = true
-    buildPanel({
-        title = "Discord مطلوب",
-        message = msg or "لازم تدخل سيرفر Discord حقنا أول.\nاضغط \"احصل على مفتاح\"، سجّل دخول بحسابك، ثم الصق المفتاح.",
-        showInput = true,
-        height = 265,
-    })
-end
-
-local function showReLockPanel(msg)
-    isLocked = true
-    buildPanel({
-        title = "Discord مطلوب",
-        message = msg or "✕ طلعت من سيرفر Discord.\nادخل السيرفر مرة ثانية ثم اضغط إعادة المحاولة.",
-        showInput = false,
-        buttonText = "إعادة المحاولة",
-        height = 210,
-    })
-end
-
--- ---------- main ----------
-local started = false
-local function runMain()
-    -- =========================================================
-    -- السكربت الحقيقي يبدأ هنا
-    -- =========================================================
-    -- launchRedline()
-end
-
-local function onVerified()
-    if not started then
-        started = true
-        runMain()
-    end
-end
-
-local function lockOnLeave(message)
-    if not isLocked then
-        showReLockPanel(message)
-    end
-end
-
-local function startWatchdog()
-    task.spawn(function()
-        while true do
-            task.wait(POLL_INTERVAL)
-            local ok, reason, msg = checkMembership(currentKey)
-
-            if ok then
-                netFails = 0
-                if isLocked then
-                    destroyGuard()
-                    isLocked = false
-                    if onVerified then onVerified() end
+-- ESP System
+local function CreateESP(player)
+    if not player.Character then return end
+    
+    -- Highlight
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP_" .. player.Name
+    highlight.FillColor = Config.ESPColor
+    highlight.OutlineColor = Color3.new(1, 1, 1)
+    highlight.FillTransparency = 0.6
+    highlight.OutlineTransparency = 0.2
+    highlight.Adornee = player.Character
+    highlight.Parent = ScreenGui
+    
+    table.insert(espObjects, highlight)
+    
+    -- Billboard
+    if Config.ShowNames or Config.ShowDistance then
+        local head = player.Character:FindFirstChild("Head")
+        if head then
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "ESP_Billboard_" .. player.Name
+            billboard.Size = UDim2.new(0, 120, 0, 50)
+            billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+            billboard.Adornee = head
+            billboard.AlwaysOnTop = true
+            billboard.Parent = ScreenGui
+            
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = player.Name
+            nameLabel.TextColor3 = Config.ESPColor
+            nameLabel.Font = Enum.Font.GothamBold
+            nameLabel.TextSize = 12
+            nameLabel.TextStrokeTransparency = 0.5
+            nameLabel.Parent = billboard
+            
+            local distLabel = Instance.new("TextLabel")
+            distLabel.Size = UDim2.new(1, 0, 0.5, 0)
+            distLabel.Position = UDim2.new(0, 0, 0.5, 0)
+            distLabel.BackgroundTransparency = 1
+            distLabel.Text = "0m"
+            distLabel.TextColor3 = Color3.new(1, 1, 1)
+            distLabel.Font = Enum.Font.Gotham
+            distLabel.TextSize = 10
+            distLabel.TextStrokeTransparency = 0.5
+            distLabel.Parent = billboard
+            
+            table.insert(espObjects, billboard)
+            
+            -- Update distance
+            task.spawn(function()
+                while billboard and billboard.Parent do
+                    local myChar = LocalPlayer.Character
+                    local theirChar = player.Character
+                    if myChar and theirChar then
+                        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+                        local theirRoot = theirChar:FindFirstChild("HumanoidRootPart")
+                        if myRoot and theirRoot then
+                            local dist = math.floor((myRoot.Position - theirRoot.Position).Magnitude)
+                            distLabel.Text = dist .. "m"
+                            billboard.Enabled = dist <= Config.ESPDistance
+                        end
+                    end
+                    task.wait(0.1)
                 end
-            else
-                if reason == "left_guild" then
-                    -- طلع من السيرفر → قفل فورًا
-                    lockOnLeave("✕ طلعت من سيرفر Discord.\nادخل السيرفر مرة ثانية ثم اضغط إعادة المحاولة.")
-                elseif reason == "bad_key" then
-                    -- المفتاح انتهى/غير صالح → يطلب مفتاح جديد
-                    currentKey = nil; clearKey(); started = false
-                    showKeyPanel("✕ مفتاحك غير صالح. احصل على مفتاح جديد.")
-                    return
-                else
-                    -- مشكلة شبكة → تحمّل كم محاولة
-                    netFails = netFails + 1
-                    if netFails >= NET_TOLERANCE then
-                        lockOnLeave("✕ تعذر التحقق من العضوية.\nتأكد إنك داخل السيرفر ثم اضغط إعادة المحاولة.")
+            end)
+        end
+    end
+end
+
+local function ClearESP()
+    for _, obj in pairs(espObjects) do
+        if obj then obj:Destroy() end
+    end
+    espObjects = {}
+end
+
+local function UpdateESP()
+    ClearESP()
+    if Config.ESP then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                CreateESP(player)
+            end
+        end
+    end
+end
+
+-- Car Fly System
+local flyBodyVelocity = nil
+local flyBodyGyro = nil
+local flyConnection = nil
+
+local function StartCarFly()
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum or not hum.SeatPart then return end
+    
+    local vehicle = hum.SeatPart:FindFirstAncestorOfClass("Model")
+    local root = vehicle:FindFirstChildWhichIsA("BasePart", true)
+    if not root then return end
+    
+    flyBodyVelocity = Instance.new("BodyVelocity")
+    flyBodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    flyBodyVelocity.Parent = root
+    
+    flyBodyGyro = Instance.new("BodyGyro")
+    flyBodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    flyBodyGyro.P = 9e4
+    flyBodyGyro.D = 9e3
+    flyBodyGyro.Parent = root
+    
+    flyConnection = RunService.Heartbeat:Connect(function()
+        if not Config.CarFly then return end
+        
+        local direction = Vector3.new(0, 0, 0)
+        
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            direction = direction + Camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            direction = direction - Camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            direction = direction - Camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            direction = direction + Camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            direction = direction + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            direction = direction - Vector3.new(0, 1, 0)
+        end
+        
+        flyBodyVelocity.Velocity = direction * Config.FlySpeed
+        flyBodyGyro.CFrame = Camera.CFrame
+    end)
+end
+
+local function StopCarFly()
+    if flyConnection then
+        flyConnection:Disconnect()
+        flyConnection = nil
+    end
+    if flyBodyVelocity then flyBodyVelocity:Destroy() flyBodyVelocity = nil end
+    if flyBodyGyro then flyBodyGyro:Destroy() flyBodyGyro = nil end
+end
+
+-- Speed System
+local function UpdateSpeed()
+    local char = LocalPlayer.Character
+    if char then
+        local hum = char:FindFirstChild("Humanoid")
+        if hum then
+            hum.WalkSpeed = Config.SpeedEnabled and Config.WalkSpeed * 2 or Config.WalkSpeed
+        end
+    end
+end
+
+-- Noclip System
+local function UpdateNoclip()
+    if Config.Noclip then
+        if not noclipConnection then
+            noclipConnection = RunService.Stepped:Connect(function()
+                local char = LocalPlayer.Character
+                if char then
+                    for _, v in pairs(char:GetDescendants()) do
+                        if v:IsA("BasePart") then
+                            v.CanCollide = false
+                        end
+                    end
+                end
+            end)
+        end
+    else
+        if noclipConnection then
+            noclipConnection:Disconnect()
+            noclipConnection = nil
+        end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in pairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = true
+                end
+            end
+        end
+    end
+end
+
+-- Auto Collect
+local function UpdateAutoCollect()
+    if Config.AutoCollect then
+        collectConnection = RunService.Heartbeat:Connect(function()
+            local char = LocalPlayer.Character
+            if not char then return end
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if not root then return end
+            
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") then
+                    local name = obj.Name:lower()
+                    if name:find("money") or name:find("cash") or name:find("coin") or name:find("collect") then
+                        local dist = (obj.Position - root.Position).Magnitude
+                        if dist < Config.CollectRange then
+                            firetouchinterest(root, obj, 0)
+                            firetouchinterest(root, obj, 1)
+                        end
                     end
                 end
             end
-        end
-    end)
-end
-
-local function boot()
-    local saved = loadKey()
-    if saved then
-        local ok, reason, msg = checkMembership(saved)
-        if ok then
-            currentKey = saved
-            destroyGuard(); isLocked = false
-            onVerified()
-            startWatchdog()
-            return
-        elseif reason == "left_guild" then
-            currentKey = saved
-            showReLockPanel("✕ أنت مو داخل سيرفر Discord.\nادخل السيرفر ثم اضغط إعادة المحاولة.")
-            startWatchdog()
-            return
-        else
-            clearKey()
+        end)
+    else
+        if collectConnection then
+            collectConnection:Disconnect()
+            collectConnection = nil
         end
     end
-    showKeyPanel()
 end
 
-local ok, err = pcall(boot)
-if not ok then
-    warn("Guard startup error:", err)
-    showReLockPanel("خطأ: " .. tostring(err):sub(1, 300))
-end
+--====================================
+-- Build UI
+--====================================
+
+local order = 1
+
+-- ESP Section
+CreateSection("👁️ ESP / كشف", order) order = order + 1
+
+CreateToggle("تفعيل ESP", order, function(enabled)
+    Config.ESP = enabled
+    UpdateESP()
+end) order = order + 1
+
+CreateSlider("مسافة الكشف", order, 100, 5000, 1000, function(value)
+    Config.ESPDistance = value
+end) order = order + 1
+
+-- Car Section
+CreateSection("🚗 السيارة / طيران", order) order = order + 1
+
+CreateToggle("طيران السيارة", order, function(enabled)
+    Config.CarFly = enabled
+    if enabled then StartCarFly() else StopCarFly() end
+end) order = order + 1
+
+CreateSlider("سرعة الطيران", order, 50, 500, 100, function(value)
+    Config.FlySpeed = value
+end) order = order + 1
+
+-- Movement Section
+CreateSection("🏃 الحركة / سرعة", order) order = order + 1
+
+CreateToggle("سرعة مضاعفة", order, function(enabled)
+    Config.SpeedEnabled = enabled
+    UpdateSpeed()
+end) order = order + 1
+
+CreateSlider("سرعة المشي", order, 16, 500, 16, function(value)
+    Config.WalkSpeed = value
+    UpdateSpeed()
+end) order = order + 1
+
+CreateToggle("تجاوز الجدران", order, function(enabled)
+    Config.Noclip = enabled
+    UpdateNoclip()
+end) order = order + 1
+
+CreateToggle("قفز لا نهائي", order, function(enabled)
+    Config.InfiniteJump = enabled
+end) order = order + 1
+
+-- Auto Section
+CreateSection("🤖 تلقائي", order) order = order + 1
+
+CreateToggle("تجميع تلقائي", order, function(enabled)
+    Config.AutoCollect = enabled
+    UpdateAutoCollect()
+end) order = order + 1
+
+CreateSlider("مسافة التجميع", order, 10, 200, 50, function(value)
+    Config.CollectRange = value
+end) order = order + 1
+
+-- Teleport Section
+CreateSection("📍 تنقل", order) order = order + 1
+
+CreateButton("تليبورت للماوس", order, function()
+    local char = LocalPlayer.Character
+    if char then
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 5, 0))
+        end
+    end
+end, Color3.fromRGB(0, 150, 100)) order = order + 1
+
+CreateButton("تليبورت لأقرب لاعب", order, function()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local closest = nil
+    local closestDist = math.huge
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local theirRoot = player.Character:FindFirstChild("HumanoidRootPart")
+            if theirRoot then
+                local dist = (theirRoot.Position - root.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closest = theirRoot
+                end
+            end
+        end
+    end
+    
+    if closest then
+        root.CFrame = closest.CFrame * CFrame.new(0, 0, -3)
+    end
+end, Color3.fromRGB(150, 100, 200)) order = order + 1
+
+-- Utility Section
+CreateSection("🛠️ أدوات", order) order = order + 1
+
+CreateButton("إعادة تعيين الكل", order, function()
+    Config.ESP = false
+    Config.CarFly = false
+    Config.SpeedEnabled = false
+    Config.Noclip = false
+    Config.AutoCollect = false
+    
+    ClearESP()
+    StopCarFly()
+    UpdateSpeed()
+    UpdateNoclip()
+    UpdateAutoCollect()
+    
+    -- Reset UI
+    for _, toggle in pairs(Content:GetChildren()) do
+        if toggle:IsA("Frame") then
+            local switch = toggle:FindFirstChildWhichIsA("TextButton")
+            if switch then
+                local circle = switch:FindFirstChildWhichIsA("Frame")
+                if circle then
+                    circle.Position = UDim2.new(0, 3, 0.5, -9)
+                    switch.BackgroundColor3 = Config.Theme.Dark
+                end
+            end
+        end
+    end
+end, Color3.fromRGB(200, 50, 50)) order = order + 1
+
+-- Update canvas size
+Content.CanvasSize = UDim2.new(0, 0, 0, UIList.AbsoluteContentSize.Y + 20)
+
+--====================================
+-- Global Keybinds
+--====================================
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    -- RightShift to toggle UI
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+    
+    -- Infinite Jump
+    if input.KeyCode == Enum.KeyCode.Space and Config.InfiniteJump then
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChild("Humanoid")
+            if hum then
+                hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end
+end)
+
+-- Player added/removed for ESP
+Players.PlayerAdded:Connect(function(player)
+    if Config.ESP then
+        player.CharacterAdded:Connect(function()
+            task.wait(1)
+            CreateESP(player)
+        end)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    for i, obj in pairs(espObjects) do
+        if obj.Name:find(player.Name) then
+            obj:Destroy()
+            table.remove(espObjects, i)
+        end
+    end
+end)
+
+-- Character respawn
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    UpdateSpeed()
+    if Config.CarFly then
+        StopCarFly()
+        task.wait(0.5)
+        StartCarFly()
+    end
+end)
+
+--====================================
+-- Toggle Button (Floating)
+--====================================
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 20, 0, 20)
+ToggleBtn.BackgroundColor3 = Config.Theme.Accent
+ToggleBtn.Text = "⚡"
+ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 22
+ToggleBtn.Parent = ScreenGui
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 12)
+
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Color = Config.Theme.Accent2
+ToggleStroke.Thickness = 2
+ToggleStroke.Transparency = 0.3
+ToggleStroke.Parent = ToggleBtn
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+--====================================
+-- Close/Minimize
+--====================================
+
+CloseBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+end)
+
+MinBtn.MouseButton1Click:Connect(function()
+    Content.Visible = not Content.Visible
+    if Content.Visible then
+        MainFrame:TweenSize(UDim2.new(0, 260, 0, 420), "Out", "Quad", 0.3, true)
+    else
+        MainFrame:TweenSize(UDim2.new(0, 260, 0, 50), "Out", "Quad", 0.3, true)
+    end
+end)
+
+--====================================
+-- Load Message
+--====================================
+
+print([[
+╔══════════════════════════════════════════════════════════╗
+║           ⚡ ZYPHORA HUB ULTRA v2.0 ⚡                    ║
+║          Professional Roblox Script Hub                  ║
+╠══════════════════════════════════════════════════════════╣
+║  RightShift - Toggle UI                                  ║
+║  ESP - Player ESP with Distance                          ║
+║  CarFly - Fly any vehicle                                ║
+║  Speed - Custom walk speed                               ║
+║  Noclip - Walk through walls                             ║
+║  AutoCollect - Auto collect items                        ║
+║  ClickTP - Teleport to mouse                             ║
+╚══════════════════════════════════════════════════════════╝
+]])
