@@ -1,507 +1,93 @@
---[[
-    ╔══════════════════════════════════════════════════════════╗
-    ║           🦎 HUNTER HUB ULTRA v3.1 🦎                    ║
-    ║          ESP محدد + تاجر + Aimbot محسّن                  ║
-    ╚══════════════════════════════════════════════════════════╝
-]]
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
-local Camera = workspace.CurrentCamera
-
 --====================================
--- الإعدادات
+-- الجزء 3: Aimbot الحقيقي + التشغيل
 --====================================
-local Config = {
-    -- ESP
-    ESP = false,
-    ESPTrader = false,
-    ShowNormal = false,
-    ShowFancy = true,      -- فاخر
-    ShowLegendary = true,  -- أسطوري
-    
-    -- Aimbot
-    Aimbot = false,
-    AimbotKey = Enum.KeyCode.Q,
-    
-    -- Car
-    CarSpeed = false,
-    CarSpeedValue = 200,
-    
-    -- إشعارات
-    RareNotify = true,
-}
 
--- متغيرات
-local espObjects = {}
-local traderESP = nil
-local aimbotConnection = nil
-local carConnection = nil
-local notifiedRares = {}
+-- FOV Circle
+local fovGui = inst("ScreenGui", {
+    Name = "HunterFOV",
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    DisplayOrder = 89
+}, PlayerGui)
 
---====================================
--- الواجهة
---====================================
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HunterHubV31"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+local fovCircle = inst("Frame", {
+    Name = "FOVCircle",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Visible = false
+}, fovGui)
+round(fovCircle, 1000)
 
-local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 300, 0, 520)
-Main.Position = UDim2.new(0, 25, 0.5, -260)
-Main.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
-Main.BorderSizePixel = 0
-Main.Active = true
-Main.Draggable = true
-Main.ClipsDescendants = true
-Main.Parent = ScreenGui
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
+inst("UIStroke", {Color = C.accent, Thickness = 2, Transparency = 0.1}, fovCircle)
 
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(255, 200, 50)
-Stroke.Thickness = 2
-Stroke.Parent = Main
+local fovDot = inst("Frame", {
+    Name = "Center",
+    Size = UDim2.fromOffset(4, 4),
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    BackgroundColor3 = C.accent,
+    BorderSizePixel = 0
+}, fovCircle)
+round(fovDot, 100)
 
--- العنوان
-local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 50)
-Header.BackgroundColor3 = Color3.fromRGB(18, 18, 25)
-Header.BorderSizePixel = 0
-Header.Parent = Main
-Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 14)
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -60, 1, 0)
-Title.Position = UDim2.new(0, 15, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "🦎 HUNTER HUB v3.1"
-Title.TextColor3 = Color3.fromRGB(255, 200, 50)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Header
-
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 32, 0, 32)
-CloseBtn.Position = UDim2.new(1, -40, 0, 9)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-CloseBtn.Text = "✕"
-CloseBtn.TextColor3 = Color3.new(1, 1, 1)
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 14
-CloseBtn.Parent = Header
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
-
--- المحتوى
-local Content = Instance.new("ScrollingFrame")
-Content.Size = UDim2.new(1, -16, 1, -60)
-Content.Position = UDim2.new(0, 8, 0, 55)
-Content.BackgroundTransparency = 1
-Content.BorderSizePixel = 0
-Content.ScrollBarThickness = 3
-Content.ScrollBarImageColor3 = Color3.fromRGB(255, 200, 50)
-Content.CanvasSize = UDim2.new(0, 0, 0, 0)
-Content.Parent = Main
-
-local UIList = Instance.new("UIListLayout")
-UIList.SortOrder = Enum.SortOrder.LayoutOrder
-UIList.Padding = UDim.new(0, 6)
-UIList.Parent = Content
-
---====================================
--- دوال الواجهة
---====================================
-local function CreateSection(text, order)
-    local s = Instance.new("Frame")
-    s.Size = UDim2.new(1, 0, 0, 28)
-    s.BackgroundTransparency = 1
-    s.LayoutOrder = order
-    s.Parent = Content
-    
-    local l = Instance.new("TextLabel")
-    l.Size = UDim2.new(1, -10, 1, 0)
-    l.Position = UDim2.new(0, 5, 0, 0)
-    l.BackgroundTransparency = 1
-    l.Text = "  " .. text
-    l.TextColor3 = Color3.fromRGB(255, 200, 50)
-    l.Font = Enum.Font.GothamBold
-    l.TextSize = 12
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.Parent = s
-    
-    local line = Instance.new("Frame")
-    line.Size = UDim2.new(1, -10, 0, 1)
-    line.Position = UDim2.new(0, 5, 1, -4)
-    line.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-    line.BackgroundTransparency = 0.7
-    line.BorderSizePixel = 0
-    line.Parent = s
-end
-
-local function CreateBtn(text, order, color, callback)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, 0, 0, 38)
-    b.BackgroundColor3 = color or Color3.fromRGB(35, 35, 45)
-    b.Text = text
-    b.TextColor3 = Color3.new(1, 1, 1)
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 13
-    b.LayoutOrder = order
-    b.Parent = Content
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
-    
-    b.MouseButton1Click:Connect(callback)
-    return b
-end
-
-local function CreateToggle(text, order, default, callback)
-    local f = Instance.new("Frame")
-    f.Size = UDim2.new(1, 0, 0, 38)
-    f.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-    f.BorderSizePixel = 0
-    f.LayoutOrder = order
-    f.Parent = Content
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
-    
-    local l = Instance.new("TextLabel")
-    l.Size = UDim2.new(1, -60, 1, 0)
-    l.Position = UDim2.new(0, 12, 0, 0)
-    l.BackgroundTransparency = 1
-    l.Text = text
-    l.TextColor3 = Color3.fromRGB(240, 240, 240)
-    l.Font = Enum.Font.GothamSemibold
-    l.TextSize = 13
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.Parent = f
-    
-    local sw = Instance.new("TextButton")
-    sw.Size = UDim2.new(0, 44, 0, 24)
-    sw.Position = UDim2.new(1, -54, 0.5, -12)
-    sw.BackgroundColor3 = default and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(50, 50, 60)
-    sw.Text = ""
-    sw.Parent = f
-    Instance.new("UICorner", sw).CornerRadius = UDim.new(1, 0)
-    
-    local c = Instance.new("Frame")
-    c.Size = UDim2.new(0, 18, 0, 18)
-    c.Position = default and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
-    c.BackgroundColor3 = Color3.new(1, 1, 1)
-    c.BorderSizePixel = 0
-    c.Parent = sw
-    Instance.new("UICorner", c).CornerRadius = UDim.new(1, 0)
-    
-    local on = default or false
-    
-    sw.MouseButton1Click:Connect(function()
-        on = not on
-        if on then
-            TweenService:Create(c, TweenInfo.new(0.2), {Position = UDim2.new(1, -21, 0.5, -9)}):Play()
-            TweenService:Create(sw, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 200, 50)}):Play()
-        else
-            TweenService:Create(c, TweenInfo.new(0.2), {Position = UDim2.new(0, 3, 0.5, -9)}):Play()
-            TweenService:Create(sw, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(50, 50, 60)}):Play()
-        end
-        callback(on)
-    end)
-    
-    return {frame = f, set = function(val) on = val end, get = function() return on end}
+local function updateCircle()
+    local enabled = Config.Aim and Camera
+    fovCircle.Visible = enabled
+    if not enabled then return end
+    local radius = math.clamp(Config.FOV, 10, 150)
+    fovCircle.Size = UDim2.fromOffset(radius * 2, radius * 2)
+    local vp = Camera.ViewportSize
+    fovCircle.Position = UDim2.fromOffset(vp.X * 0.5, vp.Y * 0.5)
 end
 
 --====================================
--- نظام الإشعارات
+-- AIMBOT الحقيقي
 --====================================
-local function Notify(text, color)
-    local notif = Instance.new("Frame")
-    notif.Size = UDim2.new(0, 250, 0, 50)
-    notif.Position = UDim2.new(0.5, -125, 0, -60)
-    notif.BackgroundColor3 = color or Color3.fromRGB(255, 200, 50)
-    notif.BorderSizePixel = 0
-    notif.Parent = ScreenGui
-    Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 10)
-    
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -20, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 14
-    label.TextWrapped = true
-    label.Parent = notif
-    
-    -- دخول
-    notif:TweenPosition(UDim2.new(0.5, -125, 0, 20), "Out", "Back", 0.3, true)
-    
-    -- خروج بعد 3 ثواني
-    task.delay(3, function()
-        notif:TweenPosition(UDim2.new(0.5, -125, 0, -60), "Out", "Quad", 0.3, true, function()
-            notif:Destroy()
-        end)
-    end)
-end
-
---====================================
--- تصنيف الضبان
---====================================
-local function GetLizardType(model)
-    local name = model.Name:lower()
-    
-    -- أسطوري (Legendary)
-    if name:find("legendary") or name:find("اسطوري") or name:find("mythic") or name:find("ancient") then
-        return "Legendary", Color3.fromRGB(255, 50, 255)
-    end
-    
-    -- فاخر (Fancy/Premium)
-    if name:find("fancy") or name:find("فاخر") or name:find("premium") or name:find("golden") or name:find("gold") then
-        return "Fancy", Color3.fromRGB(255, 200, 50)
-    end
-    
-    -- عادي (Normal)
-    return "Normal", Color3.fromRGB(100, 255, 100)
-end
-
-local function ShouldShow(lizardType)
-    if lizardType == "Legendary" then return Config.ShowLegendary end
-    if lizardType == "Fancy" then return Config.ShowFancy end
-    return Config.ShowNormal
-end
-
---====================================
--- نظام ESP المحسّن
---====================================
-local function ClearESP()
-    for _, obj in pairs(espObjects) do
-        if obj then obj:Destroy() end
-    end
-    espObjects = {}
-end
-
-local function CreateLizardESP(model)
-    local lizardType, color = GetLizardType(model)
-    
-    -- التحقق من الإعدادات
-    if not ShouldShow(lizardType) then return end
-    
-    local root = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Head") or model:FindFirstChildWhichIsA("BasePart")
-    if not root then return end
-    
-    -- Highlight
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "ESP_" .. model.Name
-    highlight.FillColor = color
-    highlight.OutlineColor = Color3.new(1, 1, 1)
-    highlight.FillTransparency = 0.5
-    highlight.OutlineTransparency = 0.2
-    highlight.Adornee = model
-    highlight.Parent = ScreenGui
-    
-    table.insert(espObjects, highlight)
-    
-    -- Billboard
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "Billboard_" .. model.Name
-    billboard.Size = UDim2.new(0, 100, 0, 40)
-    billboard.StudsOffset = Vector3.new(0, 2, 0)
-    billboard.Adornee = root
-    billboard.AlwaysOnTop = true
-    billboard.Parent = ScreenGui
-    
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 0.6, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = model.Name
-    nameLabel.TextColor3 = color
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextSize = 11
-    nameLabel.TextStrokeTransparency = 0.3
-    nameLabel.Parent = billboard
-    
-    local typeLabel = Instance.new("TextLabel")
-    typeLabel.Size = UDim2.new(1, 0, 0.4, 0)
-    typeLabel.Position = UDim2.new(0, 0, 0.6, 0)
-    typeLabel.BackgroundTransparency = 1
-    typeLabel.Text = "[" .. lizardType .. "]"
-    typeLabel.TextColor3 = Color3.new(1, 1, 1)
-    typeLabel.Font = Enum.Font.Gotham
-    typeLabel.TextSize = 9
-    typeLabel.TextStrokeTransparency = 0.3
-    typeLabel.Parent = billboard
-    
-    table.insert(espObjects, billboard)
-    
-    -- إشعار للضبان النادرة
-    if Config.RareNotify and (lizardType == "Legendary" or lizardType == "Fancy") then
-        if not notifiedRares[model] then
-            notifiedRares[model] = true
-            Notify("🚨 ضبان " .. lizardType .. " ظهر: " .. model.Name, color)
-        end
-    end
-end
-
-local function UpdateESP()
-    ClearESP()
-    if not Config.ESP then return end
-    
-    for _, v in pairs(workspace:GetDescendants()) do
-        if v:IsA("Model") and v:FindFirstChild("Humanoid") then
-            local name = v.Name:lower()
-            if name:find("lizard") or name:find("ضبان") or name:find("snake") then
-                CreateLizardESP(v)
-            end
-        end
-    end
-end
-
---====================================
--- ESP التاجر
---====================================
-local function ClearTraderESP()
-    if traderESP then
-        for _, obj in pairs(traderESP) do
-            if obj then obj:Destroy() end
-        end
-        traderESP = nil
-    end
-end
-
-local function CreateTraderESP()
-    ClearTraderESP()
-    if not Config.ESPTrader then return end
-    
-    for _, v in pairs(workspace:GetDescendants()) do
-        local name = v.Name:lower()
-        if name:find("trader") or name:find("تاجر") or name:find("seller") or name:find("shop") or name:find("بقالة") then
-            local root = v:FindFirstChild("HumanoidRootPart") or v:FindFirstChild("Head") or (v:IsA("BasePart") and v) or v:FindFirstChildWhichIsA("BasePart")
-            
-            if root then
-                traderESP = {}
-                
-                -- Highlight
-                local h = Instance.new("Highlight")
-                h.FillColor = Color3.fromRGB(0, 255, 255)
-                h.OutlineColor = Color3.new(1, 1, 1)
-                h.FillTransparency = 0.3
-                h.Adornee = v:IsA("Model") and v or nil
-                if not v:IsA("Model") then h.Adornee = v.Parent end
-                h.Parent = ScreenGui
-                table.insert(traderESP, h)
-                
-                -- Billboard
-                local bb = Instance.new("BillboardGui")
-                bb.Size = UDim2.new(0, 120, 0, 40)
-                bb.StudsOffset = Vector3.new(0, 3, 0)
-                bb.Adornee = root
-                bb.AlwaysOnTop = true
-                bb.Parent = ScreenGui
-                
-                local lbl = Instance.new("TextLabel")
-                lbl.Size = UDim2.new(1, 0, 1, 0)
-                lbl.BackgroundTransparency = 1
-                lbl.Text = "🏪 " .. v.Name
-                lbl.TextColor3 = Color3.fromRGB(0, 255, 255)
-                lbl.Font = Enum.Font.GothamBold
-                lbl.TextSize = 14
-                lbl.TextStrokeTransparency = 0.3
-                lbl.Parent = bb
-                
-                table.insert(traderESP, bb)
-                
-                -- زر فتح البقالة من بعيد
-                local openBtn = Instance.new("TextButton")
-                openBtn.Size = UDim2.new(0, 100, 0, 30)
-                openBtn.Position = UDim2.new(0.5, -50, 0, 50)
-                openBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
-                openBtn.Text = "🛒 فتح البقالة"
-                openBtn.TextColor3 = Color3.new(1, 1, 1)
-                openBtn.Font = Enum.Font.GothamBold
-                openBtn.TextSize = 12
-                openBtn.Parent = bb
-                Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 6)
-                
-                openBtn.MouseButton1Click:Connect(function()
-                    -- محاولة فتح البقالة (عدّل حسب نظام اللعبة)
-                    local char = LocalPlayer.Character
-                    if char then
-                        local myRoot = char:FindFirstChild("HumanoidRootPart")
-                        if myRoot then
-                            -- نقل للتاجر مؤقتاً
-                            local oldPos = myRoot.CFrame
-                            myRoot.CFrame = root.CFrame * CFrame.new(0, 0, -3)
-                            task.wait(0.5)
-                            -- هنا تضغط زر البقالة في اللعبة
-                            -- مثال: fireclickdetector(root.Parent:FindFirstChild("ClickDetector"))
-                            task.wait(0.5)
-                            -- رجوع للمكان
-                            myRoot.CFrame = oldPos
-                        end
-                    end
-                end)
-                
-                table.insert(traderESP, openBtn)
-                
-                break -- أول تاجر فقط
-            end
-        end
-    end
-end
-
---====================================
--- نظام Aimbot المحسّن (يتوقف تماماً)
---====================================
-local function StopAimbot()
-    Config.Aimbot = false
-    
-    if aimbotConnection then
-        aimbotConnection:Disconnect()
-        aimbotConnection = nil
-    end
-    
-    -- إعادة الكاميرا للوضع الطبيعي
-    Camera.CameraType = Enum.CameraType.Custom
-    
-    print("✅ Aimbot متوقف تماماً")
-end
+local aimConnection = nil
 
 local function StartAimbot()
     -- إيقاف أي اتصال سابق
-    StopAimbot()
+    if aimConnection then
+        aimConnection:Disconnect()
+        aimConnection = nil
+    end
     
-    Config.Aimbot = true
-    
-    aimbotConnection = RunService.RenderStepped:Connect(function()
-        -- التحقق مرة أخرى داخل الحلقة
-        if not Config.Aimbot then
-            StopAimbot()
-            return
-        end
+    aimConnection = RunService.RenderStepped:Connect(function(dt)
+        if not alive then return end
+        if not Config.Aim then return end
         
-        -- التحقق من زر الضغط
-        if not UserInputService:IsKeyDown(Config.AimbotKey) then
-            return -- لا يأثر على الكاميرا إذا ما ضاغط
-        end
+        updateCircle()
         
-        -- البحث عن أقرب ضبان للماوس
-        local closest = nil
-        local closestDist = 200
+        local cam = Camera
+        if not cam then return end
         
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("Model") and v:FindFirstChild("Humanoid") then
-                local name = v.Name:lower()
-                if name:find("lizard") or name:find("ضبان") then
-                    local head = v:FindFirstChild("Head") or v:FindFirstChild("HumanoidRootPart")
-                    if head then
-                        local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
-                        if onScreen then
-                            local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
-                            if dist < closestDist then
-                                closestDist = dist
-                                closest = head
+        local r = root()
+        if not r then return end
+        
+        local vp = cam.ViewportSize
+        local center = Vector2.new(vp.X * 0.5, vp.Y * 0.5)
+        
+        -- البحث عن أقرب ضب للمركز
+        local best, bestDist = nil, math.huge
+        
+        for _, e in ipairs(cache) do
+            if e.model.Parent and e.part.Parent and living(e.model) and lizard(e.model) then
+                local head = e.model:FindFirstChild("Head", true) or 
+                             e.model:FindFirstChild("head", true) or 
+                             e.model:FindFirstChild("رأس", true) or
+                             e.part
+                
+                if head and head:IsA("BasePart") then
+                    local worldDist = (head.Position - r.Position).Magnitude
+                    
+                    if worldDist <= Config.AimRange then
+                        local point, onScreen = cam:WorldToViewportPoint(head.Position)
+                        if onScreen and point.Z > 0 then
+                            local pixelDist = (Vector2.new(point.X, point.Y) - center).Magnitude
+                            if pixelDist <= Config.FOV and pixelDist < bestDist then
+                                best = head
+                                bestDist = pixelDist
                             end
                         end
                     end
@@ -509,175 +95,413 @@ local function StartAimbot()
             end
         end
         
-        -- توجيه الكاميرا فقط إذا وجد هدف
-        if closest and Config.Aimbot then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, closest.Position)
+        -- تصويب حقيقي
+        if best then
+            local desired = CFrame.lookAt(cam.CFrame.Position, best.Position)
+            local alpha = 1 - math.exp(-math.clamp(Config.AimSmooth, 0.02, 1) * 30 * math.min(dt, 0.1))
+            cam.CFrame = cam.CFrame:Lerp(desired, math.clamp(alpha, 0, 1))
         end
     end)
-    
-    print("🎯 Aimbot شغال - اضغط " .. Config.AimbotKey.Name .. " للتصويب")
 end
 
---====================================
--- تسريع السيارة
---====================================
-local function UpdateCarSpeed()
-    if carConnection then
-        carConnection:Disconnect()
-        carConnection = nil
+local function StopAimbot()
+    Config.Aim = false
+    if aimConnection then
+        aimConnection:Disconnect()
+        aimConnection = nil
     end
-    
-    if Config.CarSpeed then
-        carConnection = RunService.Heartbeat:Connect(function()
-            local char = LocalPlayer.Character
-            if not char then return end
-            
-            local hum = char:FindFirstChild("Humanoid")
-            if not hum or not hum.SeatPart then return end
-            
-            local vehicle = hum.SeatPart:FindFirstAncestorOfClass("Model")
-            if not vehicle then return end
-            
-            -- تسريع السيارة
-            for _, v in pairs(vehicle:GetDescendants()) do
-                if v:IsA("VehicleSeat") then
-                    v.MaxSpeed = Config.CarSpeedValue
-                    v.Torque = 100
-                end
-            end
-        end)
-    end
+    fovCircle.Visible = false
 end
 
---====================================
--- بناء الواجهة
---====================================
-local order = 1
-
--- قسم ESP
-CreateSection("👁️ ESP / كاشف الضبان", order) order = order + 1
-
-CreateToggle("تفعيل ESP", order, false, function(on)
-    Config.ESP = on
-    if on then UpdateESP() else ClearESP() end
-end) order = order + 1
-
-CreateSection("🔍 اختيار الأنواع", order) order = order + 1
-
-CreateToggle("⭐ عادي (Normal)", order, false, function(on)
-    Config.ShowNormal = on
-    if Config.ESP then UpdateESP() end
-end) order = order + 1
-
-CreateToggle("💎 فاخر (Fancy)", order, true, function(on)
-    Config.ShowFancy = on
-    if Config.ESP then UpdateESP() end
-end) order = order + 1
-
-CreateToggle("🟣 أسطوري (Legendary)", order, true, function(on)
-    Config.ShowLegendary = on
-    if Config.ESP then UpdateESP() end
-end) order = order + 1
-
-CreateToggle("🔔 إشعار الضبان النادر", order, true, function(on)
-    Config.RareNotify = on
-end) order = order + 1
-
--- قسم التاجر
-CreateSection("🏪 التاجر / البقالة", order) order = order + 1
-
-CreateToggle("ESP التاجر", order, false, function(on)
-    Config.ESPTrader = on
-    if on then CreateTraderESP() else ClearTraderESP() end
-end) order = order + 1
-
--- قسم Aimbot
-CreateSection("🎯 Aimbot", order) order = order + 1
-
-local AimbotToggle = CreateToggle("تفعيل Aimbot (Q)", order, false, function(on)
-    if on then
+-- ربط Aimbot بالتفعيل
+local oldAimToggle = togglePaints.Aim
+togglePaints.Aim = function()
+    if oldAimToggle then oldAimToggle() end
+    if Config.Aim then
         StartAimbot()
     else
         StopAimbot()
     end
-end) order = order + 1
+end
 
--- قسم السيارة
-CreateSection("🚗 السيارة", order) order = order + 1
+--====================================
+-- Car Fly System
+--====================================
+local flyBody = nil
+local flyVelocity = nil
+local flyOrientation = nil
+local flyAttachment = nil
 
-CreateToggle("تسريع السيارة", order, false, function(on)
-    Config.CarSpeed = on
-    UpdateCarSpeed()
-end) order = order + 1
+local function stopCarFly()
+    if flyVelocity then pcall(function() flyVelocity:Destroy() end) end
+    if flyOrientation then pcall(function() flyOrientation:Destroy() end) end
+    if flyAttachment then pcall(function() flyAttachment:Destroy() end) end
+    flyVelocity = nil
+    flyOrientation = nil
+    flyAttachment = nil
+    flyBody = nil
+end
 
--- قسم أدوات
-CreateSection("⚡ أدوات", order) order = order + 1
+local function updateCarFly()
+    if not Config.CarFly then
+        stopCarFly()
+        return
+    end
+    
+    local h = hum()
+    if not h or not h.SeatPart then
+        stopCarFly()
+        return
+    end
+    
+    local seat = h.SeatPart
+    if not seat:IsA("VehicleSeat") then return end
+    
+    local body = seat.AssemblyRootPart or seat
+    if not body or body.Anchored then return end
+    
+    if body ~= flyBody or not flyVelocity or not flyVelocity.Parent then
+        stopCarFly()
+        flyBody = body
+        
+        flyAttachment = Instance.new("Attachment")
+        flyAttachment.Name = "HunterFly"
+        flyAttachment.Parent = body
+        
+        flyVelocity = Instance.new("LinearVelocity")
+        flyVelocity.Name = "HunterFly"
+        flyVelocity.Attachment0 = flyAttachment
+        flyVelocity.RelativeTo = Enum.ActuatorRelativeTo.World
+        flyVelocity.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+        flyVelocity.MaxForce = math.max(100000, body.AssemblyMass * 2500)
+        flyVelocity.Parent = body
+        
+        flyOrientation = Instance.new("AlignOrientation")
+        flyOrientation.Name = "HunterFly"
+        flyOrientation.Attachment0 = flyAttachment
+        flyOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
+        flyOrientation.Responsiveness = 12
+        flyOrientation.MaxTorque = math.max(100000, body.AssemblyMass * 2500)
+        flyOrientation.Parent = body
+    end
+    
+    local cam = Camera
+    if not cam then return end
+    
+    local look = cam.CFrame.LookVector
+    local right = cam.CFrame.RightVector
+    
+    local forward = Vector3.new(look.X, 0, look.Z)
+    local side = Vector3.new(right.X, 0, right.Z)
+    
+    if forward.Magnitude < 0.01 then forward = Vector3.new(0, 0, -1) end
+    forward = forward.Unit
+    if side.Magnitude < 0.01 then side = Vector3.new(-forward.Z, 0, forward.X) end
+    side = side.Unit
+    
+    local input = Vector3.zero
+    if not UserInputService:GetFocusedTextBox() then
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) then input += forward end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down) then input -= forward end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then input += side end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then input -= side end
+        if UserInputService:IsKeyDown(Enum.KeyCode.E) then input += Vector3.yAxis end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Q) then input -= Vector3.yAxis end
+    end
+    
+    local speed = math.clamp(Config.FlySpeed, 20, 300)
+    flyVelocity.VectorVelocity = input.Magnitude > 0 and input.Unit * speed or Vector3.zero
+    flyOrientation.CFrame = CFrame.lookAt(Vector3.zero, forward)
+end
 
-CreateBtn("🔄 تحديث ESP", order, Color3.fromRGB(100, 100, 100), function()
-    UpdateESP()
-    CreateTraderESP()
-    Notify("✅ تم تحديث ESP")
-end) order = order + 1
+--====================================
+-- Player Fly
+--====================================
+local charFly = {
+    root = nil, humanoid = nil, attachment = nil,
+    velocity = nil, orientation = nil,
+    oldAutoRotate = nil, oldPlatformStand = nil
+}
 
-CreateBtn("🛑 إيقاف كل شي", order, Color3.fromRGB(255, 50, 50), function()
-    -- إيقاف كل الميزات
-    Config.ESP = false
-    Config.ESPTrader = false
-    Config.Aimbot = false
+charFly.stop = function()
+    local cf = charFly
+    if cf.velocity then pcall(function() cf.velocity:Destroy() end) end
+    if cf.orientation then pcall(function() cf.orientation:Destroy() end) end
+    if cf.attachment then pcall(function() cf.attachment:Destroy() end) end
+    cf.velocity = nil
+    cf.orientation = nil
+    cf.attachment = nil
+    cf.root = nil
+    if cf.humanoid and cf.humanoid.Parent then
+        pcall(function()
+            if cf.oldAutoRotate ~= nil then cf.humanoid.AutoRotate = cf.oldAutoRotate end
+            if cf.oldPlatformStand ~= nil then cf.humanoid.PlatformStand = cf.oldPlatformStand end
+        end)
+    end
+    cf.humanoid = nil
+end
+
+charFly.update = function()
+    if not Config.PlayerFly then return end
+    local h = hum()
+    local r = root()
+    if not h or not r or h.Health <= 0 then
+        if charFly.root then charFly.stop() end
+        return
+    end
+    if h.SeatPart then
+        if charFly.root then charFly.stop() end
+        return
+    end
+    
+    if charFly.root ~= r or not charFly.velocity or not charFly.velocity.Parent then
+        charFly.stop()
+        charFly.root = r
+        charFly.humanoid = h
+        charFly.oldAutoRotate = h.AutoRotate
+        charFly.oldPlatformStand = h.PlatformStand
+        
+        local a = Instance.new("Attachment")
+        a.Name = "HunterFly"
+        a.Parent = r
+        charFly.attachment = a
+        
+        local v = Instance.new("LinearVelocity")
+        v.Name = "HunterFly"
+        v.Attachment0 = a
+        v.RelativeTo = Enum.ActuatorRelativeTo.World
+        v.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+        v.MaxForce = math.max(50000, r.AssemblyMass * 3000)
+        v.VectorVelocity = Vector3.zero
+        v.Parent = r
+        charFly.velocity = v
+        
+        local o = Instance.new("AlignOrientation")
+        o.Name = "HunterFly"
+        o.Attachment0 = a
+        o.Mode = Enum.OrientationAlignmentMode.OneAttachment
+        o.Responsiveness = 14
+        o.MaxTorque = math.max(50000, r.AssemblyMass * 3000)
+        o.Parent = r
+        charFly.orientation = o
+        
+        h.AutoRotate = false
+        h.PlatformStand = true
+    end
+    
+    local cam = Camera
+    if not cam then return end
+    
+    local forward = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
+    if forward.Magnitude < 0.01 then forward = Vector3.new(r.CFrame.LookVector.X, 0, r.CFrame.LookVector.Z) end
+    if forward.Magnitude < 0.01 then forward = Vector3.new(0, 0, -1) end
+    forward = forward.Unit
+    
+    local right = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z)
+    if right.Magnitude < 0.01 then right = Vector3.new(-forward.Z, 0, forward.X) end
+    right = right.Unit
+    
+    local vector = Vector3.zero
+    if not UserInputService:GetFocusedTextBox() then
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then vector += forward end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then vector -= forward end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then vector -= right end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then vector += right end
+        if UserInputService:IsKeyDown(Enum.KeyCode.E) then vector += Vector3.yAxis end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Q) then vector -= Vector3.yAxis end
+    end
+    
+    local speed = math.clamp(Config.PlayerFlySpeed, 15, 120)
+    charFly.velocity.VectorVelocity = vector.Magnitude > 0 and vector.Unit * speed or Vector3.zero
+    charFly.orientation.CFrame = CFrame.lookAt(Vector3.zero, forward)
+end
+
+--====================================
+-- Main Loop
+--====================================
+local timer = 0
+local flyTimer = 0
+local charFlyTimer = 0
+local speedTimer = 0
+
+conn(RunService.Heartbeat, function(dt)
+    if not alive then return end
+    
+    timer += dt
+    flyTimer += dt
+    charFlyTimer += dt
+    speedTimer += dt
+    
+    -- Speed
+    if Config.Speed and speedTimer >= 0.25 then
+        speedTimer = 0
+        local h = hum()
+        if h and math.abs(h.WalkSpeed - Config.Walk) > 0.1 then
+            h.WalkSpeed = Config.Walk
+        end
+    end
+    
+    -- Car Fly
+    if Config.CarFly and flyTimer >= 1/30 then
+        flyTimer = 0
+        pcall(updateCarFly)
+    end
+    
+    -- Player Fly
+    if Config.PlayerFly and charFlyTimer >= 1/30 then
+        charFlyTimer = 0
+        pcall(charFly.update)
+    end
+    
+    -- Radar Update
+    if timer >= 1.5 then
+        timer = 0
+        
+        if Config.Radar or Config.Aim or Config.RareAlert then
+            pcall(refreshCache)
+        end
+        
+        if Config.Radar then
+            local r = root()
+            local visible = {}
+            
+            for _, e in ipairs(cache) do
+                local d = r and (e.part.Position - r.Position).Magnitude or math.huge
+                if d <= Config.RadarRange then
+                    visible[#visible + 1] = {e = e, d = d}
+                end
+            end
+            
+            table.sort(visible, function(a, b) return a.d < b.d end)
+            
+            local shown = 0
+            local kept = {}
+            
+            for _, item in ipairs(visible) do
+                local e = item.e
+                local d = item.d
+                local match = living(e.model) and lizard(e.model) and 
+                             (Config.Filter == "الكل" or rarity(e.model) == Config.Filter)
+                
+                if match and shown < 8 then
+                    shown += 1
+                    kept[e.model] = true
+                    makeMarker(e)
+                    local bb = markers[e.model]
+                    if bb then
+                        bb.MaxDistance = Config.RadarRange
+                        local t = bb:FindFirstChildOfClass("TextLabel")
+                        if t then
+                            t.Text = speciesName(e.model) .. " | " .. rarity(e.model) .. "\n" .. math.floor(d) .. " وحدة"
+                            t.TextColor3 = rarityColors[rarity(e.model)] or C.white
+                        end
+                    end
+                elseif markers[e.model] then
+                    markers[e.model]:Destroy()
+                    markers[e.model] = nil
+                end
+            end
+            
+            for m, bb in pairs(markers) do
+                local p = part(m)
+                local d = (r and p and p.Parent) and (p.Position - r.Position).Magnitude or math.huge
+                if not kept[m] or not m.Parent or not living(m) or not lizard(m) or d > Config.RadarRange then
+                    bb:Destroy()
+                    markers[m] = nil
+                end
+            end
+            
+            local e, d = nearest(Config.Filter)
+            if nearestText then
+                nearestText.Text = e and ("أقرب ضب: " .. e.model.Name .. " | " .. math.floor(d) .. " وحدة") or "أقرب ضب: لا يوجد"
+            end
+        else
+            clearMarkers()
+        end
+    end
+end)
+
+--====================================
+-- Cleanup
+--====================================
+local function cleanup()
+    if not alive then return end
+    alive = false
+    
+    Config.Radar = false
+    Config.Aim = false
     Config.CarSpeed = false
+    Config.CarFly = false
+    Config.PlayerFly = false
+    Config.Speed = false
     
-    ClearESP()
-    ClearTraderESP()
     StopAimbot()
-    UpdateCarSpeed()
+    stopCarFly()
+    charFly.stop()
+    clearMarkers()
     
-    Notify("🛑 تم إيقاف كل الميزات")
-end) order = order + 1
+    if fovGui and fovGui.Parent then fovGui:Destroy() end
+    
+    for _, c in ipairs(conns) do
+        pcall(function() c:Disconnect() end)
+    end
+    
+    gui:Destroy()
+end
 
--- تحديث الحجم
-Content.CanvasSize = UDim2.new(0, 0, 0, UIList.AbsoluteContentSize.Y + 20)
+-- Close button
+conn(close.MouseButton1Click, cleanup)
 
---====================================
--- زر عائم
---====================================
-local FloatBtn = Instance.new("TextButton")
-FloatBtn.Size = UDim2.new(0, 50, 0, 50)
-FloatBtn.Position = UDim2.new(0, 20, 0, 20)
-FloatBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-FloatBtn.Text = "🦎"
-FloatBtn.TextSize = 24
-FloatBtn.Font = Enum.Font.GothamBold
-FloatBtn.Parent = ScreenGui
-Instance.new("UICorner", FloatBtn).CornerRadius = UDim.new(0, 12)
-
-FloatBtn.MouseButton1Click:Connect(function()
-    Main.Visible = not Main.Visible
+-- Minimize
+local minimized = false
+conn(mini.MouseButton1Click, function()
+    minimized = not minimized
+    side.Visible = not minimized
+    area.Visible = not minimized
+    status.Visible = not minimized
+    main.Size = minimized and UDim2.fromOffset(650, 66) or UDim2.fromOffset(650, 500)
+    mini.Text = minimized and "+" or "−"
 end)
 
-CloseBtn.MouseButton1Click:Connect(function()
-    Main.Visible = false
+-- Dragging
+local dragging, dragStart, frameStart = false, nil, nil
+conn(head.InputBegan, function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = i.Position
+        frameStart = main.Position
+    end
 end)
 
---====================================
--- اختصارات
---====================================
-UserInputService.InputBegan:Connect(function(input, gp)
+conn(UserInputService.InputChanged, function(i)
+    if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+        local d = i.Position - dragStart
+        main.Position = UDim2.new(frameStart.X.Scale, frameStart.X.Offset + d.X, frameStart.Y.Scale, frameStart.Y.Offset + d.Y)
+    end
+end)
+
+conn(UserInputService.InputEnded, function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+-- Keybinds
+conn(UserInputService.InputBegan, function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
-        Main.Visible = not Main.Visible
+        main.Visible = not main.Visible
     end
 end)
 
--- تحديث ESP تلقائياً
-task.spawn(function()
-    while true do
-        if Config.ESP then
-            UpdateESP()
-        end
-        task.wait(2)
-    end
+-- Camera update
+conn(workspace:GetPropertyChangedSignal("CurrentCamera"), function()
+    Camera = workspace.CurrentCamera
 end)
 
-print("✅ HUNTER HUB v3.1 LOADED")
-print("🎯 Aimbot: " .. Config.AimbotKey.Name)
-print("👁️ ESP: محدد الأنواع شغال")
+msg("HUNTER HUB v4.0 | كل المميزات شغالة ✅")
+print("✅ HUNTER HUB ULTRA v4.0 LOADED")
+print("🎯 Aimbot: يصيب الضبان تلقائياً")
+print("👁️ Radar: كشف محدد حسب الندرة")
+print("🚗 CarFly: طيران + سرعة")
+print("🏃 PlayerFly: طيران لاعب")
