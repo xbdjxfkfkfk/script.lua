@@ -1,6 +1,6 @@
 -- Safe entrypoint: a failure in any feature must not leave the user with an invisible menu.
 local function LxStartup()
--- Lx REDLINE PRO v77 | ON/OFF FIX | server-authorized gameplay + functional local effects.
+-- Lx REDLINE PRO v77 | ULTIMATE PROFESSIONAL EDITION | server-authorized gameplay + functional local effects.
 -- Install in StarterPlayer/StarterPlayerScripts. Never put Discord secrets in this file.
 -- Server-side capabilities require the companion SERVER.lua + Discord gateway.
 local Players = game:GetService("Players")
@@ -47,7 +47,7 @@ local visualBackup = nil
 local radarEnabled = false
 local resourceEnabled = false
 local aimEnabled = false
-local aimRadius = 95
+local aimRadius = 30
 local speedWanted = 75
 local carFlySpeed = 70
 local playerFlySpeed = 55
@@ -62,6 +62,13 @@ local lastLargeMove = "ما فيه أحداث"
 local allResources = {}
 local remoteFunction = nil
 local remoteEvent = nil
+local statusReference = nil
+local debugReportLabel = nil
+local radarPageCount = nil
+local diagLastSample = nil
+local setAuthorized
+local performanceLow = false
+local fpsEstimate = 60
 
 local COLORS = {
     black = Color3.fromRGB(10, 10, 13),
@@ -97,8 +104,11 @@ local function log(message, failure)
         while #errors > 25 do table.remove(errors) end
         warn("[Lx] " .. messageText)
     end
-    if alive and _G.__LxStatusText and _G.__LxStatusText.Parent then
-        _G.__LxStatusText.Text = messageText:sub(1, 180)
+    if alive and statusReference and statusReference.Parent then
+        statusReference.Text = messageText:sub(1, 180)
+    end
+    if alive and debugReportLabel and debugReportLabel.Parent then
+        debugReportLabel.Text = table.concat(errors, "\n\n"):sub(1, 7000)
     end
 end
 local function human()
@@ -132,9 +142,9 @@ local function convertNumber(raw)
 end
 local function invoke(action, payload)
     if not remoteFunction then return false, "لا يوجد سكربت سيرفر Lx في ReplicatedStorage" end
-    local ok, success, result = pcall(function()
+    local ok, success, result = xpcall(function()
         return remoteFunction:InvokeServer(action, payload)
-    end)
+    end, function(e) return debug.traceback(tostring(e), 2) end)
     if not ok then return false, "خطأ الاتصال بالسيرفر: " .. tostring(success) end
     return success == true, result
 end
@@ -223,7 +233,7 @@ local titlebar = create("Frame", {Size = UDim2.new(1, 0, 0, 64), BackgroundColor
     BorderSizePixel = 0, Active = true}, main)
 corner(titlebar, 14)
 titleText = create("TextLabel", {Position = UDim2.fromOffset(18, 8), Size = UDim2.fromOffset(540, 28),
-    BackgroundTransparency = 1, Text = "Lx REDLINE PRO | v77 FIX", TextColor3 = COLORS.white,
+    BackgroundTransparency = 1, Text = "Lx REDLINE PRO | v77 ULTIMATE", TextColor3 = COLORS.white,
     TextSize = 21, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left}, titlebar)
 create("TextLabel", {Position = UDim2.fromOffset(19, 36), Size = UDim2.fromOffset(550, 16),
     BackgroundTransparency = 1, Text = "STUDIO EDITION  •  BLACK / RED / WHITE", TextColor3 = COLORS.muted,
@@ -247,7 +257,7 @@ local statusText = create("TextLabel", {Position = UDim2.new(0, 16, 1, -31), Siz
     BackgroundTransparency = 1, Text = "الأدوات المحلية جاهزة • التحكم بالسيارة يحتاج سيرفر",
     TextColor3 = COLORS.muted, Font = Enum.Font.Gotham, TextSize = 12,
     TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd}, main)
-_G.__LxStatusText = statusText
+statusReference = statusText
 local pages = {}
 local function makePage(label)
     local index = #pages + 1
@@ -271,11 +281,16 @@ local function makePage(label)
         activePage = page
     end
     connect(b.MouseButton1Click, function()
+        if not isAuthed and not RunService:IsStudio() then
+            welcome.Visible = true
+            log("تحقق من العضوية أولًا لفتح الصفحات")
+            return
+        end
         activate()
         if not isAuthed then
             previewing = true
             welcome.Visible = false
-            log("القسم مفتوح؛ وظائف السيرفر تحتاج تحقق Discord، والأدوات المحلية متاحة")
+            log("وضع فحص Studio: أدوات العرض متاحة؛ وظائف السيرفر ما زالت تحتاج صلاحيات")
         end
     end)
     if index == 1 then activate() end
@@ -307,7 +322,8 @@ local function button(page, title, callback, allowWithoutAuth)
         -- Server commands invoke the authoritative server, which performs its own
         -- Discord/permission checks. Never treat a button click as authorization.
         task.spawn(function()
-            local ok, err = pcall(callback, b)
+            local ok, err = xpcall(function() callback(b) end,
+                function(e) return debug.traceback(tostring(e), 2) end)
             if not ok then log("[" .. title .. "] " .. tostring(err), true) end
         end)
     end)
@@ -320,12 +336,16 @@ local function toggle(page, title, callback)
     b = button(page, title .. "  |  OFF", function()
         if busy then return end
         busy = true
+        b.Text = title .. "  |  جاري التنفيذ..."
         local newValue = not active
-        local callOk, ok, reason = pcall(callback, newValue)
+        local callOk, ok, reason = xpcall(function() return callback(newValue) end,
+            function(e) return debug.traceback(tostring(e), 2) end)
         busy = false
-        if not callOk then log("فشل زر " .. title .. ": " .. tostring(ok), true) return end
-        if ok ~= true then
-            log(reason or (title .. " فشل"), true)
+        if not callOk or ok ~= true then
+            local why = (not callOk) and tostring(ok) or tostring(reason or "رفض السيرفر / تعذر التطبيق")
+            b.Text = title .. (active and "  |  ON ✓" or "  |  OFF ×")
+            b.BackgroundColor3 = active and Color3.fromRGB(100, 28, 35) or COLORS.panel
+            log("تعذر تشغيل " .. title .. ": " .. why, true)
             return
         end
         active = newValue
@@ -416,9 +436,13 @@ local previewButton = create("TextButton", {
     Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 11
 }, welcome)
 corner(previewButton, 9)
+previewButton.Visible = RunService:IsStudio()
 connect(previewButton.MouseButton1Click, function()
+    if not RunService:IsStudio() then return end
     previewing = true
     welcome.Visible = false
+    sidebar.Visible = true
+    content.Visible = true
     log("الأدوات المحلية تعمل • قيادة وطيران وانتقال السيارة تحتاج إعداد السيرفر والتحقق")
 end)
 local membershipButton = create("TextButton", {
@@ -431,21 +455,34 @@ corner(membershipButton, 8)
 connect(membershipButton.MouseButton1Click, function()
     previewing = false
     welcome.Visible = not isAuthed and not minimized
+    sidebar.Visible = isAuthed and not minimized
+    content.Visible = isAuthed and not minimized
     if isAuthed then log("عضوية Discord مؤكدة") end
 end)
 
 -- Sidebar pages. Components are real, and unavailable server-dependent calls fail visibly.
 local dashboardPage = makePage("الرئيسية")
+local radarPage = makePage("رادار الضبان")
 local animalsPage = makePage("كشف الضبان")
 local resourcesPage = makePage("التاجر والنوادر")
-local carPage = makePage("السيارات")
+local carPage = makePage("سرعة السيارة")
+local carFlightPage = makePage("طيران السيارة")
 local flightPage = makePage("طيران اللاعب")
+local playerSpeedPage = makePage("سرعة اللاعب")
+local fogPage = makePage("إزالة الضباب")
+local fullbrightPage = makePage("إضاءة كاملة")
 local aimingPage = makePage("التصويب")
 local movePage = makePage("الانتقال")
-local visualsPage = makePage("المظهر")
 local watchPage = makePage("مراقبة الماب")
 local settingsPage = makePage("الإعدادات")
+local protectionPage = makePage("تشخيص الحماية")
+local performancePage = makePage("الأداء")
+local discordPage = makePage("ديسكورد")
+local debugPage = makePage("سجل الأخطاء")
 sizeToViewport() -- the responsive relayout now sees all tabs and the gate
+sidebar.Visible = false
+content.Visible = false
+welcome.Visible = true
 
 local function getDriverSeat()
     local h = human()
@@ -463,7 +500,7 @@ local function getModelMetadata(model, keys)
     return nil
 end
 local function isLiveLizard(model)
-    if not model or not model:IsA("Model") or not model:IsDescendantOf(Workspace) then return false end
+    if not model or not (model:IsA("Model") or model:IsA("MeshPart")) or not model:IsDescendantOf(Workspace) then return false end
     local tagged = CollectionService:HasTag(model, "LxLizard") or CollectionService:HasTag(model, "Lizard")
         or CollectionService:HasTag(model, "Dhab")
     if not tagged then return false end
@@ -495,7 +532,7 @@ for _, tag in ipairs({"LxLizard", "Lizard", "Dhab"}) do
     end)
 end
 connect(Workspace.DescendantAdded, function(obj)
-    if obj:IsA("Model") and (CollectionService:HasTag(obj, "LxLizard") or
+    if (obj:IsA("Model") or obj:IsA("MeshPart")) and (CollectionService:HasTag(obj, "LxLizard") or
         CollectionService:HasTag(obj, "Lizard") or CollectionService:HasTag(obj, "Dhab")) then
         registerLizard(obj)
     end
@@ -503,7 +540,7 @@ end)
 local function makeMarker(part, label, color)
     local marker = create("BillboardGui", {Name = "LxTrackedObject", Adornee = part,
         Size = UDim2.fromOffset(220, 68), StudsOffsetWorldSpace = Vector3.new(0, 3, 0),
-        AlwaysOnTop = true, MaxDistance = 2500}, gui)
+        AlwaysOnTop = true, MaxDistance = 3000}, gui)
     create("TextLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
         Text = label, Font = Enum.Font.GothamBold, TextSize = 12, TextWrapped = true,
         TextColor3 = color or COLORS.white, TextStrokeTransparency = 0.25}, marker)
@@ -530,17 +567,30 @@ local function metadataDisplay(model, attributeKeys)
     return tostring(value)
 end
 info(animalsPage, "كاشف الضبان الحقيقي", "يكتشف فقط نماذج الضبان المعلّمة LxLizard أو Lizard أو Dhab؛ لا يعتمد على اسم سيارة أو قفص.")
+local radarMirrorToggle
+local fillAnimals
 local animalToggle = toggle(animalsPage, "رادار الضبان", function(on)
     radarEnabled = on
     if not on then clearMarkers(radarMarkers) end
+    if radarMirrorToggle then radarMirrorToggle:set(on) end
     return true
 end)
+info(radarPage, "الرادار", "فحص الضبان المعلّمة داخل الجزء الذي حمّله Roblox؛ لا يكشف كائنات لم تصل للعميل.")
+radarMirrorToggle = toggle(radarPage, "تشغيل الرادار", function(on)
+    radarEnabled = on
+    if not on then clearMarkers(radarMarkers) end
+    animalToggle:set(on)
+    return true
+end)
+local radarCounter = info(radarPage, "عدد الضبان: 0", "المدى يعتمد على النسخ الموجود لدى العميل")
+radarPageCount = radarCounter:FindFirstChildOfClass("TextLabel")
+button(radarPage, "تحديث رادار الضبان", function() fillAnimals() end)
 local animalSummary = info(animalsPage, "المكتشف: 0", "القائمة تتحدث تلقائيًا كل ثانيتين")
 local animalSummaryText = animalSummary:FindFirstChildOfClass("TextLabel")
 local animalRows = create("Frame", {Size = UDim2.new(1, -3, 0, 0),
     AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1}, animalsPage)
 create("UIListLayout", {Padding = UDim.new(0, 6)}, animalRows)
-local function fillAnimals()
+fillAnimals = function()
     local r = playerRoot()
     local results = {}
     for model in pairs(radarModels) do
@@ -557,6 +607,7 @@ local function fillAnimals()
     end
     table.sort(results, function(a, b) return a.distance < b.distance end)
     animalSummaryText.Text = "ضبان حقيقية مكتشفة: " .. tostring(#results)
+    if radarPageCount then radarPageCount.Text = "الضبان المحمّلة: " .. tostring(#results) end
     for _, child in ipairs(animalRows:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
     for i, item in ipairs(results) do
         if i > 35 then break end
@@ -577,7 +628,7 @@ local function fillAnimals()
         local active = {}
         for i, item in ipairs(results) do
             if i > 40 then break end
-            if item.distance <= 2500 then
+            if item.distance <= 3000 then
                 active[item.model] = true
                 if not radarMarkers[item.model] then radarMarkers[item.model] = makeMarker(item.part, "", COLORS.amber) end
                 local marker = radarMarkers[item.model]
@@ -683,7 +734,8 @@ numberInput(carPage, "السرعة المطلوبة (studs/s)", speedWanted, 15,
     if ok then speedWanted = value end
     return ok, response
 end)
-local carFlyControl = toggle(carPage, "طيران السيارة", function(on)
+info(carFlightPage, "طيران السيارة", "اجلس في مقعد VehicleSeat داخل سيارة LxVehicle. عند OFF تُحذف قوى الطيران من السيرفر فورًا.")
+local carFlyControl = toggle(carFlightPage, "طيران السيارة", function(on)
     if on and flyMode == "Player" then return false, "أوقف طيران اللاعب أولًا" end
     local ok, message = invoke("CarFly", {enabled = on})
     if ok then
@@ -692,7 +744,7 @@ local carFlyControl = toggle(carPage, "طيران السيارة", function(on)
     end
     return ok, message
 end)
-numberInput(carPage, "سرعة طيران السيارة", carFlySpeed, 15, 160, 10, function(value)
+numberInput(carFlightPage, "سرعة طيران السيارة", carFlySpeed, 15, 160, 10, function(value)
     local ok, response = invoke("CarFlySpeed", {value = value})
     if ok then carFlySpeed = value end
     return ok, response
@@ -706,7 +758,7 @@ button(carPage, "تغيير اتجاه الدفع الأمامي / الخلفي"
 end)
 local carDiag = info(carPage, "السرعة الفعلية: غير متاحة", "القيادة W/S والتوجيه A/D من نظام VehicleSeat")
 local carDiagText = carDiag:FindFirstChildOfClass("TextLabel")
-info(carPage, "بعد OFF", "يُزال طيران السيارة فورًا بالسيرفر وتعود الجاذبية. مساعد السرعة مستقل وتستطيع تشغيله مجددًا.")
+info(carFlightPage, "بعد OFF", "تعود الفيزياء الطبيعية. تستطيع فتح صفحة سرعة السيارة وتشغيل التسارع من جديد.")
 
 info(flightPage, "طيران اللاعب", "الطيران ينفذ بالسيرفر داخل لعبتك. أزرار WASD للحركة وE/Space للأعلى وQ/Ctrl للأسفل.")
 local playerFlyControl = toggle(flightPage, "طيران اللاعب", function(on)
@@ -752,7 +804,7 @@ local aimToggle = toggle(aimingPage, "مساعد التصويب", function(on)
     aimEnabled = on
     return true
 end)
-numberInput(aimingPage, "نطاق FOV بالبكسل", aimRadius, 25, 260, 10, function(value)
+numberInput(aimingPage, "نطاق FOV بالبكسل", aimRadius, 20, 35, 5, function(value)
     aimRadius = value
     return true
 end)
@@ -869,36 +921,99 @@ local function updateLighting()
         end
     end
 end
-info(visualsPage, "تحسين الرؤية", "الإضاءة تُستعاد بالكامل عند OFF أو إنهاء السكربت.")
-toggle(visualsPage, "إزالة الضباب", function(on)
+-- Native, self-contained illustrative preview (no external image IDs or broken thumbnails).
+local function illustration(page, mode)
+    local box = create("Frame", {Name="VisualExample_"..mode, Size=UDim2.new(1,-3,0,150),
+        BackgroundColor3=COLORS.panel, BorderSizePixel=0}, page)
+    corner(box,10)
+    create("TextLabel", {Size=UDim2.new(1,-16,0,23),Position=UDim2.fromOffset(8,4),
+        BackgroundTransparency=1,Text=mode=="Fog" and "معاينة توضيحية: الضباب قبل / بعد" or "معاينة توضيحية: إضاءة قبل / بعد",
+        TextColor3=COLORS.white,TextSize=12,Font=Enum.Font.GothamBold,
+        TextXAlignment=Enum.TextXAlignment.Left}, box)
+    for i=1,2 do
+        local clear=i==2
+        local tile=create("Frame", {Size=UDim2.new(.5,-13,0,105),
+            Position=UDim2.new((i-1)*.5, i==1 and 8 or 5,0,32),
+            BackgroundColor3=mode=="Fog" and Color3.fromRGB(85,116,130)
+                or (clear and Color3.fromRGB(96,165,210) or Color3.fromRGB(38,47,68)),
+            BorderSizePixel=0,ClipsDescendants=true},box)
+        corner(tile,8)
+        create("Frame",{Position=UDim2.new(.75,0,.13,0),Size=UDim2.fromOffset(25,25),
+            BackgroundColor3=clear and Color3.fromRGB(255,232,140) or Color3.fromRGB(155,166,173),
+            BorderSizePixel=0},tile)
+        local hill=create("Frame",{Position=UDim2.new(0,0,.57,0),Size=UDim2.new(1,0,.43,0),
+            BackgroundColor3=clear and Color3.fromRGB(34,101,76) or Color3.fromRGB(43,66,65),
+            BorderSizePixel=0},tile)
+        local opacity=mode=="Fog" and (clear and .96 or .24) or (clear and 1 or .88)
+        create("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.fromRGB(204,214,219),
+            BackgroundTransparency=opacity,BorderSizePixel=0},tile)
+        create("TextLabel",{Position=UDim2.new(0,7,1,-26),Size=UDim2.new(1,-14,0,22),
+            BackgroundColor3=Color3.fromRGB(10,10,14),BackgroundTransparency=.16,
+            Text=clear and "بعد ON" or "قبل OFF",TextColor3=COLORS.white,
+            Font=Enum.Font.GothamBold,TextSize=12},tile)
+    end
+    return box
+end
+connect(Lighting.ChildAdded, function(obj)
+    if fogOff and obj:IsA("Atmosphere") then
+        task.defer(function()
+            if alive and fogOff and obj.Parent then pcall(updateLighting) end
+        end)
+    end
+end)
+info(fogPage, "إزالة الضباب", "OFF يعيد مسافة الضباب وخصائص Atmosphere الأصلية. التغيير محلي بصريًا.")
+illustration(fogPage,"Fog")
+toggle(fogPage, "إزالة الضباب", function(on)
     fogOff = on
     updateLighting()
     return true
 end)
-toggle(visualsPage, "إضاءة كاملة", function(on)
+info(fullbrightPage, "إضاءة كاملة", "ON يرفع الإضاءة ويخفف الظلال محليًا. OFF يستعيد إعدادات الماب الأصلية.")
+illustration(fullbrightPage,"Fullbright")
+toggle(fullbrightPage, "إضاءة كاملة", function(on)
     fullbright = on
     updateLighting()
     return true
 end)
-local speedControl = toggle(visualsPage, "سرعة المشي المحلية", function(on)
+info(playerSpeedPage, "سرعة اللاعب", "في لعبتك تتغير السرعة من السيرفر عند توفره. بدون السيرفر يتوفر تطبيق محلي مؤقت وقد يعيده نظام الماب.")
+local speedControl = toggle(playerSpeedPage, "سرعة اللاعب", function(on)
     local h = human()
     if not h then return false, "الشخصية غير جاهزة" end
-    speedOn = on
+    -- IMPORTANT: remember original speed BEFORE the remote call modifies it.
+    -- Otherwise OFF would restore the new speed rather than the old one.
+    if on and oldWalkSpeed == nil then oldWalkSpeed = h.WalkSpeed end
+    if not remoteFunction and not RunService:IsStudio() then
+        return false, "تغيير سرعة اللاعب يحتاج سيرفر تجربتك"
+    end
+    if remoteFunction then
+        local ok, why = invoke("PlayerSpeed", {enabled=on, value=walkSpeed})
+        if not ok then
+            if on then oldWalkSpeed = nil end
+            return false, why
+        end
+    end
     if on then
-        if not oldWalkSpeed then oldWalkSpeed = h.WalkSpeed end
+        speedOn = true
         h.WalkSpeed = walkSpeed
     else
+        speedOn = false
         h.WalkSpeed = oldWalkSpeed or 16
         oldWalkSpeed = nil
     end
     return true
 end)
-numberInput(visualsPage, "سرعة المشي", walkSpeed, 8, 70, 4, function(value)
+numberInput(playerSpeedPage, "قيمة سرعة اللاعب", walkSpeed, 8, 70, 4, function(value)
+    if speedOn and remoteFunction then
+        local ok, why = invoke("PlayerSpeed", {enabled=true, value=value})
+        if not ok then return false, why end
+    end
     walkSpeed = value
     local h = human()
     if speedOn and h then h.WalkSpeed = value end
     return true
 end)
+local playerSpeedInfo = info(playerSpeedPage, "السرعة الحالية: —", "في الوضع المحلي قد يفرض سيرفر الماب سرعة مختلفة.")
+local playerSpeedActualText = playerSpeedInfo:FindFirstChildOfClass("TextLabel")
 
 info(watchPage, "تشخيص الحركة", "يرصد القفزات الكبيرة في الموقع ولا يتجاوز حماية السيرفر.")
 toggle(watchPage, "مراقبة تغيّر الموقع", function(on)
@@ -932,6 +1047,51 @@ button(settingsPage, "التحقق من عضوية ديسكورد", function()
     log(ok and "العضوية سارية" or response, not ok)
 end)
 
+-- Independent Discord, diagnostics, and debug pages. These operate on real observed state.
+info(discordPage, "عضوية Discord", "الربط الحقيقي يتم بالخادم الخارجي، ولا نعرض رابطًا خارجيًا داخل تجربة Roblox.")
+button(discordPage, "فتح شاشة التحقق", function()
+    previewing = false
+    welcome.Visible = not isAuthed
+    sidebar.Visible = isAuthed
+    content.Visible = isAuthed
+    log(isAuthed and "العضوية موثقة" or "تابع رمز الربط من شاشة التحقق")
+end)
+button(discordPage, "إعادة التحقق من العضوية", function()
+    local ok, response = invoke("AuthStatus", {})
+    setAuthorized(ok, tostring(response))
+end)
+info(protectionPage, "PROTECTION DIAGNOSTICS", "قياسات محلية: لا يمكن إثبات أن السيرفر صحح موقعك دون إشعار من السيرفر.")
+local protectionMeasure = info(protectionPage, "الموقع والسرعة: —", "تصنيف الحركة: Normal / Sudden / Unknown")
+local protectionText = protectionMeasure:FindFirstChildOfClass("TextLabel")
+info(performancePage, "Performance", "تردد التحديث ومعدل الإطارات قياسات تقريبية من عميل Roblox.")
+local perfMeasure = info(performancePage, "FPS: —", "وضع التوفير يباعد تحديث قوائم الرادار والموارد")
+local perfText = perfMeasure:FindFirstChildOfClass("TextLabel")
+toggle(performancePage, "وضع توفير الأداء", function(on)
+    performanceLow = on
+    return true
+end)
+info(debugPage, "DEBUG CONSOLE", "يعرض أحدث الأخطاء من وظائف Lx؛ زر نسخ غير موجود لأن Roblox لا يوفّر نسخ الحافظة لـ LocalScript.")
+debugReportLabel = create("TextBox", {
+    Name = "DebugTrace", Size = UDim2.new(1, -3, 0, 230),
+    Text = "لا توجد أخطاء", TextEditable = false, ClearTextOnFocus = false,
+    MultiLine = true, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top, Font = Enum.Font.Code,
+    TextSize = 12, TextColor3 = COLORS.white, BackgroundColor3 = COLORS.panel,
+}, debugPage)
+corner(debugReportLabel, 8)
+button(debugPage, "تحديث سجل الأخطاء", function()
+    debugReportLabel.Text = #errors > 0 and table.concat(errors, "\n\n") or "لا توجد أخطاء"
+    print("[Lx v77 DEBUG] " .. debugReportLabel.Text)
+end)
+button(debugPage, "فحص المكونات الحقيقية", function()
+    local h = human()
+    local seat = getDriverSeat()
+    local remoteOK = remoteFunction ~= nil and remoteEvent ~= nil
+    log(string.format("Client=%s | Server=%s | DriverSeat=%s | Player=%s | LizardIndex=%d",
+        tostring(localPlayer ~= nil), tostring(remoteOK), tostring(seat ~= nil),
+        tostring(h ~= nil), (function() local n=0 for _ in pairs(radarModels) do n=n+1 end return n end)()))
+end)
+
 local function stopLocalEffects()
     radarEnabled = false
     resourceEnabled = false
@@ -946,6 +1106,7 @@ local function stopLocalEffects()
     fullbright = false
     pcall(updateLighting)
     local h = human()
+    if speedOn and remoteEvent then pcall(function() remoteEvent:FireServer("PlayerSpeedOff", {}) end) end
     if speedOn and h then h.WalkSpeed = oldWalkSpeed or 16 end
     speedOn = false
     oldWalkSpeed = nil
@@ -955,9 +1116,12 @@ local function stopLocalEffects()
     flyMode = nil
     for _, control in ipairs(toggles) do control:set(false) end
 end
-local function setAuthorized(allowed, reason)
+setAuthorized = function(allowed, reason)
     isAuthed = allowed == true
-    welcome.Visible = not isAuthed and not previewing and not minimized
+    local canBrowse = isAuthed or (RunService:IsStudio() and previewing)
+    sidebar.Visible = canBrowse and not minimized
+    content.Visible = canBrowse and not minimized
+    welcome.Visible = not canBrowse and not minimized
     if not isAuthed then
         -- Auth revocation only clears server-controlled UI state; client-only
         -- effects (lighting, radar, diagnostics) are not gated by Discord.
@@ -965,6 +1129,15 @@ local function setAuthorized(allowed, reason)
         carFlyControl:set(false)
         playerFlyControl:set(false)
         carSpeedControl:set(false)
+        -- The server also restores WalkSpeed when authorization is revoked.
+        -- Do not leave the UI claiming ON after that server-side rollback.
+        if remoteFunction and speedOn then
+            local sh = human()
+            if sh and oldWalkSpeed ~= nil then sh.WalkSpeed = oldWalkSpeed end
+            speedOn = false
+            oldWalkSpeed = nil
+            speedControl:set(false)
+        end
         touchFrame.Visible = false
         welcomeStatus.Text = "التحقق مطلوب\n" .. tostring(reason or "لا توجد عضوية مثبتة")
         log("وظائف السيرفر مقفلة: " .. tostring(reason or "تحقق من Discord") .. " | الأدوات المحلية متاحة")
@@ -1003,10 +1176,11 @@ end)
 connect(minimizeButton.MouseButton1Click, function()
     minimized = not minimized
     sizeToViewport()
-    sidebar.Visible = not minimized
-    content.Visible = not minimized
+    local canBrowse = isAuthed or (RunService:IsStudio() and previewing)
+    sidebar.Visible = not minimized and canBrowse
+    content.Visible = not minimized and canBrowse
     statusText.Visible = not minimized
-    welcome.Visible = not minimized and not isAuthed and not previewing
+    welcome.Visible = not minimized and not (isAuthed or (RunService:IsStudio() and previewing))
     minimizeButton.Text = minimized and "+" or "−"
 end)
 local dragInitialPosition, dragInitialInput, draggingInput
@@ -1082,16 +1256,26 @@ local function nearestAimPart()
     end
     return best
 end
-local reportTimer, radarTimer, resourceTimer, flightTimer, authTimer, monitorTimer = 0, 0, 0, 0, 0, 0
+local reportTimer, radarTimer, resourceTimer, flightTimer, authTimer, monitorTimer, visualTimer = 0, 0, 0, 0, 0, 0, 0
 connect(RunService.Heartbeat, function(dt)
     if not alive then return end
+    local instantFPS = 1 / math.max(0.004, dt)
+    fpsEstimate = fpsEstimate * 0.90 + instantFPS * 0.10
     reportTimer = reportTimer + dt
     radarTimer = radarTimer + dt
     resourceTimer = resourceTimer + dt
     flightTimer = flightTimer + dt
     authTimer = authTimer + dt
     monitorTimer = monitorTimer + dt
-    touchFrame.Visible = isAuthed and flyMode ~= nil and UserInputService.TouchEnabled
+    visualTimer = visualTimer + dt
+    if visualTimer >= 2.5 then
+        visualTimer = 0
+        if fogOff or fullbright then
+            local ok, issue = pcall(updateLighting)
+            if not ok then log("إعادة تطبيق الإضاءة: " .. tostring(issue), true) end
+        end
+    end
+    touchFrame.Visible = flyMode ~= nil and UserInputService.TouchEnabled
     if reportTimer >= 0.35 then
         reportTimer = 0
         local seat = getDriverSeat()
@@ -1099,15 +1283,30 @@ connect(RunService.Heartbeat, function(dt)
             local speed = seat.AssemblyLinearVelocity.Magnitude
             carDiagText.Text = string.format("السرعة الفعلية: %.1f / المطلوبة: %.1f studs/s", speed, speedWanted)
         else carDiagText.Text = "السرعة الفعلية: ليست داخل مقعد قيادة" end
+        if activePage == performancePage and perfText then
+            perfText.Text = string.format("FPS ≈ %.0f | رادار: %s | موارد: %s | توفير: %s",
+                fpsEstimate, tostring(radarEnabled), tostring(resourceEnabled), tostring(performanceLow))
+        end
+        if activePage == protectionPage and protectionText then
+            local body = playerRoot()
+            local pos = body and body.Position
+            local velocity = body and body.AssemblyLinearVelocity.Magnitude or 0
+            protectionText.Text = pos and string.format("الموقع %.0f, %.0f, %.0f | السرعة %.1f | %s",
+                pos.X, pos.Y, pos.Z, velocity, lastLargeMove) or "الشخصية غير جاهزة"
+        end
+        local speedHum = human()
+        if speedHum and playerSpeedActualText then
+            playerSpeedActualText.Text = string.format("سرعة اللاعب الفعلية: %.1f / المطلوبة: %.1f", speedHum.WalkSpeed, walkSpeed)
+        end
     end
-    if radarTimer >= 2 then
+    if radarTimer >= (performanceLow and 5 or 2) then
         radarTimer = 0
         if radarEnabled or activePage == animalsPage then
             local ok, e = pcall(fillAnimals)
             if not ok then log("Radar refresh: " .. tostring(e), true) end
         end
     end
-    if resourceTimer >= 3 then
+    if resourceTimer >= (performanceLow and 7 or 3) then
         resourceTimer = 0
         if resourceEnabled or activePage == resourcesPage then
             local ok, e = pcall(refreshResources)
@@ -1116,7 +1315,7 @@ connect(RunService.Heartbeat, function(dt)
     end
     if flightTimer >= 0.10 then
         flightTimer = 0
-        if isAuthed and remoteEvent then
+        if remoteEvent then
             if flyMode then
                 local direction, facing = flightDirection()
                 remoteEvent:FireServer("FlightInput", {direction = direction, facing = facing, mode = flyMode})
@@ -1179,7 +1378,7 @@ local function cleanup()
     if remoteEvent then pcall(function() remoteEvent:FireServer("StopAll", {}) end) end
     for _, c in ipairs(connections) do pcall(function() c:Disconnect() end) end
     table.clear(connections)
-    if _G.__LxStatusText == statusText then _G.__LxStatusText = nil end
+    statusReference = nil
     if _G.LxREDLINECleanup_v77 == cleanup then _G.LxREDLINECleanup_v77 = nil end
     if gui and gui.Parent then gui:Destroy() end
 end
@@ -1189,8 +1388,10 @@ button(settingsPage, "إنهاء السكربت وتنظيف العناصر", cl
 task.spawn(function()
     local folder = ReplicatedStorage:WaitForChild("Lx_REDLINE_v77", 8)
     if not folder then
-        previewing = true
-        welcome.Visible = false
+        previewing = RunService:IsStudio()
+        welcome.Visible = not previewing
+        sidebar.Visible = previewing
+        content.Visible = previewing
         welcomeStatus.Text = "السيرفر غير جاهز\nأضف Lx_REDLINE_PRO_v77_SERVER.lua إلى ServerScriptService"
         log("الأدوات المحلية جاهزة؛ تحكم السيارة والطيران والانتقال يحتاج ملف السيرفر", true)
         return
@@ -1198,8 +1399,10 @@ task.spawn(function()
     remoteFunction = folder:FindFirstChild("Action")
     remoteEvent = folder:FindFirstChild("Events")
     if not remoteFunction or not remoteFunction:IsA("RemoteFunction") or not remoteEvent then
-        previewing = true
-        welcome.Visible = false
+        previewing = RunService:IsStudio()
+        welcome.Visible = not previewing
+        sidebar.Visible = previewing
+        content.Visible = previewing
         welcomeStatus.Text = "ملفات الاتصال ناقصة في ReplicatedStorage/Lx_REDLINE_v77"
         log("الأدوات المحلية جاهزة؛ اتصال سيرفر Lx ناقص", true)
         return
@@ -1207,6 +1410,9 @@ task.spawn(function()
     connect(remoteEvent.OnClientEvent, function(eventName, result)
         if eventName == "AuthChanged" then
             setAuthorized(result == true, result and "عضوية صالحة" or "انتهت العضوية أو فشل التحقق")
+        elseif eventName == "CarBoostStopped" then
+            carSpeedControl:set(false)
+            log(tostring(result))
         elseif eventName == "TeleportResult" then
             log(tostring(result))
         elseif eventName == "ForcedStop" then
@@ -1214,6 +1420,13 @@ task.spawn(function()
             carFlyControl:set(false)
             playerFlyControl:set(false)
             carSpeedControl:set(false)
+            if remoteFunction and speedOn then
+                local sh = human()
+                if sh and oldWalkSpeed ~= nil then sh.WalkSpeed = oldWalkSpeed end
+                speedOn = false
+                oldWalkSpeed = nil
+                speedControl:set(false)
+            end
             touchFrame.Visible = false
             log("أوقف السيرفر التحكم: " .. tostring(result))
         end
