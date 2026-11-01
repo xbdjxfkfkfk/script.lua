@@ -1,7 +1,7 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║           HUNTER HUB ULTRA v5.0 PRO                      ║
-    ║          احترافي - قوي - بدون أخطاء                      ║
+    ║           HUNTER HUB ULTRA v6.0 FINAL                    ║
+    ║          مضبوط بالكامل - بدون أي خطأ                     ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
@@ -28,7 +28,7 @@ if type(getgenv) == "function" then
 end
 if type(env.XHubCleanup) == "function" then pcall(env.XHubCleanup) end
 
-for _, name in ipairs({"HunterHubV5", "HunterHubV4", "Lx_NexusV77", "ZyphoraHub"}) do
+for _, name in ipairs({"HunterHubV6", "HunterHubV5", "HunterHubV4", "Lx_NexusV77", "ZyphoraHub"}) do
     local old = PG:FindFirstChild(name)
     if old then old:Destroy() end
 end
@@ -59,7 +59,6 @@ local S = {
     AimRange = 3000,
     AimSmooth = 0.14,
     FOV = 25,
-    AimTarget = "head", -- head, body, closest
     
     -- Car
     CarSpeed = false,
@@ -85,7 +84,6 @@ local S = {
     ResourceESP = false,
     RareAlert = false,
     ResourceAlert = false,
-    AutoFarm = false,
 }
 
 -- Colors
@@ -149,7 +147,7 @@ end
 
 -- GUI
 local gui = inst("ScreenGui", {
-    Name = "HunterHubV5",
+    Name = "HunterHubV6",
     ResetOnSpawn = false,
     DisplayOrder = 90,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -225,7 +223,7 @@ inst("TextLabel", {
     Size = UDim2.fromOffset(250, 14),
     Position = UDim2.fromOffset(58, 30),
     BackgroundTransparency = 1,
-    Text = "v5.0 PRO | كل المميزات شغالة",
+    Text = "v6.0 FINAL | مضبوط بالكامل",
     TextColor3 = C.muted,
     Font = Enum.Font.Gotham,
     TextSize = 10,
@@ -1568,8 +1566,8 @@ conn(UIS.InputBegan, function(input, gp)
     end
 end)
 
-msg("Hunter Hub v5.0 | كل المميزات شغالة ✅")
-print("✅ HUNTER HUB ULTRA v5.0 LOADED")
+msg("Hunter Hub v6.0 | كل شي مضبوط ✅")
+print("✅ HUNTER HUB ULTRA v6.0 LOADED")
 print("🎯 Aimbot: يصيب الضبان تلقائياً")
 print("👁️ ESP: كشف محدد حسب الندرة")
 print("🚗 CarFly: طيران + سرعة")
