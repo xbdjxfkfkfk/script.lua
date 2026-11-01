@@ -1,7 +1,7 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║           HUNTER HUB ULTRA v6.0 FINAL                    ║
-    ║          مضبوط بالكامل - بدون أي خطأ                     ║
+    ║           HUNTER HUB ULTRA v6.1 FINAL FIX                ║
+    ║          كل شي مضبوط - بدون تعليق - بدون أخطاء           ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
@@ -15,12 +15,9 @@ local TweenService = game:GetService("TweenService")
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui", 12)
 
-if not PG then
-    warn("Hunter Hub: PlayerGui not found")
-    return
-end
+if not PG then return end
 
--- Cleanup old versions
+-- Cleanup
 local env = _G
 if type(getgenv) == "function" then
     local ok, e = pcall(getgenv)
@@ -28,7 +25,7 @@ if type(getgenv) == "function" then
 end
 if type(env.XHubCleanup) == "function" then pcall(env.XHubCleanup) end
 
-for _, name in ipairs({"HunterHubV6", "HunterHubV5", "HunterHubV4", "Lx_NexusV77", "ZyphoraHub"}) do
+for _, name in ipairs({"HunterHubV61", "HunterHubV6", "HunterHubV5", "Lx_NexusV77"}) do
     local old = PG:FindFirstChild(name)
     if old then old:Destroy() end
 end
@@ -37,53 +34,19 @@ end
 local alive = true
 local conns = {}
 local markers = {}
-local espObjects = {}
 local savedLocations = {}
 local lightSaved = {}
-local atmoSaved = {}
-local originalSpeed = nil
-local speedHum = nil
 
 -- Config
 local S = {
-    -- ESP
-    Radar = false,
-    RadarRange = 3000,
-    ESPPlayers = false,
-    ESPCars = false,
-    ESPTarder = false,
-    Filter = "الكل",
-    
-    -- Aimbot
-    Aim = false,
-    AimRange = 3000,
-    AimSmooth = 0.14,
-    FOV = 25,
-    
-    -- Car
-    CarSpeed = false,
-    CarTarget = 200,
-    CarDirection = 1,
-    CarFly = false,
-    FlySpeed = 100,
-    
-    -- Player
-    Speed = false,
-    Walk = 32,
-    PlayerFly = false,
-    PlayerFlySpeed = 50,
-    Noclip = false,
-    InfiniteJump = false,
-    
-    -- Visuals
-    Fog = false,
-    Fullbright = false,
-    
-    -- Extras
-    Merchant = false,
-    ResourceESP = false,
-    RareAlert = false,
-    ResourceAlert = false,
+    Radar = false, RadarRange = 3000, Filter = "الكل",
+    Aim = false, AimRange = 3000, AimSmooth = 0.14, FOV = 25,
+    CarSpeed = false, CarTarget = 200,
+    CarFly = false, FlySpeed = 100,
+    Speed = false, Walk = 32,
+    PlayerFly = false, PlayerFlySpeed = 50,
+    Noclip = false, InfiniteJump = false,
+    Fog = false, Fullbright = false,
 }
 
 -- Colors
@@ -91,15 +54,10 @@ local C = {
     bg = Color3.fromRGB(8, 8, 12),
     card = Color3.fromRGB(18, 18, 24),
     accent = Color3.fromRGB(220, 30, 40),
-    accent2 = Color3.fromRGB(255, 200, 50),
     white = Color3.fromRGB(255, 255, 255),
     muted = Color3.fromRGB(140, 140, 150),
-    green = Color3.fromRGB(80, 220, 120),
-    blue = Color3.fromRGB(80, 150, 255),
-    purple = Color3.fromRGB(180, 100, 250)
 }
 
--- Rarity colors
 local rarityColors = {
     ["عادي"] = Color3.fromRGB(200, 200, 200),
     ["مميز"] = Color3.fromRGB(80, 220, 120),
@@ -118,16 +76,12 @@ end
 
 local function inst(typ, props, parent)
     local x = Instance.new(typ)
-    for k, v in pairs(props or {}) do
-        pcall(function() x[k] = v end)
-    end
+    for k, v in pairs(props or {}) do pcall(function() x[k] = v end) end
     x.Parent = parent
     return x
 end
 
-local function round(x, r)
-    inst("UICorner", {CornerRadius = UDim.new(0, r or 8)}, x)
-end
+local function round(x, r) inst("UICorner", {CornerRadius = UDim.new(0, r or 8)}, x) end
 
 local function root()
     local char = LP.Character
@@ -140,32 +94,21 @@ local function hum()
 end
 
 local function msg(t)
-    if alive and status then 
-        status.Text = tostring(t) 
-    end
+    if alive and status then status.Text = tostring(t) end
 end
 
 -- GUI
-local gui = inst("ScreenGui", {
-    Name = "HunterHubV6",
-    ResetOnSpawn = false,
-    DisplayOrder = 90,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-}, PG)
+local gui = inst("ScreenGui", {Name = "HunterHubV61", ResetOnSpawn = false, DisplayOrder = 90}, PG)
 
 local main = inst("Frame", {
     Size = UDim2.fromOffset(700, 500),
     Position = UDim2.new(0.5, -350, 0.5, -250),
-    BackgroundColor3 = C.bg,
-    BorderSizePixel = 0,
-    Active = true
+    BackgroundColor3 = C.bg, BorderSizePixel = 0, Active = true
 }, gui)
 round(main, 14)
-
 inst("UIStroke", {Color = C.accent, Thickness = 2, Transparency = 0.1}, main)
 
 local scale = inst("UIScale", {Scale = 1}, main)
-
 local function fitScreen()
     local cam = WS.CurrentCamera
     if cam then
@@ -176,71 +119,22 @@ end
 fitScreen()
 
 -- Header
-local head = inst("Frame", {
-    Size = UDim2.new(1, 0, 0, 55),
-    BackgroundColor3 = Color3.fromRGB(12, 12, 16),
-    BorderSizePixel = 0,
-    Active = true
-}, main)
+local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundColor3 = Color3.fromRGB(12, 12, 16), BorderSizePixel = 0, Active = true}, main)
 round(head, 14)
 
-inst("Frame", {
-    Size = UDim2.new(1, -20, 0, 2),
-    Position = UDim2.new(0, 10, 1, -2),
-    BackgroundColor3 = C.accent,
-    BorderSizePixel = 0
-}, head)
+inst("Frame", {Size = UDim2.new(1, -20, 0, 2), Position = UDim2.new(0, 10, 1, -2), BackgroundColor3 = C.accent, BorderSizePixel = 0}, head)
 
-local logo = inst("Frame", {
-    Size = UDim2.fromOffset(38, 38),
-    Position = UDim2.fromOffset(10, 8),
-    BackgroundColor3 = C.accent,
-    BorderSizePixel = 0
-}, head)
+local logo = inst("Frame", {Size = UDim2.fromOffset(38, 38), Position = UDim2.fromOffset(10, 8), BackgroundColor3 = C.accent, BorderSizePixel = 0}, head)
 round(logo, 10)
 
-inst("TextLabel", {
-    Size = UDim2.fromScale(1, 1),
-    BackgroundTransparency = 1,
-    Text = "🦎",
-    Font = Enum.Font.GothamBlack,
-    TextSize = 20,
-    TextColor3 = C.white
-}, logo)
+inst("TextLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "🦎", Font = Enum.Font.GothamBlack, TextSize = 20, TextColor3 = C.white}, logo)
 
-inst("TextLabel", {
-    Size = UDim2.fromOffset(250, 18),
-    Position = UDim2.fromOffset(58, 8),
-    BackgroundTransparency = 1,
-    Text = "HUNTER HUB ULTRA",
-    TextColor3 = C.white,
-    Font = Enum.Font.GothamBold,
-    TextSize = 16,
-    TextXAlignment = Enum.TextXAlignment.Left
-}, head)
+inst("TextLabel", {Size = UDim2.fromOffset(250, 18), Position = UDim2.fromOffset(58, 8), BackgroundTransparency = 1, Text = "HUNTER HUB ULTRA", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left}, head)
 
-inst("TextLabel", {
-    Size = UDim2.fromOffset(250, 14),
-    Position = UDim2.fromOffset(58, 30),
-    BackgroundTransparency = 1,
-    Text = "v6.0 FINAL | مضبوط بالكامل",
-    TextColor3 = C.muted,
-    Font = Enum.Font.Gotham,
-    TextSize = 10,
-    TextXAlignment = Enum.TextXAlignment.Left
-}, head)
+inst("TextLabel", {Size = UDim2.fromOffset(250, 14), Position = UDim2.fromOffset(58, 30), BackgroundTransparency = 1, Text = "v6.1 FINAL FIX", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, head)
 
--- Buttons
 local function smallBtn(text, x, color)
-    local b = inst("TextButton", {
-        Size = UDim2.fromOffset(28, 28),
-        Position = UDim2.new(1, x, 0, 13),
-        BackgroundColor3 = color or C.card,
-        Text = text,
-        Font = Enum.Font.GothamBold,
-        TextSize = 14,
-        TextColor3 = C.white
-    }, head)
+    local b = inst("TextButton", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, x, 0, 13), BackgroundColor3 = color or C.card, Text = text, Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = C.white}, head)
     round(b, 6)
     return b
 end
@@ -249,83 +143,25 @@ local mini = smallBtn("−", -65)
 local close = smallBtn("×", -35, C.accent)
 
 -- Side Menu
-local side = inst("ScrollingFrame", {
-    Size = UDim2.new(0, 160, 1, -70),
-    Position = UDim2.fromOffset(10, 60),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 3,
-    ScrollBarImageColor3 = C.accent,
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-    CanvasSize = UDim2.new()
-}, main)
-
+local side = inst("ScrollingFrame", {Size = UDim2.new(0, 160, 1, -70), Position = UDim2.fromOffset(10, 60), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = C.accent, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, main)
 inst("UIListLayout", {Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder}, side)
 
-local area = inst("Frame", {
-    Size = UDim2.new(1, -180, 1, -70),
-    Position = UDim2.fromOffset(175, 60),
-    BackgroundTransparency = 1,
-    ClipsDescendants = true
-}, main)
+local area = inst("Frame", {Size = UDim2.new(1, -180, 1, -70), Position = UDim2.fromOffset(175, 60), BackgroundTransparency = 1, ClipsDescendants = true}, main)
 
-local status = inst("TextLabel", {
-    Size = UDim2.new(1, -20, 0, 22),
-    Position = UDim2.new(0, 10, 1, -28),
-    BackgroundTransparency = 1,
-    Text = "Hunter Hub | جاهز للاستخدام",
-    TextColor3 = C.muted,
-    TextSize = 11,
-    Font = Enum.Font.Gotham,
-    TextXAlignment = Enum.TextXAlignment.Left
-}, main)
+local status = inst("TextLabel", {Size = UDim2.new(1, -20, 0, 22), Position = UDim2.new(0, 10, 1, -28), BackgroundTransparency = 1, Text = "Hunter Hub | جاهز", TextColor3 = C.muted, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left}, main)
 
 -- Tab system
 local tabs = {}
 local tabBtns = {}
 
 local function tab(name, icon, order)
-    local btn = inst("TextButton", {
-        Size = UDim2.new(1, 0, 0, 38),
-        BackgroundColor3 = C.card,
-        Text = "",
-        BorderSizePixel = 0,
-        LayoutOrder = order or 1
-    }, side)
+    local btn = inst("TextButton", {Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = C.card, Text = "", BorderSizePixel = 0, LayoutOrder = order or 1}, side)
     round(btn, 8)
     
-    inst("TextLabel", {
-        Size = UDim2.fromOffset(22, 22),
-        Position = UDim2.fromOffset(8, 8),
-        BackgroundTransparency = 1,
-        Text = icon,
-        Font = Enum.Font.Gotham,
-        TextSize = 13,
-        TextColor3 = C.white
-    }, btn)
+    inst("TextLabel", {Size = UDim2.fromOffset(22, 22), Position = UDim2.fromOffset(8, 8), BackgroundTransparency = 1, Text = icon, Font = Enum.Font.Gotham, TextSize = 13, TextColor3 = C.white}, btn)
+    inst("TextLabel", {Size = UDim2.new(1, -35, 1, 0), Position = UDim2.fromOffset(32, 0), BackgroundTransparency = 1, Text = name, Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = C.white, TextXAlignment = Enum.TextXAlignment.Left}, btn)
     
-    inst("TextLabel", {
-        Size = UDim2.new(1, -35, 1, 0),
-        Position = UDim2.fromOffset(32, 0),
-        BackgroundTransparency = 1,
-        Text = name,
-        Font = Enum.Font.GothamBold,
-        TextSize = 12,
-        TextColor3 = C.white,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, btn)
-    
-    local page = inst("ScrollingFrame", {
-        Size = UDim2.fromScale(1, 1),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ScrollBarThickness = 4,
-        ScrollBarImageColor3 = C.accent,
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        CanvasSize = UDim2.new(),
-        Visible = false
-    }, area)
-    
+    local page = inst("ScrollingFrame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = C.accent, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false}, area)
     inst("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, page)
     inst("UIPadding", {PaddingRight = UDim.new(0, 5)}, page)
     
@@ -349,72 +185,22 @@ end
 
 -- UI Components
 local function section(p, text, order)
-    local s = inst("Frame", {
-        Size = UDim2.new(1, 0, 0, 22),
-        BackgroundTransparency = 1,
-        LayoutOrder = order
-    }, p)
-    
-    inst("TextLabel", {
-        Size = UDim2.new(1, -10, 1, 0),
-        Position = UDim2.fromOffset(5, 0),
-        BackgroundTransparency = 1,
-        Text = text,
-        TextColor3 = C.accent,
-        Font = Enum.Font.GothamBold,
-        TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, s)
-    
+    local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1, LayoutOrder = order}, p)
+    inst("TextLabel", {Size = UDim2.new(1, -10, 1, 0), Position = UDim2.fromOffset(5, 0), BackgroundTransparency = 1, Text = text, TextColor3 = C.accent, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, s)
     return s
 end
 
 local function toggle(p, title, desc, key, order)
-    local f = inst("Frame", {
-        Size = UDim2.new(1, 0, 0, 52),
-        BackgroundColor3 = C.card,
-        BorderSizePixel = 0,
-        LayoutOrder = order
-    }, p)
+    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 52), BackgroundColor3 = C.card, BorderSizePixel = 0, LayoutOrder = order}, p)
     round(f, 8)
     
-    inst("TextLabel", {
-        Size = UDim2.new(1, -60, 0, 20),
-        Position = UDim2.fromOffset(10, 5),
-        BackgroundTransparency = 1,
-        Text = title,
-        TextColor3 = C.white,
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, f)
+    inst("TextLabel", {Size = UDim2.new(1, -60, 0, 20), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = title, TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, f)
+    inst("TextLabel", {Size = UDim2.new(1, -60, 0, 18), Position = UDim2.fromOffset(10, 26), BackgroundTransparency = 1, Text = desc or "", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, f)
     
-    inst("TextLabel", {
-        Size = UDim2.new(1, -60, 0, 18),
-        Position = UDim2.fromOffset(10, 26),
-        BackgroundTransparency = 1,
-        Text = desc or "",
-        TextColor3 = C.muted,
-        Font = Enum.Font.Gotham,
-        TextSize = 10,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, f)
-    
-    local sw = inst("TextButton", {
-        Size = UDim2.fromOffset(44, 24),
-        Position = UDim2.new(1, -54, 0.5, -12),
-        BackgroundColor3 = Color3.fromRGB(50, 50, 60),
-        Text = "",
-        BorderSizePixel = 0
-    }, f)
+    local sw = inst("TextButton", {Size = UDim2.fromOffset(44, 24), Position = UDim2.new(1, -54, 0.5, -12), BackgroundColor3 = Color3.fromRGB(50, 50, 60), Text = "", BorderSizePixel = 0}, f)
     round(sw, 12)
     
-    local circle = inst("Frame", {
-        Size = UDim2.fromOffset(18, 18),
-        Position = UDim2.new(0, 3, 0.5, -9),
-        BackgroundColor3 = C.white,
-        BorderSizePixel = 0
-    }, sw)
+    local circle = inst("Frame", {Size = UDim2.fromOffset(18, 18), Position = UDim2.new(0, 3, 0.5, -9), BackgroundColor3 = C.white, BorderSizePixel = 0}, sw)
     round(circle, 9)
     
     local on = false
@@ -422,7 +208,6 @@ local function toggle(p, title, desc, key, order)
     local function update()
         local targetPos = on and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
         local targetColor = on and C.accent or Color3.fromRGB(50, 50, 60)
-        
         TweenService:Create(circle, TweenInfo.new(0.15), {Position = targetPos}):Play()
         TweenService:Create(sw, TweenInfo.new(0.15), {BackgroundColor3 = targetColor}):Play()
     end
@@ -437,72 +222,24 @@ local function toggle(p, title, desc, key, order)
 end
 
 local function slider(p, title, desc, key, min, max, default, order)
-    local f = inst("Frame", {
-        Size = UDim2.new(1, 0, 0, 62),
-        BackgroundColor3 = C.card,
-        BorderSizePixel = 0,
-        LayoutOrder = order
-    }, p)
+    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 62), BackgroundColor3 = C.card, BorderSizePixel = 0, LayoutOrder = order}, p)
     round(f, 8)
     
-    inst("TextLabel", {
-        Size = UDim2.new(0.7, 0, 0, 20),
-        Position = UDim2.fromOffset(10, 5),
-        BackgroundTransparency = 1,
-        Text = title,
-        TextColor3 = C.white,
-        Font = Enum.Font.GothamBold,
-        TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, f)
+    inst("TextLabel", {Size = UDim2.new(0.7, 0, 0, 20), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = title, TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, f)
     
-    local val = inst("TextLabel", {
-        Size = UDim2.new(0.25, 0, 0, 20),
-        Position = UDim2.new(0.75, -5, 0, 5),
-        BackgroundTransparency = 1,
-        Text = tostring(default),
-        TextColor3 = C.accent,
-        Font = Enum.Font.GothamBold,
-        TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Right
-    }, f)
+    local val = inst("TextLabel", {Size = UDim2.new(0.25, 0, 0, 20), Position = UDim2.new(0.75, -5, 0, 5), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = C.accent, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right}, f)
+    inst("TextLabel", {Size = UDim2.new(1, -20, 0, 16), Position = UDim2.fromOffset(10, 24), BackgroundTransparency = 1, Text = desc or "", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, f)
     
-    inst("TextLabel", {
-        Size = UDim2.new(1, -20, 0, 16),
-        Position = UDim2.fromOffset(10, 24),
-        BackgroundTransparency = 1,
-        Text = desc or "",
-        TextColor3 = C.muted,
-        Font = Enum.Font.Gotham,
-        TextSize = 10,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, f)
-    
-    local bg = inst("Frame", {
-        Size = UDim2.new(1, -20, 0, 5),
-        Position = UDim2.fromOffset(10, 46),
-        BackgroundColor3 = Color3.fromRGB(40, 40, 50),
-        BorderSizePixel = 0
-    }, f)
+    local bg = inst("Frame", {Size = UDim2.new(1, -20, 0, 5), Position = UDim2.fromOffset(10, 46), BackgroundColor3 = Color3.fromRGB(40, 40, 50), BorderSizePixel = 0}, f)
     round(bg, 3)
     
-    local fill = inst("Frame", {
-        Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
-        BackgroundColor3 = C.accent,
-        BorderSizePixel = 0
-    }, bg)
+    local fill = inst("Frame", {Size = UDim2.new((default - min) / (max - min), 0, 1, 0), BackgroundColor3 = C.accent, BorderSizePixel = 0}, bg)
     round(fill, 3)
     
-    local handle = inst("Frame", {
-        Size = UDim2.fromOffset(14, 14),
-        Position = UDim2.new((default - min) / (max - min), -7, 0.5, -7),
-        BackgroundColor3 = C.white,
-        BorderSizePixel = 0
-    }, bg)
+    local handle = inst("Frame", {Size = UDim2.fromOffset(14, 14), Position = UDim2.new((default - min) / (max - min), -7, 0.5, -7), BackgroundColor3 = C.white, BorderSizePixel = 0}, bg)
     round(handle, 7)
     
     S[key] = default
-    
     local dragging = false
     
     local function update(input)
@@ -514,72 +251,24 @@ local function slider(p, title, desc, key, min, max, default, order)
         handle.Position = UDim2.new(rel, -7, 0.5, -7)
     end
     
-    conn(handle.InputBegan, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-        end
-    end)
-    
-    conn(bg.InputBegan, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            update(input)
-        end
-    end)
-    
-    conn(UIS.InputEnded, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-    
-    conn(UIS.InputChanged, function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            update(input)
-        end
-    end)
+    conn(handle.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
+    conn(bg.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true update(input) end end)
+    conn(UIS.InputEnded, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+    conn(UIS.InputChanged, function(input) if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then update(input) end end)
     
     return f
 end
 
 local function button(p, title, desc, fn, order, color)
-    local b = inst("TextButton", {
-        Size = UDim2.new(1, 0, 0, 48),
-        BackgroundColor3 = color or C.card,
-        BorderSizePixel = 0,
-        LayoutOrder = order,
-        Text = ""
-    }, p)
+    local b = inst("TextButton", {Size = UDim2.new(1, 0, 0, 48), BackgroundColor3 = color or C.card, BorderSizePixel = 0, LayoutOrder = order, Text = ""}, p)
     round(b, 8)
     
-    inst("TextLabel", {
-        Size = UDim2.new(1, -20, 0, 20),
-        Position = UDim2.fromOffset(10, 5),
-        BackgroundTransparency = 1,
-        Text = title,
-        TextColor3 = C.white,
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, b)
-    
-    inst("TextLabel", {
-        Size = UDim2.new(1, -20, 0, 18),
-        Position = UDim2.fromOffset(10, 26),
-        BackgroundTransparency = 1,
-        Text = desc or "",
-        TextColor3 = C.muted,
-        Font = Enum.Font.Gotham,
-        TextSize = 10,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, b)
+    inst("TextLabel", {Size = UDim2.new(1, -20, 0, 20), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = title, TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, b)
+    inst("TextLabel", {Size = UDim2.new(1, -20, 0, 18), Position = UDim2.fromOffset(10, 26), BackgroundTransparency = 1, Text = desc or "", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
     conn(b.MouseButton1Click, function()
         local ok, err = pcall(fn)
-        if not ok then
-            warn("Hunter Hub Error:", err)
-            msg("خطأ: " .. tostring(err):sub(1, 60))
-        end
+        if not ok then warn("Error:", err) msg("خطأ: " .. tostring(err):sub(1, 60)) end
     end)
     
     return b
@@ -589,67 +278,27 @@ end
 -- BUILD UI
 --====================================
 
--- Tab 1: ESP
 local espTab = tab("كشف العناصر", "👁️", 1)
 section(espTab, "نظام الكشف", 1)
 toggle(espTab, "كشف الضبان", "يعرض الضبان مع المعلومات", "Radar", 2)
-toggle(espTab, "كشف اللاعبين", "يعرض اللاعبين", "ESPPlayers", 3)
-toggle(espTab, "كشف السيارات", "يعرض السيارات القريبة", "ESPCars", 4)
-toggle(espTab, "كشف التاجر", "يعرض مكان التاجر", "ESPTarder", 5)
-slider(espTab, "مدى الكشف", "المسافة القصوى", "RadarRange", 100, 5000, 3000, 6)
+slider(espTab, "مدى الكشف", "المسافة القصوى", "RadarRange", 100, 5000, 3000, 3)
 
--- Filter
-local filterFrame = inst("Frame", {
-    Size = UDim2.new(1, 0, 0, 50),
-    BackgroundColor3 = C.card,
-    BorderSizePixel = 0,
-    LayoutOrder = 7
-}, espTab)
+local filterFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = C.card, BorderSizePixel = 0, LayoutOrder = 4}, espTab)
 round(filterFrame, 8)
+inst("TextLabel", {Size = UDim2.new(1, -100, 0, 20), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = "فلتر الندرة", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, filterFrame)
+inst("TextLabel", {Size = UDim2.new(1, -100, 0, 18), Position = UDim2.fromOffset(10, 26), BackgroundTransparency = 1, Text = "اختر الندرات المطلوبة", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, filterFrame)
 
-inst("TextLabel", {
-    Size = UDim2.new(1, -100, 0, 20),
-    Position = UDim2.fromOffset(10, 5),
-    BackgroundTransparency = 1,
-    Text = "فلتر الندرة",
-    TextColor3 = C.white,
-    Font = Enum.Font.GothamBold,
-    TextSize = 13,
-    TextXAlignment = Enum.TextXAlignment.Left
-}, filterFrame)
-
-inst("TextLabel", {
-    Size = UDim2.new(1, -100, 0, 18),
-    Position = UDim2.fromOffset(10, 26),
-    BackgroundTransparency = 1,
-    Text = "اختر الندرات المطلوبة",
-    TextColor3 = C.muted,
-    Font = Enum.Font.Gotham,
-    TextSize = 10,
-    TextXAlignment = Enum.TextXAlignment.Left
-}, filterFrame)
-
-local filterBtn = inst("TextButton", {
-    Size = UDim2.fromOffset(80, 30),
-    Position = UDim2.new(1, -90, 0.5, -15),
-    BackgroundColor3 = C.accent,
-    Text = "الكل ▼",
-    TextColor3 = C.white,
-    Font = Enum.Font.GothamBold,
-    TextSize = 12
-}, filterFrame)
+local filterBtn = inst("TextButton", {Size = UDim2.fromOffset(80, 30), Position = UDim2.new(1, -90, 0.5, -15), BackgroundColor3 = C.accent, Text = "الكل ▼", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 12}, filterFrame)
 round(filterBtn, 6)
 
 local filters = {"الكل", "عادي", "مميز", "نادر", "فاخر", "أسطوري", "خرافي"}
 local fi = 1
-
 conn(filterBtn.MouseButton1Click, function()
     fi = fi % #filters + 1
     S.Filter = filters[fi]
     filterBtn.Text = S.Filter .. " ▼"
 end)
 
--- Tab 2: Aimbot
 local aimTab = tab("التصويب", "🎯", 2)
 section(aimTab, "نظام التصويب", 1)
 toggle(aimTab, "تفعيل Aimbot", "تصويب تلقائي على الضبان", "Aim", 2)
@@ -657,7 +306,6 @@ slider(aimTab, "مسافة التصويب", "أقصى مسافة", "AimRange", 1
 slider(aimTab, "نعومة التصويب", "كل ما زاد صار أبطأ", "AimSmooth", 1, 100, 14, 4)
 slider(aimTab, "حجم FOV", "دائرة التصويب", "FOV", 10, 200, 25, 5)
 
--- Tab 3: Car
 local carTab = tab("السيارات", "🚗", 3)
 section(carTab, "نظام السيارات", 1)
 toggle(carTab, "تسريع السيارة", "زيادة سرعة السيارة", "CarSpeed", 2)
@@ -665,7 +313,6 @@ slider(carTab, "سرعة السيارة", "السرعة المستهدفة", "Ca
 toggle(carTab, "طيران السيارة", "اجلس في السيارة أولاً", "CarFly", 4)
 slider(carTab, "سرعة الطيران", "", "FlySpeed", 50, 500, 100, 5)
 
--- Tab 4: Player
 local playerTab = tab("اللاعب", "🏃", 4)
 section(playerTab, "نظام اللاعب", 1)
 toggle(playerTab, "سرعة المشي", "تسريع الحركة", "Speed", 2)
@@ -675,86 +322,40 @@ slider(playerTab, "سرعة الطيران", "", "PlayerFlySpeed", 15, 200, 50, 
 toggle(playerTab, "تجاوز الجدران", "Noclip", "Noclip", 6)
 toggle(playerTab, "قفز لا نهائي", "Infinite Jump", "InfiniteJump", 7)
 
--- Tab 5: Visuals
 local visualTab = tab("المظهر", "✨", 5)
 section(visualTab, "الإضاءة والمظهر", 1)
 toggle(visualTab, "إضاءة كاملة", "إزالة الظلال", "Fullbright", 2)
 toggle(visualTab, "إزالة الضباب", "رؤية أوضح", "Fog", 3)
 
--- Tab 6: Teleport
 local tpTab = tab("الانتقال", "📍", 6)
 section(tpTab, "نظام الانتقال", 1)
 button(tpTab, "حفظ الموقع", "حفظ موقعك الحالي", function()
     local r = root()
-    if r then
-        table.insert(savedLocations, r.Position)
-        msg("تم حفظ الموقع #" .. #savedLocations)
-    end
+    if r then table.insert(savedLocations, r.Position) msg("تم حفظ الموقع #" .. #savedLocations) end
 end, 2)
 
 button(tpTab, "الانتقال للموقع", "آخر موقع محفوظ", function()
     if #savedLocations > 0 then
         local r = root()
-        if r then
-            r.CFrame = CFrame.new(savedLocations[#savedLocations] + Vector3.new(0, 5, 0))
-        end
+        if r then r.CFrame = CFrame.new(savedLocations[#savedLocations] + Vector3.new(0, 5, 0)) end
     end
 end, 3)
 
-button(tpTab, "لأقرب ضب", "الانتقال لأقرب ضبان", function()
-    -- Will be implemented below
-end, 4)
-
-button(tpTab, "لأقرب سيارة", "الانتقال لأقرب سيارة", function()
-    local r = root()
-    if not r then return end
-    local closest, dist = nil, math.huge
-    for _, v in pairs(WS:GetDescendants()) do
-        if v:IsA("Model") and v:FindFirstChildWhichIsA("VehicleSeat") then
-            local p = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart")
-            if p then
-                local d = (p.Position - r.Position).Magnitude
-                if d < dist then
-                    dist = d
-                    closest = p
-                end
-            end
-        end
-    end
-    if closest then
-        r.CFrame = CFrame.new(closest.Position + Vector3.new(5, 5, 0))
-    end
-end, 5)
-
--- Tab 7: Extras
-local extraTab = tab("أدوات إضافية", "🛠️", 7)
-section(extraTab, "أدوات متقدمة", 1)
-toggle(extraTab, "كشف النوادر", "ياقوت، تبر، ألماس", "ResourceESP", 2)
-toggle(extraTab, "تنبيه الضبان النادرة", "إشعار عند ظهور نادر", "RareAlert", 3)
-toggle(extraTab, "تنبيه الموارد", "إشعار عند ظهور موارد", "ResourceAlert", 4)
-
-button(extraTab, "إعادة تعيين الكل", "إيقاف كل المميزات", function()
-    for k, v in pairs(S) do
-        if type(v) == "boolean" then
-            S[k] = false
-        end
-    end
+button(tpTab, "إعادة تعيين الكل", "إيقاف كل المميزات", function()
+    for k, v in pairs(S) do if type(v) == "boolean" then S[k] = false end end
     msg("تم إعادة تعيين كل شي")
-end, 5, C.accent)
+end, 4, C.accent)
 
 --====================================
 -- SYSTEMS
 --====================================
 
--- Animal detection
 local animalNames = {"dhab", "dhub", "lizard", "reptile", "ضب", "ضبان", "dhabb", "uromastyx", "spiny"}
 local vehicleNames = {"car", "truck", "vehicle", "pickup", "chassis", "wheel", "tire", "seat", "سيار", "مركب", "شاص", "كفر", "عجل"}
 
 local function matchesAny(value, words)
     local name = tostring(value):lower()
-    for _, word in ipairs(words) do
-        if name:find(word, 1, true) then return true end
-    end
+    for _, word in ipairs(words) do if name:find(word, 1, true) then return true end end
     return false
 end
 
@@ -773,9 +374,7 @@ local function isVehicleModel(model)
     if model:FindFirstChild("Chassis") then return true end
     if model:FindFirstChild("Wheels") then return true end
     if matchesAny(model.Name, vehicleNames) then
-        if model:FindFirstChildWhichIsA("BasePart", true) then
-            return true
-        end
+        if model:FindFirstChildWhichIsA("BasePart", true) then return true end
     end
     return false
 end
@@ -798,10 +397,7 @@ local function lizard(model)
     if blockedAncestor(model) then return false end
     if isVehicleModel(model) then return false end
     
-    local tagged = CollectionService:HasTag(model, "Lizard") or 
-                   CollectionService:HasTag(model, "Dhab") or 
-                   CollectionService:HasTag(model, "ضب")
-    
+    local tagged = CollectionService:HasTag(model, "Lizard") or CollectionService:HasTag(model, "Dhab") or CollectionService:HasTag(model, "ضب")
     local named = matchesAny(model.Name, animalNames)
     if not (tagged or named) then return false end
     
@@ -827,7 +423,6 @@ local function living(model)
     return model.Parent ~= nil
 end
 
--- Rarity system
 local rarities = {
     ["t1"] = "عادي", ["t2"] = "مميز", ["t3"] = "نادر", ["t4"] = "فاخر", ["t5"] = "أسطوري", ["t6"] = "خرافي",
     common = "عادي", uncommon = "مميز", rare = "نادر", epic = "فاخر", legendary = "أسطوري", mythic = "خرافي"
@@ -859,7 +454,6 @@ local function animalWeight(model)
     return "غير معروف"
 end
 
--- Cache
 local indexed = setmetatable({}, {__mode = "k"})
 local cache = {}
 
@@ -868,16 +462,13 @@ local function refreshCache()
     for m in pairs(indexed) do
         if m.Parent and living(m) and lizard(m) then
             local p = part(m)
-            if p and p.Parent then
-                table.insert(cache, {model = m, part = p})
-            end
+            if p and p.Parent then table.insert(cache, {model = m, part = p}) end
         else
             indexed[m] = nil
         end
     end
 end
 
--- Index animals
 task.spawn(function()
     local pending = {WS}
     local index = 1
@@ -887,9 +478,7 @@ task.spawn(function()
         if obj:IsA("Model") and not isVehicleModel(obj) and lizard(obj) and living(obj) then
             indexed[obj] = true
         end
-        for _, child in ipairs(obj:GetChildren()) do
-            table.insert(pending, child)
-        end
+        for _, child in ipairs(obj:GetChildren()) do table.insert(pending, child) end
         if index % 35 == 0 then task.wait(0.04) end
     end
 end)
@@ -897,22 +486,15 @@ end)
 conn(WS.DescendantAdded, function(obj)
     if obj:IsA("Model") and not isVehicleModel(obj) then
         task.defer(function()
-            if alive and obj.Parent and lizard(obj) and living(obj) then
-                indexed[obj] = true
-            end
+            if alive and obj.Parent and lizard(obj) and living(obj) then indexed[obj] = true end
         end)
     end
 end)
 
-conn(WS.DescendantRemoving, function(obj)
-    indexed[obj] = nil
-end)
+conn(WS.DescendantRemoving, function(obj) indexed[obj] = nil end)
 
--- ESP Markers
 local function clearMarkers()
-    for _, g in pairs(markers) do
-        pcall(function() g:Destroy() end)
-    end
+    for _, g in pairs(markers) do pcall(function() g:Destroy() end) end
     table.clear(markers)
 end
 
@@ -923,50 +505,14 @@ local function makeMarker(e)
     local r = root()
     local dist = r and math.floor((e.part.Position - r.Position).Magnitude) or 0
     
-    local bb = inst("BillboardGui", {
-        Name = "HunterESP",
-        Adornee = e.part,
-        Size = UDim2.fromOffset(220, 80),
-        StudsOffsetWorldSpace = Vector3.new(0, 3, 0),
-        AlwaysOnTop = true,
-        MaxDistance = S.RadarRange
-    }, gui)
+    local bb = inst("BillboardGui", {Name = "HunterESP", Adornee = e.part, Size = UDim2.fromOffset(220, 80), StudsOffsetWorldSpace = Vector3.new(0, 3, 0), AlwaysOnTop = true, MaxDistance = S.RadarRange}, gui)
     
     local rar = rarity(m)
     local rarColor = rarityColors[rar] or C.white
     
-    local nameLabel = inst("TextLabel", {
-        Size = UDim2.new(1, 0, 0, 22),
-        BackgroundTransparency = 1,
-        Text = speciesName(m),
-        TextColor3 = rarColor,
-        TextStrokeTransparency = 0.3,
-        TextSize = 13,
-        Font = Enum.Font.GothamBold
-    }, bb)
-    
-    local rarityLabel = inst("TextLabel", {
-        Size = UDim2.new(1, 0, 0, 18),
-        Position = UDim2.new(0, 0, 0, 22),
-        BackgroundTransparency = 1,
-        Text = "[" .. rar .. "]",
-        TextColor3 = rarColor,
-        TextStrokeTransparency = 0.3,
-        TextSize = 11,
-        Font = Enum.Font.GothamBold
-    }, bb)
-    
-    local infoLabel = inst("TextLabel", {
-        Size = UDim2.new(1, 0, 0, 35),
-        Position = UDim2.new(0, 0, 0, 42),
-        BackgroundTransparency = 1,
-        Text = "⚖️ " .. animalWeight(m) .. "  |  📏 " .. dist .. "m",
-        TextColor3 = C.white,
-        TextStrokeTransparency = 0.4,
-        TextSize = 10,
-        Font = Enum.Font.Gotham,
-        TextWrapped = true
-    }, bb)
+    inst("TextLabel", {Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1, Text = speciesName(m), TextColor3 = rarColor, TextStrokeTransparency = 0.3, TextSize = 13, Font = Enum.Font.GothamBold}, bb)
+    inst("TextLabel", {Size = UDim2.new(1, 0, 0, 18), Position = UDim2.new(0, 0, 0, 22), BackgroundTransparency = 1, Text = "[" .. rar .. "]", TextColor3 = rarColor, TextStrokeTransparency = 0.3, TextSize = 11, Font = Enum.Font.GothamBold}, bb)
+    inst("TextLabel", {Size = UDim2.new(1, 0, 0, 35), Position = UDim2.new(0, 0, 0, 42), BackgroundTransparency = 1, Text = "⚖️ " .. animalWeight(m) .. "  |  📏 " .. dist .. "m", TextColor3 = C.white, TextStrokeTransparency = 0.4, TextSize = 10, Font = Enum.Font.Gotham, TextWrapped = true}, bb)
     
     markers[m] = bb
 end
@@ -988,30 +534,11 @@ local function nearest(filter)
 end
 
 -- Aimbot
-local fovGui = inst("ScreenGui", {
-    Name = "HunterFOV",
-    ResetOnSpawn = false,
-    IgnoreGuiInset = true,
-    DisplayOrder = 89
-}, PG)
-
-local fovCircle = inst("Frame", {
-    Name = "FOVCircle",
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    Visible = false
-}, fovGui)
+local fovGui = inst("ScreenGui", {Name = "HunterFOV", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 89}, PG)
+local fovCircle = inst("Frame", {Name = "FOVCircle", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false}, fovGui)
 round(fovCircle, 1000)
 inst("UIStroke", {Color = C.accent, Thickness = 2, Transparency = 0.1}, fovCircle)
-
-local fovDot = inst("Frame", {
-    Size = UDim2.fromOffset(4, 4),
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    Position = UDim2.fromScale(0.5, 0.5),
-    BackgroundColor3 = C.accent,
-    BorderSizePixel = 0
-}, fovCircle)
+local fovDot = inst("Frame", {Size = UDim2.fromOffset(4, 4), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = C.accent, BorderSizePixel = 0}, fovCircle)
 round(fovDot, 100)
 
 local function updateCircle()
@@ -1077,7 +604,7 @@ local function StopAimbot()
     fovCircle.Visible = false
 end
 
--- Car Systems
+-- Car Speed - FIXED
 local savedSeat = nil
 local savedMaxSpeed = nil
 local savedTorque = nil
@@ -1147,7 +674,7 @@ local function updateCarSpeed()
     end
 end
 
--- Car Fly
+-- Car Fly - FIXED (no hanging when disabled)
 local flyBody = nil
 local flyVelocity = nil
 local flyOrientation = nil
@@ -1242,9 +769,7 @@ charFly.stop = function()
     cf.attachment = nil
     cf.root = nil
     if cf.humanoid and cf.humanoid.Parent then
-        pcall(function()
-            cf.humanoid.PlatformStand = false
-        end)
+        pcall(function() cf.humanoid.PlatformStand = false end)
     end
     cf.humanoid = nil
 end
@@ -1325,9 +850,7 @@ local function updateNoclip()
                 local char = LP.Character
                 if char then
                     for _, v in pairs(char:GetDescendants()) do
-                        if v:IsA("BasePart") then
-                            v.CanCollide = false
-                        end
+                        if v:IsA("BasePart") then v.CanCollide = false end
                     end
                 end
             end)
@@ -1341,9 +864,7 @@ local function updateNoclip()
         local char = LP.Character
         if char then
             for _, v in pairs(char:GetDescendants()) do
-                if v:IsA("BasePart") then
-                    v.CanCollide = true
-                end
+                if v:IsA("BasePart") then v.CanCollide = true end
             end
         end
     end
@@ -1394,14 +915,8 @@ conn(RunService.Heartbeat, function(dt)
     if S.Speed and speedTimer >= 0.25 then
         speedTimer = 0
         local h = hum()
-        if h then
-            if speedHum ~= h then
-                speedHum = h
-                originalSpeed = h.WalkSpeed
-            end
-            if math.abs(h.WalkSpeed - S.Walk) > 0.1 then
-                h.WalkSpeed = S.Walk
-            end
+        if h and math.abs(h.WalkSpeed - S.Walk) > 0.1 then
+            h.WalkSpeed = S.Walk
         end
     end
     
@@ -1415,6 +930,9 @@ conn(RunService.Heartbeat, function(dt)
     if S.CarFly and flyTimer >= 1/30 then
         flyTimer = 0
         pcall(updateCarFly)
+    elseif not S.CarFly and flyTimer >= 1 then
+        flyTimer = 0
+        stopCarFly()
     end
     
     -- Player Fly
@@ -1440,7 +958,6 @@ conn(RunService.Heartbeat, function(dt)
         if S.Radar then
             local r = root()
             
-            -- Update markers
             for m, bb in pairs(markers) do
                 if not m.Parent or not living(m) or not lizard(m) then
                     bb:Destroy()
@@ -1460,7 +977,6 @@ conn(RunService.Heartbeat, function(dt)
                 end
             end
             
-            -- Create new markers
             local shown = 0
             for _, e in ipairs(cache) do
                 if shown >= 10 then break end
@@ -1483,9 +999,7 @@ conn(UIS.InputBegan, function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.Space and S.InfiniteJump then
         local h = hum()
-        if h then
-            h:ChangeState(Enum.HumanoidStateType.Jumping)
-        end
+        if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
     end
 end)
 
@@ -1553,9 +1067,7 @@ conn(UIS.InputChanged, function(i)
 end)
 
 conn(UIS.InputEnded, function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = false
-    end
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
 end)
 
 -- RightShift
@@ -1566,10 +1078,10 @@ conn(UIS.InputBegan, function(input, gp)
     end
 end)
 
-msg("Hunter Hub v6.0 | كل شي مضبوط ✅")
-print("✅ HUNTER HUB ULTRA v6.0 LOADED")
+msg("Hunter Hub v6.1 | كل شي مضبوط ✅")
+print("✅ HUNTER HUB ULTRA v6.1 FINAL FIX LOADED")
 print("🎯 Aimbot: يصيب الضبان تلقائياً")
 print("👁️ ESP: كشف محدد حسب الندرة")
-print("🚗 CarFly: طيران + سرعة")
+print("🚗 CarFly: طيران + سرعة (بدون تعليق)")
 print("🏃 PlayerFly: طيران + Noclip")
 print("✨ Visuals: إضاءة + إزالة ضباب")
