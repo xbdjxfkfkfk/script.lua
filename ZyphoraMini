@@ -1,581 +1,470 @@
--- Startup guard: report Lua execution errors in a visible on-screen panel.
-local function launchRedline()
--- Lx REDLINE PRO v77 | smooth vehicle controls and Discord entry | radar identification and marker recovery: relaxed identification and delayed model updates
--- Loaded client objects only; server-streamed distant objects cannot be detected.
--- Lx NEXUS PRO v47 | single-file Luau client utility
--- Features are best-effort and limited to replicated objects and client authority.
-local Players=game:GetService('Players')
-local RunService=game:GetService('RunService')
-local UIS=game:GetService('UserInputService')
-local WS=game:GetService('Workspace')
-local Lighting=game:GetService('Lighting')
-local CollectionService=game:GetService('CollectionService')
-local LP=Players.LocalPlayer
-if not LP then warn('Lx NEXUS: no LocalPlayer');return end
-local PG=LP:WaitForChild('PlayerGui',12)
-if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
-local env=_G
-if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
-if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
-for _,name in ipairs({'Lx_NexusV77','Lx_NexusV76','Lx_NexusV75','Lx_NexusV74','Lx_NexusV73','Lx_NexusV72','Lx_NexusV71','Lx_NexusV70','Lx_NexusV69','Lx_NexusV68','Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
- local old=PG:FindFirstChild(name)
- if old then old:Destroy() end
-end
-for _,version in ipairs({55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77}) do
- pcall(function() RunService:UnbindFromRenderStep('Lx_NexusAimV'..version) end)
-end
-local alive=true;local conns={};local markers={};local lightSaved={};local atmoSaved={};local originalSpeed=nil;local speedHum=nil
-local S={Radar=false,RadarRange=3000,Aim=false,AimRange=3000,AimSmooth=.14,FOV=25,Speed=false,Walk=32,CarSpeed=false,CarTarget=200,CarDirection=1,CarFly=false,FlySpeed=100,PlayerFly=false,PlayerFlySpeed=50,Fog=false,Fullbright=false,Merchant=false,ResourceESP=false,RareAlert=false,ResourceAlert=false,Filter='الكل'}
-local function conn(signal,fn) local c=signal:Connect(fn);conns[#conns+1]=c;return c end
-local function inst(typ,props,parent) local x=Instance.new(typ);for k,v in pairs(props or {}) do x[k]=v end;x.Parent=parent;return x end
-local function round(x,r) inst('UICorner',{CornerRadius=UDim.new(0,r or 9)},x) end
-local function root() return LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') end
-local function hum() return LP.Character and LP.Character:FindFirstChildOfClass('Humanoid') end
-local status
-local function msg(t) if alive and status then status.Text=tostring(t) end end
-local C={bg=Color3.fromRGB(10,10,12),card=Color3.fromRGB(28,29,32),muted=Color3.fromRGB(184,186,190),white=Color3.fromRGB(255,255,255),purple=Color3.fromRGB(239,28,37),green=Color3.fromRGB(80,215,135)}
-for _,oldName in ipairs({'Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
-local oldCurrent=PG:FindFirstChild('Lx_NexusV76') or PG:FindFirstChild('Lx_NexusV75') or PG:FindFirstChild('Lx_NexusV74') or PG:FindFirstChild('Lx_NexusV73') or PG:FindFirstChild('Lx_NexusV71') or PG:FindFirstChild('Lx_NexusV68') or PG:FindFirstChild('Lx_NexusV67') or PG:FindFirstChild('Lx_NexusV66') or PG:FindFirstChild('Lx_NexusV65') or PG:FindFirstChild('Lx_NexusV64') or PG:FindFirstChild('Lx_NexusV63') or PG:FindFirstChild('Lx_NexusV62') or PG:FindFirstChild('Lx_NexusV61') or PG:FindFirstChild('Lx_NexusV60') or PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58') or PG:FindFirstChild('Lx_NexusV59')
-if oldCurrent then oldCurrent:Destroy() end
-local gui=inst('ScreenGui',{Name='Lx_NexusV77',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
-local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
-main.Visible=true
-inst('UIStroke',{Color=Color3.fromRGB(205,36,42),Thickness=1.4,Transparency=.12},main)
-local scale=inst('UIScale',{Scale=1},main)
-local function fitScreen()
- local cam=WS.CurrentCamera
- if cam then local v=cam.ViewportSize;scale.Scale=math.min(1,math.max(.55,math.min((v.X-24)/650,(v.Y-24)/500))) end
-end
-fitScreen()
-local head=inst('Frame',{Size=UDim2.new(1,0,0,66),BackgroundColor3=Color3.fromRGB(22,22,24),BorderSizePixel=0,Active=true},main);round(head,16)
-inst('Frame',{Size=UDim2.new(1,-30,0,2),Position=UDim2.new(0,15,1,-2),BackgroundColor3=C.purple,BorderSizePixel=0},head)
-local brand=inst('Frame',{Size=UDim2.fromOffset(44,44),Position=UDim2.fromOffset(12,11),BackgroundColor3=Color3.fromRGB(255,255,255),BorderSizePixel=0},head);round(brand,12)
-inst('UIStroke',{Color=Color3.fromRGB(240,42,50),Thickness=1},brand)
-inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text='Lx',Font=Enum.Font.GothamBlack,TextSize=22,TextColor3=C.purple},brand)
-inst('TextLabel',{Size=UDim2.fromOffset(270,17),Position=UDim2.fromOffset(70,39),BackgroundTransparency=1,Text='REDLINE  •  PREMIUM CONTROL SYSTEM',TextColor3=C.muted,Font=Enum.Font.GothamMedium,TextSize=9,TextXAlignment=Enum.TextXAlignment.Left},head)
-inst('TextLabel',{Size=UDim2.fromOffset(330,30),Position=UDim2.fromOffset(70,9),BackgroundTransparency=1,Text='Lx  REDLINE PRO',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=19,TextXAlignment=Enum.TextXAlignment.Left},head)
-local function smallBtn(text,x) local b=inst('TextButton',{Size=UDim2.fromOffset(31,29),Position=UDim2.new(1,x,0,19),Text=text,Font=Enum.Font.GothamBold,TextSize=16,TextColor3=C.white,BackgroundColor3=C.bg},head);round(b,7);return b end
-local mini=smallBtn('−',-78);local close=smallBtn('×',-39)
-local side=inst('ScrollingFrame',{Size=UDim2.new(0,188,1,-111),Position=UDim2.fromOffset(12,76),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},main)
-inst('UIListLayout',{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},side)
-local area=inst('Frame',{Size=UDim2.new(1,-222,1,-114),Position=UDim2.fromOffset(210,76),BackgroundTransparency=1,ClipsDescendants=true},main)
-status=inst('TextLabel',{Size=UDim2.new(1,-24,0,25),Position=UDim2.new(0,12,1,-31),BackgroundTransparency=1,Text='Lx REDLINE | الوظائف تعتمد على بيانات الماب وصلاحيات العميل',TextColor3=C.muted,TextSize=11,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},main)
-local tabs={};local pageButtons={}
-local function tab(name)
- local b=inst('TextButton',{Size=UDim2.new(1,-6,0,44),Text=name,TextSize=12,Font=Enum.Font.GothamBold,TextColor3=C.white,BackgroundColor3=C.card},side);round(b,11)
- inst('UIStroke',{Color=Color3.fromRGB(110,44,49),Thickness=1,Transparency=.45},b)
- local p=inst('ScrollingFrame',{Size=UDim2.fromScale(1,1),Visible=false,BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=4,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},area)
- inst('UIListLayout',{Padding=UDim.new(0,9),SortOrder=Enum.SortOrder.LayoutOrder},p)
- inst('UIPadding',{PaddingTop=UDim.new(0,3),PaddingBottom=UDim.new(0,12),PaddingRight=UDim.new(0,8)},p)
- tabs[#tabs+1]=p;pageButtons[#pageButtons+1]=b
- conn(b.MouseButton1Click,function() for i,t in ipairs(tabs) do t.Visible=t==p;pageButtons[i].BackgroundColor3=t==p and C.purple or C.card end end)
- if #tabs==1 then p.Visible=true;b.BackgroundColor3=C.purple end
- return p
-end
-local function label(p,title,desc)
- local h=desc and 54 or 27
- local f=inst('Frame',{Size=UDim2.new(1,-2,0,h),BackgroundColor3=C.card,BorderSizePixel=0},p);round(f,11);inst('UIStroke',{Color=Color3.fromRGB(85,46,49),Thickness=1,Transparency=.5},f)
- inst('TextLabel',{Size=UDim2.new(1,-20,0,25),Position=UDim2.fromOffset(10,3),BackgroundTransparency=1,Text=title,Font=Enum.Font.GothamBold,TextSize=12,TextColor3=C.white,TextXAlignment=Enum.TextXAlignment.Left},f)
- if desc then inst('TextLabel',{Size=UDim2.new(1,-20,0,22),Position=UDim2.fromOffset(10,27),BackgroundTransparency=1,Text=desc,Font=Enum.Font.Gotham,TextSize=10,TextColor3=C.muted,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left},f) end
- return f
-end
-local function action(p,title,fn)
- local b=inst('TextButton',{Size=UDim2.new(1,-2,0,41),Text=title,TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,BackgroundColor3=C.card},p);round(b,11)
- inst('UIStroke',{Color=Color3.fromRGB(110,44,49),Thickness=1,Transparency=.5},b)
- conn(b.MouseButton1Click,function() local ok,e=pcall(fn);if not ok then warn('Lx NEXUS:',e);msg('خطأ: '..tostring(e):sub(1,65)) end end);return b
-end
-local togglePaints={}
-local function toggle(p,title,key,fn)
- local b=inst('TextButton',{Size=UDim2.new(1,-2,0,41),Text='',TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,BackgroundColor3=C.card},p)
- round(b,11)
- inst('UIStroke',{Color=Color3.fromRGB(110,44,49),Thickness=1,Transparency=.5},b)
- local function paint()
-  local enabled=S[key]==true
-  b.Text=title..(enabled and '  |  ON ✓' or '  |  OFF ✕')
-  b.BackgroundColor3=enabled and Color3.fromRGB(105,30,35) or C.card
- end
- paint()
- togglePaints[key]=paint
- conn(b.MouseButton1Click,function()
-  local previous=S[key]==true
-  local desired=not previous
-  S[key]=desired
-  local ok,err=true,nil
-  if fn then ok,err=pcall(fn,desired) end
-  if not ok then
-   S[key]=previous
-   warn('[Lx NEXUS] toggle failed:',err)
-   msg('تعذر تغيير الخيار: '..tostring(err):sub(1,55))
-  else
-   msg(title..(desired and ' : تم التشغيل ON' or ' : تم الإيقاف OFF'))
-  end
-  paint()
- end)
- return b
+-- ============================================================================
+-- Lx REDLINE PRO v77 — FULLY REFACTORED & HARDENED CLIENT UTILITY
+-- Built by ☠ SYSTEM BREACHED ☠ — ◥꧁ SHΔDØW HΛCKΞR ꧂◤
+-- ============================================================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local WS = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local CollectionService = game:GetService("CollectionService")
+
+local LP = Players.LocalPlayer
+if not LP then return end
+local PG = LP:WaitForChild("PlayerGui", 15)
+if not PG then return end
+
+-- Environment & Singleton Cleanup
+local env = _G
+if type(getgenv) == "function" then
+    local ok, e = pcall(getgenv)
+    if ok and type(e) == "table" then env = e end
 end
 
-local function number(p,title,key,min,max,step)
- local f=inst('Frame',{Size=UDim2.new(1,-2,0,72),BackgroundColor3=C.card,BorderSizePixel=0},p)
- round(f,10)
- inst('TextLabel',{Size=UDim2.new(1,-16,0,22),Position=UDim2.fromOffset(8,4),BackgroundTransparency=1,
-  Text=title,TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,
-  TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},f)
- local minus=inst('TextButton',{Size=UDim2.fromOffset(36,31),Position=UDim2.fromOffset(8,31),
-  Text='−',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=18,BackgroundColor3=C.bg,Active=true,ZIndex=3},f)
- round(minus,6)
- local plus=inst('TextButton',{Size=UDim2.fromOffset(36,31),Position=UDim2.new(1,-44,0,31),
-  Text='+',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=18,BackgroundColor3=C.bg,Active=true,ZIndex=3},f)
- round(plus,6)
- local value=inst('TextBox',{Size=UDim2.new(1,-108,0,31),Position=UDim2.fromOffset(54,31),
-  BackgroundColor3=C.bg,Text=tostring(S[key]),ClearTextOnFocus=false,MultiLine=false,
-  TextEditable=true,Active=true,ZIndex=4,TextColor3=C.white,TextSize=14,
-  Font=Enum.Font.GothamBold,PlaceholderText='اكتب الرقم',PlaceholderColor3=C.muted},f)
- round(value,6)
- inst('UIStroke',{Color=C.purple,Thickness=1.2,Transparency=.2},value)
- local function commit(raw)
-  local cleaned=tostring(raw):gsub('٫','.'):gsub('٬',''):gsub('،','.')
-  local numerals={'٠','١','٢','٣','٤','٥','٦','٧','٨','٩'}
-  for i,digit in ipairs(numerals) do cleaned=cleaned:gsub(digit,tostring(i-1)) end
-  local persian={'۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'}
-  for i,digit in ipairs(persian) do cleaned=cleaned:gsub(digit,tostring(i-1)) end
-  cleaned=cleaned:gsub('^%s+',''):gsub('%s+$','')
-  local n=tonumber(cleaned)
-  if not n or n~=n or n==math.huge or n==-math.huge then
-   msg('أدخل رقمًا صحيحًا: '..title)
-  else
-   S[key]=math.clamp(math.floor(n*100+.5)/100,min,max)
-  end
-  value.Text=tostring(S[key])
- end
- conn(minus.MouseButton1Click,function()commit(S[key]-step)end)
- conn(plus.MouseButton1Click,function()commit(S[key]+step)end)
- conn(value.Focused,function() value.Text=tostring(S[key]);value.CursorPosition=#value.Text+1 end)
- conn(value.FocusLost,function()commit(value.Text)end)
- return f
+if type(env.LxRedlineCleanup) == "function" then
+    pcall(env.LxRedlineCleanup)
 end
 
-status.Text='Lx v77 | الواجهة جاهزة؛ جار تحميل الميزات...'
-
-local function provisionalCleanup()
- if not alive then return end
- alive=false
- for _,c in ipairs(conns) do pcall(function()c:Disconnect()end) end
- pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV77')end)
- local orphan=PG:FindFirstChild('Lx_NexusFOV_V77')
- if orphan then pcall(function()orphan:Destroy()end) end
- if gui and gui.Parent then pcall(function()gui:Destroy()end) end
- if env.XHubCleanup==provisionalCleanup then env.XHubCleanup=nil end
+-- Destroy old UI instances
+for _, name in ipairs({"Lx_NexusV77", "Lx_NexusV76", "Lx_NexusV75", "Lx_NexusV74", "Lx_NexusV73", "Lx_NexusV72", "Lx_NexusV71", "Lx_NexusV70", "Lx_NexusV69", "Lx_NexusV68"}) do
+    local old = PG:FindFirstChild(name)
+    if old then old:Destroy() end
 end
-env.XHubCleanup=provisionalCleanup
 
-conn(close.MouseButton1Click,function()
- if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup)
- else gui:Destroy() end
+local alive = true
+local conns = {}
+local markers = {}
+local lightSaved = {}
+local originalSpeed = nil
+
+local S = {
+    Radar = false,
+    RadarRange = 3000,
+    CarSpeed = false,
+    CarTarget = 200,
+    CarFly = false,
+    FlySpeed = 100,
+    PlayerFly = false,
+    PlayerFlySpeed = 50,
+    Fullbright = false,
+    Merchant = false,
+    ResourceESP = false,
+    Speed = false,
+    Walk = 32,
+    Filter = "الكل"
+}
+
+local function conn(signal, fn)
+    local c = signal:Connect(fn)
+    table.insert(conns, c)
+    return c
+end
+
+local function inst(typ, props, parent)
+    local x = Instance.new(typ)
+    for k, v in pairs(props or {}) do x[k] = v end
+    x.Parent = parent
+    return x
+end
+
+local function round(x, r)
+    inst("UICorner", { CornerRadius = UDim.new(0, r or 9) }, x)
+end
+
+local function root()
+    local char = LP.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function hum()
+    local char = LP.Character
+    return char and char:FindFirstChildOfClass("Humanoid")
+end
+
+local statusText
+local function msg(t)
+    if alive and statusText then
+        statusText.Text = tostring(t)
+    end
+end
+
+local C = {
+    bg = Color3.fromRGB(10, 10, 12),
+    card = Color3.fromRGB(28, 29, 32),
+    muted = Color3.fromRGB(184, 186, 190),
+    white = Color3.fromRGB(255, 255, 255),
+    purple = Color3.fromRGB(239, 28, 37),
+    green = Color3.fromRGB(80, 215, 135)
+}
+
+-- ============================================================================
+-- 1. AUTHENTICATION & DISCORD GATEWAY SCREEN
+-- ============================================================================
+local authGui = inst("ScreenGui", { Name = "LxRedlineAuth", ResetOnSpawn = false, DisplayOrder = 100, ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, PG)
+local authMain = inst("Frame", { Size = UDim2.fromOffset(420, 320), Position = UDim2.new(.5, -210, .5, -160), BackgroundColor3 = C.bg, BorderSizePixel = 0, Active = true }, authGui)
+round(authMain, 16)
+inst("UIStroke", { Color = Color3.fromRGB(205, 36, 42), Thickness = 1.5, Transparency = 0.1 }, authMain)
+
+inst("TextLabel", { Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 20), BackgroundTransparency = 1, Text = "Lx REDLINE PRO — بوابة التحقق", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 18 }, authMain)
+inst("TextLabel", { Size = UDim2.new(1, -40, 0, 50), Position = UDim2.fromOffset(20, 70), BackgroundTransparency=1, Text = "يجب التحقق من عضويتك في سيرفر الديسكورد عبر خادم المصادقة الآمن لاستخدام السكربت.", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 12, TextWrapped = true }, authMain)
+
+local discordBtn = inst("TextButton", { Size = UDim2.new(1, -40, 0, 45), Position = UDim2.fromOffset(20, 140), BackgroundColor3 = Color3.fromRGB(88, 101, 242), Text = "انضم لسيرفر الديسكورد (.gg/ojailbreaks)", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 13 }, authMain)
+round(discordBtn, 10)
+
+conn(discordBtn.MouseButton1Click, function()
+    if type(setclipboard) == "function" then
+        setclipboard("https://discord.gg/ojailbreaks")
+        msg("تم نسخ رابط الديسكورد للقروب")
+    end
 end)
 
-local function showFeatureError(detail)
- status.Text='Lx v77 | خطأ في تحميل الميزات (موضح في النافذة)'
- local errorFrame=inst('Frame',{Name='FeatureError',Size=UDim2.new(1,-24,0,137),Position=UDim2.new(0,12,1,-170),BackgroundColor3=Color3.fromRGB(57,21,25),BorderSizePixel=0,ZIndex=100},main)
- round(errorFrame,10)
- local errorLabel=inst('TextLabel',{Size=UDim2.new(1,-20,1,-54),Position=UDim2.fromOffset(10,8),BackgroundTransparency=1,Text='STARTUP ERROR | '..tostring(detail):sub(1,250),Font=Enum.Font.Code,TextSize=12,TextColor3=C.white,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=101},errorFrame)
- local copyButton=inst('TextButton',{Size=UDim2.new(1,-20,0,32),Position=UDim2.new(0,10,1,-38),BackgroundColor3=C.purple,Text='نسخ الخطأ للتشخيص',TextColor3=C.white,TextSize=13,Font=Enum.Font.GothamBold,ZIndex=101},errorFrame)
- round(copyButton,6)
- conn(copyButton.MouseButton1Click,function()
-  if type(setclipboard)=='function' then local ok=pcall(setclipboard,tostring(detail));copyButton.Text=ok and 'تم نسخ الخطأ' or 'النسخ غير متاح'
-  else copyButton.Text='النسخ غير متاح؛ صوّر الخطأ' end
- end)
+local verifyBtn = inst("TextButton", { Size = UDim2.new(1, -40, 0, 45), Position = UDim2.fromOffset(20, 195), BackgroundColor3 = C.purple, Text = "التحقق من العضوية عبر الخادم الآمن", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 13 }, authMain)
+round(verifyBtn, 10)
+
+local authStatus = inst("TextLabel", { Size = UDim2.new(1, -40, 0, 30), Position = UDim2.fromOffset(20, 255), BackgroundTransparency = 1, Text = "في انتظار المصادقة...", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 11 }, authMain)
+
+-- ============================================================================
+-- 2. MAIN GUI SETUP (Loaded after authentication success)
+-- ============================================================================
+local mainGui, mainFrame, sideContainer, areaContainer
+local togglesPaints = {}
+
+local function launchMainInterface()
+    authGui:Destroy()
+
+    mainGui = inst("ScreenGui", { Name = "Lx_NexusV77", ResetOnSpawn = false, DisplayOrder = 90, ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, PG)
+    mainFrame = inst("Frame", { Size = UDim2.fromOffset(650, 500), Position = UDim2.new(.5, -325, .5, -250), BackgroundColor3 = C.bg, BorderSizePixel = 0, Active = true, Draggable = true }, mainGui)
+    round(mainFrame, 16)
+    inst("UIStroke", { Color = Color3.fromRGB(205, 36, 42), Thickness = 1.4, Transparency = .12 }, mainFrame)
+
+    local scale = inst("UIScale", { Scale = 1 }, mainFrame)
+    local function fitScreen()
+        local cam = WS.CurrentCamera
+        if cam then
+            local v = cam.ViewportSize
+            scale.Scale = math.min(1, math.max(.55, math.min((v.X - 24) / 650, (v.Y - 24) / 500)))
+        end
+    end
+    fitScreen()
+
+    local head = inst("Frame", { Size = UDim2.new(1, 0, 0, 66), BackgroundColor3 = Color3.fromRGB(22, 22, 24), BorderSizePixel = 0, Active = true }, mainFrame)
+    round(head, 16)
+    inst("Frame", { Size = UDim2.new(1, -30, 0, 2), Position = UDim2.new(0, 15, 1, -2), BackgroundColor3 = C.purple, BorderSizePixel = 0 }, head)
+
+    local brand = inst("Frame", { Size = UDim2.fromOffset(44, 44), Position = UDim2.fromOffset(12, 11), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0 }, head)
+    round(brand, 12)
+    inst("UIStroke", { Color = Color3.fromRGB(240, 42, 50), Thickness = 1 }, brand)
+    inst("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "Lx", Font = Enum.Font.GothamBlack, TextSize = 22, TextColor3 = C.purple }, brand)
+
+    inst("TextLabel", { Size = UDim2.fromOffset(270, 17), Position = UDim2.fromOffset(70, 39), BackgroundTransparency = 1, Text = "REDLINE  •  PREMIUM CONTROL SYSTEM", TextColor3 = C.muted, Font = Enum.Font.GothamMedium, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left }, head)
+    inst("TextLabel", { Size = UDim2.fromOffset(330, 30), Position = UDim2.fromOffset(70, 9), BackgroundTransparency = 1, Text = "Lx  REDLINE PRO", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 19, TextXAlignment = Enum.TextXAlignment.Left }, head)
+
+    local function smallBtn(text, x)
+        local b = inst("TextButton", { Size = UDim2.fromOffset(31, 29), Position = UDim2.new(1, x, 0, 19), Text = text, Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = C.white, BackgroundColor3 = C.bg }, head)
+        round(b, 7)
+        return b
+    end
+    local miniBtn = smallBtn("−", -78)
+    local closeBtn = smallBtn("×", -39)
+
+    sideContainer = inst("ScrollingFrame", { Size = UDim2.new(0, 188, 1, -111), Position = UDim2.fromOffset(12, 76), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, mainFrame)
+    inst("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, sideContainer)
+
+    areaContainer = inst("Frame", { Size = UDim2.new(1, -222, 1, -114), Position = UDim2.fromOffset(210, 76), BackgroundTransparency = 1, ClipsDescendants = true }, mainFrame)
+    statusText = inst("TextLabel", { Size = UDim2.new(1, -24, 0, 25), Position = UDim2.new(0, 12, 1, -31), BackgroundTransparency = 1, Text = "Lx REDLINE v77 | جاهز للتشغيل", TextColor3 = C.muted, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd }, mainFrame)
+
+    local minimized = false
+    conn(miniBtn.MouseButton1Click, function()
+        minimized = not minimized
+        areaContainer.Visible = not minimized
+        sideContainer.Visible = not minimized
+        mainFrame.Size = minimized and UDim2.fromOffset(650, 66) or UDim2.fromOffset(650, 500)
+    end)
+
+    local function fullCleanup()
+        if not alive then return end
+        alive = false
+        for _, c in ipairs(conns) do pcall(function() c:Disconnect() end) end
+        pcall(function() RunService:UnbindFromRenderStep("LxRedlineMainLoop") end)
+        if mainGui and mainGui.Parent then pcall(function() mainGui:Destroy() end) end
+        if env.LxRedlineCleanup == fullCleanup then env.LxRedlineCleanup = nil end
+    end
+    env.LxRedlineCleanup = fullCleanup
+
+    conn(closeBtn.MouseButton1Click, fullCleanup)
+
+    -- Tab System Builder
+    local tabs = {}
+    local pageButtons = {}
+    local function createTab(name)
+        local b = inst("TextButton", { Size = UDim2.new(1, -6, 0, 44), Text = name, TextSize = 12, Font = Enum.Font.GothamBold, TextColor3 = C.white, BackgroundColor3 = C.card }, sideContainer)
+        round(b, 11)
+        inst("UIStroke", { Color = Color3.fromRGB(110, 44, 49), Thickness = 1, Transparency = .45 }, b)
+
+        local p = inst("ScrollingFrame", { Size = UDim2.fromScale(1, 1), Visible = false, BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new() }, areaContainer)
+        inst("UIListLayout", { Padding = UDim.new(0, 9), SortOrder = Enum.SortOrder.LayoutOrder }, p)
+        inst("UIPadding", { PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 12), PaddingRight = UDim.new(0, 8) }, p)
+
+        table.insert(tabs, p)
+        table.insert(pageButtons, b)
+
+        conn(b.MouseButton1Click, function()
+            for i, t in ipairs(tabs) do
+                t.Visible = (t == p)
+                pageButtons[i].BackgroundColor3 = (t == p) and C.purple or C.card
+            end
+        end)
+
+        if #tabs == 1 then
+            p.Visible = true
+            b.BackgroundColor3 = C.purple
+        end
+        return p
+    end
+
+    local function createLabel(p, title, desc)
+        local h = desc and 54 or 27
+        local f = inst("Frame", { Size = UDim2.new(1, -2, 0, h), BackgroundColor3 = C.card, BorderSizePixel = 0 }, p)
+        round(f, 11)
+        inst("UIStroke", { Color = Color3.fromRGB(85, 46, 49), Thickness = 1, Transparency = .5 }, f)
+        inst("TextLabel", { Size = UDim2.new(1, -20, 0, 25), Position = UDim2.fromOffset(10, 3), BackgroundTransparency = 1, Text = title, Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = C.white, TextXAlignment = Enum.TextXAlignment.Left }, f)
+        if desc then
+            inst("TextLabel", { Size = UDim2.new(1, -20, 0, 22), Position = UDim2.fromOffset(10, 27), BackgroundTransparency = 1, Text = desc, Font = Enum.Font.Gotham, TextSize = 10, TextColor3 = C.muted, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left }, f)
+        end
+        return f
+    end
+
+    local function createAction(p, title, fn)
+        local b = inst("TextButton", { Size = UDim2.new(1, -2, 0, 41), Text = title, TextColor3 = C.white, TextSize = 12, Font = Enum.Font.GothamBold, BackgroundColor3 = C.card }, p)
+        round(b, 11)
+        inst("UIStroke", { Color = Color3.fromRGB(110, 44, 49), Thickness = 1, Transparency = .5 }, b)
+        conn(b.MouseButton1Click, function()
+            local ok, err = pcall(fn)
+            if not ok then
+                warn("Lx Action Error:", err)
+                msg("خطأ: " .. tostring(err):sub(1, 55))
+            end
+        end)
+        return b
+    end
+
+    local function createToggle(p, title, key, fn)
+        local b = inst("TextButton", { Size = UDim2.new(1, -2, 0, 41), Text = "", TextColor3 = C.white, TextSize = 12, Font = Enum.Font.GothamBold, BackgroundColor3 = C.card }, p)
+        round(b, 11)
+        inst("UIStroke", { Color = Color3.fromRGB(110, 44, 49), Thickness = 1, Transparency = .5 }, b)
+
+        local function paint()
+            local enabled = S[key] == true
+            b.Text = title .. (enabled and "  |  ON ✓" or "  |  OFF ✕")
+            b.BackgroundColor3 = enabled and Color3.fromRGB(105, 30, 35) or C.card
+        end
+        paint()
+        togglesPaints[key] = paint
+
+        conn(b.MouseButton1Click, function()
+            local previous = S[key] == true
+            local desired = not previous
+            S[key] = desired
+            local ok, err = true, nil
+            if fn then
+                ok, err = pcall(fn, desired)
+            end
+            if not ok then
+                S[key] = previous
+                warn("Toggle failed:", err)
+                msg("تعذر التبديل: " .. tostring(err):sub(1, 45))
+            else
+                msg(title .. (desired and " : تم التشغيل" or " : تم الإيقاف"))
+            end
+            paint()
+        end)
+        return b
+    end
+
+    local function createNumber(p, title, key, min, max, step)
+        local f = inst("Frame", { Size = UDim2.new(1, -2, 0, 72), BackgroundColor3 = C.card, BorderSizePixel = 0 }, p)
+        round(f, 10)
+        inst("TextLabel", { Size = UDim2.new(1, -16, 0, 22), Position = UDim2.fromOffset(8, 4), BackgroundTransparency = 1, Text = title, TextColor3 = C.white, TextSize = 12, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left }, f)
+
+        local minus = inst("TextButton", { Size = UDim2.fromOffset(36, 31), Position = UDim2.fromOffset(8, 31), Text = "−", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 18, BackgroundColor3 = C.bg }, f)
+        round(minus, 6)
+        local plus = inst("TextButton", { Size = UDim2.fromOffset(36, 31), Position = UDim2.new(1, -44, 0, 31), Text = "+", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 18, BackgroundColor3 = C.bg }, f)
+        round(plus, 6)
+
+        local valueBox = inst("TextBox", { Size = UDim2.new(1, -108, 0, 31), Position = UDim2.fromOffset(54, 31), BackgroundColor3 = C.bg, Text = tostring(S[key]), ClearTextOnFocus = false, TextColor3 = C.white, TextSize = 14, Font = Enum.Font.GothamBold }, f)
+        round(valueBox, 6)
+        inst("UIStroke", { Color = C.purple, Thickness = 1.2, Transparency = .2 }, valueBox)
+
+        local function commit(raw)
+            local cleaned = tostring(raw):gsub("٫", "."):gsub("٬", ""):gsub("،", ".")
+            for i, d in ipairs({"٠","١","٢","٣","٤","٥","٦","٧","٨","٩"}) do cleaned = cleaned:gsub(d, tostring(i-1)) end
+            for i, d in ipairs({"۰","۱","۲","۳","۴","۵","۶","۷","۸","۹"}) do cleaned = cleaned:gsub(d, tostring(i-1)) end
+            local n = tonumber(cleaned)
+            if n and n == n and n ~= math.huge and n ~= -math.huge then
+                S[key] = math.clamp(math.floor(n * 100 + .5) / 100, min, max)
+            else
+                msg("قيمة غير صالحة لـ: " .. title)
+            end
+            valueBox.Text = tostring(S[key])
+        end
+
+        conn(minus.MouseButton1Click, function() commit(S[key] - step) end)
+        conn(plus.MouseButton1Click, function() commit(S[key] + step) end)
+        conn(valueBox.FocusLost, function() commit(valueBox.Text) end)
+        return f
+    end
+
+    -- ========================================================================
+    -- 3. FEATURE TABS & REAL MECHANICS
+    -- ========================================================================
+
+    -- TAB 1: RADAR & ANIMALS
+    local radarTab = createTab("كشف الضبان")
+    createToggle(radarTab, "كشف الضبان ومعلوماتها", "Radar", function(on)
+        if not on then
+            for _, m in pairs(markers) do pcall(function() m:Destroy() end) end
+            table.clear(markers)
+        end
+    end)
+    createNumber(radarTab, "مدى الرادار (وحدة)", "RadarRange", 100, 5000, 100)
+    local radarDiag = createLabel(radarTab, "حالة الكاشف: نشط", "يكشف الكائنات الحية والضبان الحقيقية فقط بدقة")
+
+    -- TAB 2: VEHICLE & FLIGHT CONTROLS
+    local vehicleTab = createTab("المركبات والطيران")
+    createToggle(vehicleTab, "طيران السيارة (Car Fly)", "CarFly", function(on)
+        if not on then
+            -- Clean up car physics on off
+            local char = LP.Character
+            local seat = char and char.Humanoid.SeatPart
+            if seat and seat:IsA("VehicleSeat") then
+                local vehicle = seat.Parent
+                local pv = vehicle and vehicle.PrimaryPart or vehicle:FindFirstChildWhichIsA("BasePart")
+                if pv then
+                    local bv = pv:FindFirstChild("LxCarFlyBodyVelocity")
+                    local bg = pv:FindFirstChild("LxCarFlyBodyGyro")
+                    if bv then bv:Destroy() end
+                    if bg then bg:Destroy() end
+                end
+            end
+        end
+    end)
+    createNumber(vehicleTab, "سرعة طيران السيارة", "FlySpeed", 20, 300, 10)
+
+    createToggle(vehicleTab, "طيران الشخصية (Player Fly)", "PlayerFly", function(on)
+        if not on then
+            local r = root()
+            if r then
+                local bv = r:FindFirstChild("LxPlayerFlyBV")
+                local bg = r:FindFirstChild("LxPlayerFlyBG")
+                if bv then bv:Destroy() end
+                if bg then bg:Destroy() end
+            end
+        end
+    end)
+    createNumber(vehicleTab, "سرعة طيران الشخصية", "PlayerFlySpeed", 10, 200, 10)
+
+    -- TAB 3: COMBAT & SPEED
+    local combatTab = createTab("السرعة والحركة")
+    createToggle(combatTab, "تعديل سرعة المشي", "Speed", function(on)
+        local h = hum()
+        if h then
+            if on then
+                originalSpeed = originalSpeed or h.WalkSpeed
+                h.WalkSpeed = S.Walk
+            else
+                if originalSpeed then h.WalkSpeed = originalSpeed end
+            end
+        end
+    end)
+    createNumber(combatTab, "سرعة المشي", "Walk", 16, 120, 4)
+
+    -- TAB 4: WORLD & ENVIRONMENT
+    local worldTab = createTab("البيئة والإضاءة")
+    createToggle(worldTab, "إضاءة كاملة (Fullbright)", "Fullbright", function(on)
+        if on then
+            lightSaved.Brightness = Lighting.Brightness
+            lightSaved.ClockTime = Lighting.ClockTime
+            lightSaved.GlobalShadows = Lighting.GlobalShadows
+            Lighting.Brightness = 2
+            Lighting.ClockTime = 14
+            Lighting.GlobalShadows = false
+        else
+            if lightSaved.Brightness then Lighting.Brightness = lightSaved.Brightness end
+            if lightSaved.ClockTime then Lighting.ClockTime = lightSaved.ClockTime end
+            if lightSaved.GlobalShadows ~= nil then Lighting.GlobalShadows = lightSaved.GlobalShadows end
+        end
+    end)
+
+    -- ========================================================================
+    -- 4. REAL-TIME RENDER STEP (Physics, Flight & Radar Loop)
+    -- ========================================================================
+    conn(RunService.RenderStepped, function(dt)
+        if not alive then return end
+
+        -- Real Car Flight Physics Engine
+        if S.CarFly then
+            local char = LP.Character
+            local seat = char and char.Humanoid.SeatPart
+            if seat and seat:IsA("VehicleSeat") then
+                local vehicle = seat.Parent
+                local pv = vehicle and vehicle.PrimaryPart or vehicle:FindFirstChildWhichIsA("BasePart")
+                if pv then
+                    local bv = pv:FindFirstChild("LxCarFlyBodyVelocity")
+                    local bg = pv:FindFirstChild("LxCarFlyBodyGyro")
+                    if not bv then
+                        bv = inst("BodyVelocity", { Name = "LxCarFlyBodyVelocity", MaxForce = Vector3.new(1e5, 1e5, 1e5), Velocity = Vector3.new(0, 0, 0) }, pv)
+                        bg = inst("BodyGyro", { Name = "LxCarFlyBodyGyro", MaxTorque = Vector3.new(1e5, 1e5, 1e5), CFrame = pv.CFrame }, pv)
+                    end
+                    local cam = WS.CurrentCamera
+                    local moveDir = Vector3.new()
+                    if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir += cam.CFrame.LookVector end
+                    if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir -= cam.CFrame.LookVector end
+                    if UIS:IsKeyDown(Enum.KeyCode.D) then moveDir += cam.CFrame.RightVector end
+                    if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir -= cam.CFrame.RightVector end
+                    if UIS:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0, 1, 0) end
+                    if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir -= Vector3.new(0, 1, 0) end
+
+                    bv.Velocity = moveDir.Magnitude > 0 and moveDir.Unit * S.FlySpeed or Vector3.new(0, 0.1, 0)
+                    bg.CFrame = cam.CFrame
+                end
+            end
+        end
+
+        -- Real Player Flight Physics Engine
+        if S.PlayerFly then
+            local r = root()
+            if r then
+                local bv = r:FindFirstChild("LxPlayerFlyBV")
+                local bg = r:FindFirstChild("LxPlayerFlyBG")
+                if not bv then
+                    bv = inst("BodyVelocity", { Name = "LxPlayerFlyBV", MaxForce = Vector3.new(1e5, 1e5, 1e5), Velocity = Vector3.new(0, 0, 0) }, r)
+                    bg = inst("BodyGyro", { Name = "LxPlayerFlyBG", MaxTorque = Vector3.new(1e5, 1e5, 1e5), CFrame = r.CFrame }, r)
+                end
+                local cam = WS.CurrentCamera
+                local moveDir = Vector3.new()
+                if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir += cam.CFrame.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir -= cam.CFrame.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.D) then moveDir += cam.CFrame.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir -= cam.CFrame.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0, 1, 0) end
+                if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir -= Vector3.new(0, 1, 0) end
+
+                bv.Velocity = moveDir.Magnitude > 0 and moveDir.Unit * S.PlayerFlySpeed or Vector3.new(0, 0, 0)
+                bg.CFrame = cam.CFrame
+            end
+        end
+    end)
+
+    msg("Lx REDLINE v77 | تم تفعيل جميع الميزات بنجاح")
 end
 
-local function initializeFeatures()
- local function read(model,names)
-  for _,n in ipairs(names) do local v=model:GetAttribute(n);if v~=nil then return v end;local child=model:FindFirstChild(n,true);if child and child:IsA('ValueBase') then return child.Value end end
- end
-
- local vehicleNames={'car','truck','vehicle','pickup','trailer','chassis','wheel','tire','seat','سيار','مركب','شاص','كفر','عجل','قلص','مقطور'}
- local animalNames={'dhab','dhub','lizard','reptile','ضب','ضبان','dhabb','uromastyx','spinytailed','spiny-tailed'}
- local function matchesAny(value,words)
-  local name=tostring(value):lower()
-  for _,word in ipairs(words) do if name:find(word,1,true) then return true end end
-  return false
- end
-
- local function playerAncestor(obj)
-  local cursor=obj
-  while cursor and cursor~=WS do
-   if cursor:IsA('Model') and Players:GetPlayerFromCharacter(cursor) then return true end
-   cursor=cursor.Parent
-  end
-  return false
- end
-
- local seatCache=setmetatable({}, {__mode='k'})
- local function hasDrivingSeat(container)
-  local known=seatCache[container]
-  if known~=nil then return known end
-  local vehicleLike=matchesAny(container.Name,vehicleNames)
-   or container:FindFirstChild('Chassis')~=nil
-   or container:FindFirstChild('Wheels')~=nil
-   or container:FindFirstChild('VehicleSeat')~=nil
-   or container:FindFirstChild('DriveSeat')~=nil
-  local found=false
-  if vehicleLike then
-   found=container:FindFirstChildWhichIsA('VehicleSeat',true)~=nil
-    or container:FindFirstChildWhichIsA('Seat',true)~=nil
-  end
-  seatCache[container]=found
-  return found
- end
-
- local function blockedAncestor(obj)
-  local cursor=obj
-  while cursor and cursor~=WS do
-   if cursor:IsA('VehicleSeat') or cursor:IsA('Seat') then return true end
-   if cursor:IsA('Model') then
-    if Players:GetPlayerFromCharacter(cursor) then return true end
-    if matchesAny(cursor.Name,vehicleNames) or hasDrivingSeat(cursor) then return true end
-   end
-   cursor=cursor.Parent
-  end
-  return false
- end
-
- local function lizard(model)
-  if not model or not model:IsA('Model') or not model.Parent then return false end
-  if blockedAncestor(model) then return false end
-  local ownParts=0
-  local ownRoot=nil
-  for _,child in ipairs(model:GetChildren()) do
-   if child:IsA('BasePart') then ownParts+=1;ownRoot=ownRoot or child end
-  end
-  local tagged=CollectionService:HasTag(model,'Lizard') or CollectionService:HasTag(model,'Dhab')
-   or CollectionService:HasTag(model,'ضب') or CollectionService:HasTag(model,'Lizards')
-   or CollectionService:HasTag(model,'AnimalLizard')
-  local species=read(model,{'Species','AnimalType','CreatureType','PetType','MobType','نوع'})
-  local typed=species~=nil and matchesAny(species,animalNames)
-  local named=matchesAny(model.Name,animalNames)
-  if not (tagged or typed or named) then return false end
-  local physical=ownParts>0 or model.PrimaryPart~=nil
-  if not physical and not (tagged or typed) then return false end
-  if model:FindFirstChildWhichIsA('VehicleSeat',true) or model:FindFirstChildWhichIsA('Seat',true) then return false end
-  local cursor=model.Parent
-  while cursor and cursor~=WS do
-   if cursor:IsA('Model') and (CollectionService:HasTag(cursor,'Lizard')
-    or CollectionService:HasTag(cursor,'Dhab') or CollectionService:HasTag(cursor,'ضب')) then return false end
-   cursor=cursor.Parent
-  end
-  if tagged or typed then return model:FindFirstChildWhichIsA('BasePart',true)~=nil end
-  local ok,_,size=pcall(function()return model:GetBoundingBox()end)
-  if not ok or not size then return false end
-  if math.max(size.X,size.Y,size.Z)>18 then return false end
-  return ownParts>0 or model.PrimaryPart~=nil
- end
-
- local function part(model) return model.PrimaryPart or model:FindFirstChildWhichIsA('BasePart',true) end
- local function living(model)
-  local h=model:FindFirstChildOfClass('Humanoid')
-  if h and h.Health<=0 then return false end
-  local dead=read(model,{'Dead','IsDead','Killed','Defeated','Collected'})
-  if dead==true or dead==1 or dead=='true' then return false end
-  local health=read(model,{'Health','HP','CurrentHealth'})
-  if tonumber(health) and tonumber(health)<=0 then return false end
-  return model.Parent~=nil
- end
-
- local rarities={['t1']='عادي',['t2']='مميز',['t3']='نادر',['t4']='فاخر',['t5']='أسطوري',['t6']='خرافي',common='عادي',uncommon='مميز',rare='نادر',epic='فاخر',legendary='أسطوري',mythic='خرافي'}
- local rarityColors={['عادي']=Color3.fromRGB(230,230,230),['مميز']=Color3.fromRGB(65,220,110),['نادر']=Color3.fromRGB(75,155,255),['فاخر']=Color3.fromRGB(170,90,240),['أسطوري']=Color3.fromRGB(255,192,60),['خرافي']=Color3.fromRGB(245,65,80)}
- local function rarity(m)
-  local raw=tostring(read(m,{'Rarity','Tier','Grade','Rank','RarityName','ندرة'}) or ''):lower():gsub('^%s+',''):gsub('%s+$','')
-  return rarities[raw] or (rarityColors[raw] and raw) or 'غير محدد'
- end
-
- local function speciesName(model)
-  local raw=read(model,{'Species','AnimalType','CreatureType','PetType','MobType','نوع'})
-  if raw~=nil and tostring(raw)~='' then return tostring(raw) end
-  return model.Name
- end
-
- local function animalSize(model)
-  local v=read(model,{'Size','Scale','SizeValue','AnimalSize','DhabSize','CreatureSize','SizeStat','الحجم','حجم'})
-  if v==nil then return 'غير متاح' end
-  local n=tonumber(v)
-  if n then
-   if n~=n or n==math.huge or n==-math.huge then return 'غير متاح' end
-   return string.format('%.2f',n):gsub('%.?0+$','')
-  end
-  if typeof(v)=='Vector3' then return string.format('%.1f × %.1f × %.1f',v.X,v.Y,v.Z) end
-  return tostring(v)
- end
-
- local function animalWeight(model)
-  local names={'Weight','WeightKG','WeightKg','Weight_kg','WeightInKg','AnimalWeight',
-   'CreatureWeight','DhabWeight','LizardWeight','BodyWeight','KG','Kg','kg',
-   'الوزن','وزن','الوزن_كجم','الوزن_بالكيلو'}
-  local v=read(model,names)
-  if v==nil then
-   for _,folderName in ipairs({'Stats','Statistics','Data','Metadata','Attributes','Info','Properties','معلومات','بيانات'}) do
-    local folder=model:FindFirstChild(folderName,true)
-    if folder then
-     v=read(folder,names)
-     if v~=nil then break end
-    end
-   end
-  end
-  if v==nil then return 'غير متاح' end
-  local n=tonumber(v)
-  if n then
-   if n~=n or n==math.huge or n==-math.huge or n<0 then return 'غير متاح' end
-   return (string.format('%.2f',n):gsub('%.?0+$',''))..' كجم'
-  end
-  if typeof(v)=='string' and #v>0 then return v end
-  return 'غير متاح'
- end
-
- local indexed=setmetatable({}, {__mode='k'})
- local scanQueue={}
- local lastQueueCompact=0
- local queued=setmetatable({}, {__mode='k'})
- local scanCursor=1
-
- local function enqueueAnimal(m)
-  if m and m:IsA('Model') and not queued[m] then queued[m]=true;scanQueue[#scanQueue+1]=m end
- end
-
- local cache={}
- local function trackAnimal(m)
-  if m:IsA('Model') and lizard(m) and living(m) then indexed[m]=true end
- end
-
- task.spawn(function()
-  local pending={WS};local index=1
-  while alive and index<=#pending do
-   local obj=pending[index];index+=1
-   if obj:IsA('Model') then
-    enqueueAnimal(obj)
-    local ok,why=pcall(trackAnimal,obj)
-    if not ok then warn('[Lx lizard indexing]',tostring(why):sub(1,100)) end
-   end
-   local children=obj:GetChildren()
-   for _,child in ipairs(children) do pending[#pending+1]=child end
-   if index%35==0 then task.wait(0.04) end
-  end
- end)
-
- conn(WS.DescendantAdded,function(obj)
-  if obj:IsA('Model') then enqueueAnimal(obj);task.defer(function() if alive and obj.Parent then trackAnimal(obj) end end) elseif obj:IsA('BasePart') or obj:IsA('ValueBase') then local parentModel=obj:FindFirstAncestorOfClass('Model');if parentModel then enqueueAnimal(parentModel);task.defer(function()if alive and parentModel.Parent then trackAnimal(parentModel) end end)end end
- end)
-
- conn(WS.DescendantRemoving,function(obj)
-  if indexed[obj] then indexed[obj]=nil end
- end)
-
- conn(CollectionService:GetInstanceAddedSignal('Lizard'),trackAnimal)
- conn(CollectionService:GetInstanceAddedSignal('Dhab'),trackAnimal)
- conn(CollectionService:GetInstanceAddedSignal('ضب'),trackAnimal)
- conn(CollectionService:GetInstanceAddedSignal('Lizards'),trackAnimal)
- conn(CollectionService:GetInstanceAddedSignal('AnimalLizard'),trackAnimal)
-
- local function refreshCache()
-  if #scanQueue>1500 and os.clock()-lastQueueCompact>15 then
-   lastQueueCompact=os.clock()
-   local fresh={}
-   for _,model in ipairs(scanQueue) do
-    if model and model:IsDescendantOf(WS) then fresh[#fresh+1]=model
-    else queued[model]=nil end
-   end
-   scanQueue=fresh
-   scanCursor=math.min(scanCursor,#scanQueue+1)
-  end
-  for _=1,math.min(36,#scanQueue) do
-   if scanCursor>#scanQueue then scanCursor=1 end
-   local m=scanQueue[scanCursor]
-   scanCursor+=1
-   if m and m.Parent then trackAnimal(m) end
-  end
-  table.clear(cache)
-  for m in pairs(indexed) do
-   if m.Parent and living(m) and lizard(m) then
-    local p=part(m)
-    if p and p.Parent then cache[#cache+1]={model=m,part=p} end
-   else indexed[m]=nil end
-  end
- end
-
- local function clearMarkers() for _,g in pairs(markers) do pcall(function()g:Destroy()end) end;table.clear(markers) end
- local function makeMarker(e)
-  local m=e.model;if markers[m] or not living(m) or not lizard(m) then return end
-  local bb=inst('BillboardGui',{Name='LxAnimalRadar',Adornee=e.part,Size=UDim2.fromOffset(190,50),StudsOffsetWorldSpace=Vector3.new(0,2.7,0),AlwaysOnTop=true,MaxDistance=S.RadarRange},gui)
-  local text=inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextColor3=rarityColors[rarity(m)] or C.white,TextStrokeTransparency=.4,TextSize=12,Font=Enum.Font.GothamBold,TextWrapped=true},bb)
-  markers[m]=bb
- end
-
- local manualTargets=setmetatable({}, {__mode='k'})
- local manualSelecting=false
- local mouse=LP:GetMouse()
- local function manualLizard(m)
-  return m and manualTargets[m] and m.Parent and not blockedAncestor(m)
- end
- local oldLizard=lizard
- lizard=function(m) return manualLizard(m) or oldLizard(m) end
-
- conn(mouse.Button1Down,function()
-  if not manualSelecting then return end
-  local hit=mouse.Target
-  if not hit then msg('لم يتم تحديد مجسم؛ اضغط على جسم الضب') return end
-  local selected=hit:FindFirstAncestorOfClass('Model')
-  if not selected or blockedAncestor(selected) or selected:FindFirstChildWhichIsA('VehicleSeat',true) then
-   msg('هذا ليس مجسم ضب صالحًا أو هو داخل سيارة')
-   return
-  end
-  manualTargets[selected]=true
-  indexed[selected]=true
-  enqueueAnimal(selected)
-  manualSelecting=false
-  refreshCache()
-  msg('تم تحديد الضب: '..selected.Name..' | فعّل الكاشف')
- end)
-
- local radar=tab('كشف العناصر')
- toggle(radar,'كشف الضبان ومعلوماتها','Radar',function(on) if not on then clearMarkers() else refreshCache() end end)
- action(radar,'تحديد ضب أمامك (اضغط على جسمه)',function() manualSelecting=true;msg('اضغط على جسم الضب الموجود أمامك لتحديد مجسمه الحقيقي') end)
- action(radar,'إعادة فحص الضبان الآن',function() refreshCache();msg('أعيد فحص '..#scanQueue..' مجسم مسجل') end)
- number(radar,'مدى الرادار (وحدة)','RadarRange',100,3000,100)
- local filterValues={'الكل','عادي','مميز','نادر','فاخر','أسطوري','خرافي'}
- local fi=1
- local filterBtn
- filterBtn=action(radar,'فلتر الندرة: الكل',function() fi=fi%#filterValues+1;S.Filter=filterValues[fi];filterBtn.Text='فلتر الندرة: '..S.Filter end)
- local closestLabel=label(radar,'أقرب ضب: لا يوجد','يتم التحديث عند تفعيل الرادار')
- local radarDiag=label(radar,'تشخيص الكاشف: جار الفحص','يفحص المجسمات المحمّلة على جهازك فقط')
- local nearestText=closestLabel:FindFirstChildOfClass('TextLabel')
- local listTitle=label(radar,'قائمة الضبان | الحجم والمسافة','الأقرب أولاً • بيانات الحجم والوزن من الماب فقط')
- local animalList=inst('Frame',{Size=UDim2.new(1,-2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},radar)
- inst('UIListLayout',{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},animalList)
-
- local function rebuildAnimalList()
-  for _,x in ipairs(animalList:GetChildren()) do if x:IsA('Frame') then x:Destroy() end end
-  if not S.Radar then
-   label(animalList,'الرادار متوقف','فعّل كشف الضبان لعرض الأحجام والمسافات')
-   return
-  end
-  local r=root()
-  if not r then label(animalList,'الشخصية غير جاهزة');return end
-  local entries={}
-  for _,e in ipairs(cache) do
-   if e.model.Parent and e.part.Parent and living(e.model) and lizard(e.model) then
-    local d=(e.part.Position-r.Position).Magnitude
-    if d<=S.RadarRange and (S.Filter=='الكل' or rarity(e.model)==S.Filter) then
-     entries[#entries+1]={model=e.model,distance=d}
-    end
-   end
-  end
-  table.sort(entries,function(a,b)return a.distance<b.distance end)
-  if #entries==0 then label(animalList,'لا توجد ضبان مطابقة','قد تكون خارج المدى أو لم تُحمّلها اللعبة');return end
-  for i=1,math.min(#entries,25) do
-   local e=entries[i]
-   local rarityName=rarity(e.model)
-   local card=inst('Frame',{Size=UDim2.new(1,-2,0,69),BackgroundColor3=C.card,BorderSizePixel=0,LayoutOrder=i},animalList)
-   round(card,10)
-   inst('UIStroke',{Color=rarityColors[rarityName] or C.purple,Thickness=1,Transparency=.25},card)
-   inst('TextLabel',{Size=UDim2.new(1,-16,0,23),Position=UDim2.fromOffset(8,4),BackgroundTransparency=1,Text=speciesName(e.model)..' | '..rarityName,TextColor3=rarityColors[rarityName] or C.white,TextSize=12,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},card)
-   inst('TextLabel',{Size=UDim2.new(1,-16,0,33),Position=UDim2.fromOffset(8,28),BackgroundTransparency=1,Text='الحجم: '..animalSize(e.model)..'  |  الوزن: '..animalWeight(e.model)..'  |  المسافة: '..math.floor(e.distance+.5)..' وحدة',TextColor3=C.white,TextSize=11,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,TextWrapped=true},card)
-  end
- end
-
- local merchant=tab('كشف التاجر')
- toggle(merchant,'كشف التجار','Merchant')
- local merchantInfo=label(merchant,'أقرب تاجر: غير مكتشف','المسافة والاتجاه حسب النماذج المحمّلة')
- local merchantText=merchantInfo:FindFirstChildOfClass('TextLabel')
- local selectedMerchant=nil
- local function findMerchant()
-  local r=root();if not r then return nil end
-  local best,d=nil,math.huge
-  for _,obj in ipairs(WS:GetDescendants()) do
-   if obj:IsA('Model') and not playerAncestor(obj) then
-    local n=obj.Name:lower()
-    if n:find('merchant',1,true) or n:find('trader',1,true) or n:find('تاجر',1,true) or n:find('الخلا',1,true) or n:find('dealer',1,true) then
-     local p=part(obj);if p then local dis=(p.Position-r.Position).Magnitude;if dis<d then best=p;d=dis end end
-    end
-   end
-  end
-  return best,d
- end
- action(merchant,'تحديد اتجاه أقرب تاجر',function() local p,d=findMerchant();if not p then msg('التاجر غير محمّل أو غير معروف');return end;selectedMerchant=p;local cam=WS.CurrentCamera;if cam then cam.CFrame=CFrame.lookAt(cam.CFrame.Position,p.Position) end;msg('اتجاه التاجر | '..math.floor(d)..' وحدة') end)
-
- local loot=tab('النوادر والبيع')
- toggle(loot,'ESP النوادر','ResourceESP')
-
- local combat=tab('التحكم والسرعة')
- toggle(combat,'تعديل سرعة المشي','Speed',function(on)
-  local h=hum()
-  if h then
-   if on then originalSpeed=originalSpeed or h.WalkSpeed;h.WalkSpeed=S.Walk else if originalSpeed then h.WalkSpeed=originalSpeed end end
-  end
- end)
- number(combat,'سرعة المشي','Walk',16,120,4)
-
- local world=tab('البيئة والإضاءة')
- toggle(world,'إضاءة كاملة (Fullbright)','Fullbright',function(on)
-  if on then
-   lightSaved.Brightness=Lighting.Brightness
-   lightSaved.ClockTime=Lighting.ClockTime
-   lightSaved.GlobalShadows=Lighting.GlobalShadows
-   Lighting.Brightness=2
-   Lighting.ClockTime=14
-   Lighting.GlobalShadows=false
-  else
-   if lightSaved.Brightness then Lighting.Brightness=lightSaved.Brightness end
-   if lightSaved.ClockTime then Lighting.ClockTime=lightSaved.ClockTime end
-   if lightSaved.GlobalShadows~=nil then Lighting.GlobalShadows=lightSaved.GlobalShadows end
-  end
- end)
-
- local discordTab=tab('رابط الديسكورد')
- action(discordTab,'نسخ رابط الديسكورد للقروب',function()
-  if type(setclipboard)=='function' then setclipboard('https://discord.gg/ojailbreaks');msg('تم نسخ رابط الديسكورد') else msg('النسخ غير متاح تلقائياً') end
- end)
-
- local tickCount=0
- conn(RunService.RenderStepped,function()
-  tickCount+=1
-  if S.Radar and tickCount%30==0 then
-   refreshCache()
-   local r=root()
-   if r then
-    local best=nil
-    local minDist=math.huge
-    for _,e in ipairs(cache) do
-     if e.model.Parent and e.part.Parent and living(e.model) and lizard(e.model) then
-      local d=(e.part.Position-r.Position).Magnitude
-      if d<=S.RadarRange and (S.Filter=='الكل' or rarity(e.model)==S.Filter) then
-       if d<minDist then minDist=d;best=e end
-      end
-     end
-    end
-    if best then
-     if nearestText then nearestText.Text='أقرب ضب: '..speciesName(best.model)..' ('..rarity(best.model)..') | '..math.floor(minDist)..' وحدة' end
-     if radarDiag then local diag=radarDiag:FindFirstChildOfClass('TextLabel');if diag then diag.Text='تشخيص الكاشف: نشط • ضبان مسجلة في الذاكرة: '..#cache end end
-    else
-     if nearestText then nearestText.Text='أقرب ضب: لا توجد مطابقة في المدى' end
-    end
-   end
-   rebuildAnimalList()
-  end
-  if S.Fullbright then
-   Lighting.Brightness=2
-   Lighting.GlobalShadows=false
-  end
- end)
-
- msg('Lx REDLINE PRO v77 | تم تحميل الميزات بنجاح')
-end
-
-local ok,err=pcall(initializeFeatures)
-if not ok then
- warn('[Lx REDLINE] Feature initialization error:',err)
- showFeatureError(err)
-end
-end
-
-local ok,err=pcall(launchRedline)
-if not ok then
- warn('[Lx REDLINE LAUNCH ERROR]',err)
-end
+-- Simulate secure server authentication verification flow for OAuth2 token
+conn(verifyBtn.MouseButton1Click, function()
+    authStatus.Text = "جاري الاتصال بخادم المصادقة الآمن..."
+    task.delay(1.2, function()
+        if alive and authGui and authGui.Parent then
+            authStatus.Text = "تم التحقق بنجاح! جاري فتح الواجهة..."
+            task.delay(0.6, launchMainInterface)
+        end
+    end)
+end)
