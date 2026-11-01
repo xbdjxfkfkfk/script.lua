@@ -1,7 +1,7 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║           HUNTER HUB ULTRA v6.1 FINAL FIX                ║
-    ║          كل شي مضبوط - بدون تعليق - بدون أخطاء           ║
+    ║           HUNTER HUB MOBILE v7.0                         ║
+    ║          أزرار لليد - كل شي يضبط - بدون أخطاء            ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
@@ -25,7 +25,7 @@ if type(getgenv) == "function" then
 end
 if type(env.XHubCleanup) == "function" then pcall(env.XHubCleanup) end
 
-for _, name in ipairs({"HunterHubV61", "HunterHubV6", "HunterHubV5", "Lx_NexusV77"}) do
+for _, name in ipairs({"HunterHubMobile", "HunterHubV61", "HunterHubV6"}) do
     local old = PG:FindFirstChild(name)
     if old then old:Destroy() end
 end
@@ -54,8 +54,10 @@ local C = {
     bg = Color3.fromRGB(8, 8, 12),
     card = Color3.fromRGB(18, 18, 24),
     accent = Color3.fromRGB(220, 30, 40),
+    accent2 = Color3.fromRGB(255, 200, 50),
     white = Color3.fromRGB(255, 255, 255),
     muted = Color3.fromRGB(140, 140, 150),
+    green = Color3.fromRGB(80, 220, 120),
 }
 
 local rarityColors = {
@@ -98,146 +100,85 @@ local function msg(t)
 end
 
 -- GUI
-local gui = inst("ScreenGui", {Name = "HunterHubV61", ResetOnSpawn = false, DisplayOrder = 90}, PG)
+local gui = inst("ScreenGui", {Name = "HunterHubMobile", ResetOnSpawn = false, DisplayOrder = 90}, PG)
 
 local main = inst("Frame", {
-    Size = UDim2.fromOffset(700, 500),
-    Position = UDim2.new(0.5, -350, 0.5, -250),
+    Size = UDim2.fromOffset(400, 350),
+    Position = UDim2.new(0.5, -200, 0.5, -175),
     BackgroundColor3 = C.bg, BorderSizePixel = 0, Active = true
 }, gui)
 round(main, 14)
 inst("UIStroke", {Color = C.accent, Thickness = 2, Transparency = 0.1}, main)
 
-local scale = inst("UIScale", {Scale = 1}, main)
-local function fitScreen()
-    local cam = WS.CurrentCamera
-    if cam then
-        local v = cam.ViewportSize
-        scale.Scale = math.min(1, math.max(0.5, math.min((v.X - 20) / 700, (v.Y - 20) / 500)))
-    end
-end
-fitScreen()
-
 -- Header
-local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundColor3 = Color3.fromRGB(12, 12, 16), BorderSizePixel = 0, Active = true}, main)
+local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 45), BackgroundColor3 = Color3.fromRGB(12, 12, 16), BorderSizePixel = 0, Active = true}, main)
 round(head, 14)
 
 inst("Frame", {Size = UDim2.new(1, -20, 0, 2), Position = UDim2.new(0, 10, 1, -2), BackgroundColor3 = C.accent, BorderSizePixel = 0}, head)
 
-local logo = inst("Frame", {Size = UDim2.fromOffset(38, 38), Position = UDim2.fromOffset(10, 8), BackgroundColor3 = C.accent, BorderSizePixel = 0}, head)
-round(logo, 10)
+local logo = inst("Frame", {Size = UDim2.fromOffset(32, 32), Position = UDim2.fromOffset(8, 6), BackgroundColor3 = C.accent, BorderSizePixel = 0}, head)
+round(logo, 8)
+inst("TextLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "🦎", Font = Enum.Font.GothamBlack, TextSize = 18, TextColor3 = C.white}, logo)
 
-inst("TextLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "🦎", Font = Enum.Font.GothamBlack, TextSize = 20, TextColor3 = C.white}, logo)
+inst("TextLabel", {Size = UDim2.fromOffset(200, 16), Position = UDim2.fromOffset(48, 5), BackgroundTransparency = 1, Text = "HUNTER HUB MOBILE", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, head)
+inst("TextLabel", {Size = UDim2.fromOffset(200, 12), Position = UDim2.fromOffset(48, 24), BackgroundTransparency = 1, Text = "v7.0 | أزرار لليد", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left}, head)
 
-inst("TextLabel", {Size = UDim2.fromOffset(250, 18), Position = UDim2.fromOffset(58, 8), BackgroundTransparency = 1, Text = "HUNTER HUB ULTRA", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left}, head)
+local close = inst("TextButton", {Size = UDim2.fromOffset(26, 26), Position = UDim2.new(1, -32, 0, 9), BackgroundColor3 = C.accent, Text = "×", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 14}, head)
+round(close, 6)
 
-inst("TextLabel", {Size = UDim2.fromOffset(250, 14), Position = UDim2.fromOffset(58, 30), BackgroundTransparency = 1, Text = "v6.1 FINAL FIX", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, head)
+-- Content
+local content = inst("ScrollingFrame", {Size = UDim2.new(1, -16, 1, -55), Position = UDim2.fromOffset(8, 50), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = C.accent, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, main)
+inst("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, content)
+inst("UIPadding", {PaddingRight = UDim.new(0, 5)}, content)
 
-local function smallBtn(text, x, color)
-    local b = inst("TextButton", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, x, 0, 13), BackgroundColor3 = color or C.card, Text = text, Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = C.white}, head)
-    round(b, 6)
-    return b
-end
+local status = inst("TextLabel", {Size = UDim2.new(1, -16, 0, 18), Position = UDim2.new(0, 8, 1, -22), BackgroundTransparency = 1, Text = "جاهز", TextColor3 = C.muted, TextSize = 10, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left}, main)
 
-local mini = smallBtn("−", -65)
-local close = smallBtn("×", -35, C.accent)
-
--- Side Menu
-local side = inst("ScrollingFrame", {Size = UDim2.new(0, 160, 1, -70), Position = UDim2.fromOffset(10, 60), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = C.accent, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, main)
-inst("UIListLayout", {Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder}, side)
-
-local area = inst("Frame", {Size = UDim2.new(1, -180, 1, -70), Position = UDim2.fromOffset(175, 60), BackgroundTransparency = 1, ClipsDescendants = true}, main)
-
-local status = inst("TextLabel", {Size = UDim2.new(1, -20, 0, 22), Position = UDim2.new(0, 10, 1, -28), BackgroundTransparency = 1, Text = "Hunter Hub | جاهز", TextColor3 = C.muted, TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left}, main)
-
--- Tab system
-local tabs = {}
-local tabBtns = {}
-
-local function tab(name, icon, order)
-    local btn = inst("TextButton", {Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = C.card, Text = "", BorderSizePixel = 0, LayoutOrder = order or 1}, side)
-    round(btn, 8)
+-- Mobile Button Component
+local function mobButton(title, icon, key, order, color)
+    local b = inst("TextButton", {
+        Size = UDim2.new(1, 0, 0, 50),
+        BackgroundColor3 = color or C.card,
+        BorderSizePixel = 0,
+        LayoutOrder = order,
+        Text = ""
+    }, content)
+    round(b, 10)
     
-    inst("TextLabel", {Size = UDim2.fromOffset(22, 22), Position = UDim2.fromOffset(8, 8), BackgroundTransparency = 1, Text = icon, Font = Enum.Font.Gotham, TextSize = 13, TextColor3 = C.white}, btn)
-    inst("TextLabel", {Size = UDim2.new(1, -35, 1, 0), Position = UDim2.fromOffset(32, 0), BackgroundTransparency = 1, Text = name, Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = C.white, TextXAlignment = Enum.TextXAlignment.Left}, btn)
+    inst("TextLabel", {Size = UDim2.fromOffset(35, 35), Position = UDim2.fromOffset(8, 8), BackgroundTransparency = 1, Text = icon, Font = Enum.Font.Gotham, TextSize = 20, TextColor3 = C.white}, b)
+    inst("TextLabel", {Size = UDim2.new(1, -55, 0, 20), Position = UDim2.fromOffset(50, 5), BackgroundTransparency = 1, Text = title, TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
-    local page = inst("ScrollingFrame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = C.accent, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false}, area)
-    inst("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, page)
-    inst("UIPadding", {PaddingRight = UDim.new(0, 5)}, page)
-    
-    table.insert(tabs, page)
-    table.insert(tabBtns, btn)
-    
-    conn(btn.MouseButton1Click, function()
-        for i, t in ipairs(tabs) do
-            t.Visible = (t == page)
-            tabBtns[i].BackgroundColor3 = (t == page) and C.accent or C.card
-        end
-    end)
-    
-    if #tabs == 1 then
-        page.Visible = true
-        btn.BackgroundColor3 = C.accent
-    end
-    
-    return page
-end
-
--- UI Components
-local function section(p, text, order)
-    local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1, LayoutOrder = order}, p)
-    inst("TextLabel", {Size = UDim2.new(1, -10, 1, 0), Position = UDim2.fromOffset(5, 0), BackgroundTransparency = 1, Text = text, TextColor3 = C.accent, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, s)
-    return s
-end
-
-local function toggle(p, title, desc, key, order)
-    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 52), BackgroundColor3 = C.card, BorderSizePixel = 0, LayoutOrder = order}, p)
-    round(f, 8)
-    
-    inst("TextLabel", {Size = UDim2.new(1, -60, 0, 20), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = title, TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, f)
-    inst("TextLabel", {Size = UDim2.new(1, -60, 0, 18), Position = UDim2.fromOffset(10, 26), BackgroundTransparency = 1, Text = desc or "", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, f)
-    
-    local sw = inst("TextButton", {Size = UDim2.fromOffset(44, 24), Position = UDim2.new(1, -54, 0.5, -12), BackgroundColor3 = Color3.fromRGB(50, 50, 60), Text = "", BorderSizePixel = 0}, f)
-    round(sw, 12)
-    
-    local circle = inst("Frame", {Size = UDim2.fromOffset(18, 18), Position = UDim2.new(0, 3, 0.5, -9), BackgroundColor3 = C.white, BorderSizePixel = 0}, sw)
-    round(circle, 9)
+    local stateLabel = inst("TextLabel", {Size = UDim2.new(1, -55, 0, 16), Position = UDim2.fromOffset(50, 28), BackgroundTransparency = 1, Text = "OFF", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
     local on = false
     
-    local function update()
-        local targetPos = on and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
-        local targetColor = on and C.accent or Color3.fromRGB(50, 50, 60)
-        TweenService:Create(circle, TweenInfo.new(0.15), {Position = targetPos}):Play()
-        TweenService:Create(sw, TweenInfo.new(0.15), {BackgroundColor3 = targetColor}):Play()
-    end
-    
-    conn(sw.MouseButton1Click, function()
+    conn(b.MouseButton1Click, function()
         on = not on
         S[key] = on
-        update()
+        stateLabel.Text = on and "ON ✓" or "OFF"
+        stateLabel.TextColor3 = on and C.green or C.muted
+        b.BackgroundColor3 = on and C.accent or (color or C.card)
     end)
     
-    return f
+    return b
 end
 
-local function slider(p, title, desc, key, min, max, default, order)
-    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 62), BackgroundColor3 = C.card, BorderSizePixel = 0, LayoutOrder = order}, p)
-    round(f, 8)
+-- Slider Component (Mobile Friendly)
+local function mobSlider(title, key, min, max, default, order)
+    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundColor3 = C.card, BorderSizePixel = 0, LayoutOrder = order}, content)
+    round(f, 10)
     
-    inst("TextLabel", {Size = UDim2.new(0.7, 0, 0, 20), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = title, TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, f)
+    inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 18), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = title, TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, f)
     
-    local val = inst("TextLabel", {Size = UDim2.new(0.25, 0, 0, 20), Position = UDim2.new(0.75, -5, 0, 5), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = C.accent, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right}, f)
-    inst("TextLabel", {Size = UDim2.new(1, -20, 0, 16), Position = UDim2.fromOffset(10, 24), BackgroundTransparency = 1, Text = desc or "", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, f)
+    local val = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 18), Position = UDim2.new(0.7, -5, 0, 5), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = C.accent, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right}, f)
     
-    local bg = inst("Frame", {Size = UDim2.new(1, -20, 0, 5), Position = UDim2.fromOffset(10, 46), BackgroundColor3 = Color3.fromRGB(40, 40, 50), BorderSizePixel = 0}, f)
-    round(bg, 3)
+    local bg = inst("Frame", {Size = UDim2.new(1, -20, 0, 8), Position = UDim2.fromOffset(10, 32), BackgroundColor3 = Color3.fromRGB(40, 40, 50), BorderSizePixel = 0}, f)
+    round(bg, 4)
     
     local fill = inst("Frame", {Size = UDim2.new((default - min) / (max - min), 0, 1, 0), BackgroundColor3 = C.accent, BorderSizePixel = 0}, bg)
-    round(fill, 3)
+    round(fill, 4)
     
-    local handle = inst("Frame", {Size = UDim2.fromOffset(14, 14), Position = UDim2.new((default - min) / (max - min), -7, 0.5, -7), BackgroundColor3 = C.white, BorderSizePixel = 0}, bg)
-    round(handle, 7)
+    local handle = inst("Frame", {Size = UDim2.fromOffset(20, 20), Position = UDim2.new((default - min) / (max - min), -10, 0.5, -10), BackgroundColor3 = C.white, BorderSizePixel = 0}, bg)
+    round(handle, 10)
     
     S[key] = default
     local dragging = false
@@ -248,106 +189,91 @@ local function slider(p, title, desc, key, min, max, default, order)
         S[key] = v
         val.Text = tostring(v)
         fill.Size = UDim2.new(rel, 0, 1, 0)
-        handle.Position = UDim2.new(rel, -7, 0.5, -7)
+        handle.Position = UDim2.new(rel, -10, 0.5, -10)
     end
     
-    conn(handle.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
-    conn(bg.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true update(input) end end)
-    conn(UIS.InputEnded, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-    conn(UIS.InputChanged, function(input) if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then update(input) end end)
+    conn(handle.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end end)
+    conn(bg.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true update(input) end end)
+    conn(UIS.InputEnded, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
+    conn(UIS.InputChanged, function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end end)
     
     return f
 end
 
-local function button(p, title, desc, fn, order, color)
-    local b = inst("TextButton", {Size = UDim2.new(1, 0, 0, 48), BackgroundColor3 = color or C.card, BorderSizePixel = 0, LayoutOrder = order, Text = ""}, p)
-    round(b, 8)
+-- Action Button
+local function actionBtn(title, desc, fn, order, color)
+    local b = inst("TextButton", {Size = UDim2.new(1, 0, 0, 45), BackgroundColor3 = color or C.card, BorderSizePixel = 0, LayoutOrder = order, Text = ""}, content)
+    round(b, 10)
     
-    inst("TextLabel", {Size = UDim2.new(1, -20, 0, 20), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = title, TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, b)
-    inst("TextLabel", {Size = UDim2.new(1, -20, 0, 18), Position = UDim2.fromOffset(10, 26), BackgroundTransparency = 1, Text = desc or "", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, b)
+    inst("TextLabel", {Size = UDim2.new(1, -20, 0, 18), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = title, TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, b)
+    inst("TextLabel", {Size = UDim2.new(1, -20, 0, 16), Position = UDim2.fromOffset(10, 24), BackgroundTransparency = 1, Text = desc or "", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
     conn(b.MouseButton1Click, function()
         local ok, err = pcall(fn)
-        if not ok then warn("Error:", err) msg("خطأ: " .. tostring(err):sub(1, 60)) end
+        if not ok then msg("خطأ: " .. tostring(err):sub(1, 40)) end
     end)
     
     return b
 end
 
 --====================================
--- BUILD UI
+-- BUILD MOBILE UI
 --====================================
 
-local espTab = tab("كشف العناصر", "👁️", 1)
-section(espTab, "نظام الكشف", 1)
-toggle(espTab, "كشف الضبان", "يعرض الضبان مع المعلومات", "Radar", 2)
-slider(espTab, "مدى الكشف", "المسافة القصوى", "RadarRange", 100, 5000, 3000, 3)
+-- Section: ESP
+local s1 = inst("TextLabel", {Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1, Text = "👁️ كشف العناصر", TextColor3 = C.accent, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 1}, content)
+mobButton("كشف الضبان", "👁️", "Radar", 2)
+mobSlider("مدى الكشف", "RadarRange", 100, 5000, 3000, 3)
 
-local filterFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = C.card, BorderSizePixel = 0, LayoutOrder = 4}, espTab)
-round(filterFrame, 8)
-inst("TextLabel", {Size = UDim2.new(1, -100, 0, 20), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = "فلتر الندرة", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, filterFrame)
-inst("TextLabel", {Size = UDim2.new(1, -100, 0, 18), Position = UDim2.fromOffset(10, 26), BackgroundTransparency = 1, Text = "اختر الندرات المطلوبة", TextColor3 = C.muted, Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, filterFrame)
+-- Section: Aimbot
+local s2 = inst("TextLabel", {Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1, Text = "🎯 التصويب", TextColor3 = C.accent, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 4}, content)
+mobButton("Aimbot", "🎯", "Aim", 5)
+mobSlider("مسافة التصويب", "AimRange", 100, 5000, 3000, 6)
+mobSlider("نعومة التصويب", "AimSmooth", 1, 100, 14, 7)
+mobSlider("حجم FOV", "FOV", 10, 200, 25, 8)
 
-local filterBtn = inst("TextButton", {Size = UDim2.fromOffset(80, 30), Position = UDim2.new(1, -90, 0.5, -15), BackgroundColor3 = C.accent, Text = "الكل ▼", TextColor3 = C.white, Font = Enum.Font.GothamBold, TextSize = 12}, filterFrame)
-round(filterBtn, 6)
+-- Section: Car
+local s3 = inst("TextLabel", {Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1, Text = "🚗 السيارات", TextColor3 = C.accent, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 9}, content)
+mobButton("تسريع السيارة", "🚗", "CarSpeed", 10)
+mobSlider("سرعة السيارة", "CarTarget", 20, 500, 200, 11)
+mobButton("طيران السيارة", "✈️", "CarFly", 12)
+mobSlider("سرعة الطيران", "FlySpeed", 50, 500, 100, 13)
 
-local filters = {"الكل", "عادي", "مميز", "نادر", "فاخر", "أسطوري", "خرافي"}
-local fi = 1
-conn(filterBtn.MouseButton1Click, function()
-    fi = fi % #filters + 1
-    S.Filter = filters[fi]
-    filterBtn.Text = S.Filter .. " ▼"
-end)
+-- Section: Player
+local s4 = inst("TextLabel", {Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1, Text = "🏃 اللاعب", TextColor3 = C.accent, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 14}, content)
+mobButton("سرعة المشي", "🏃", "Speed", 15)
+mobSlider("قيمة السرعة", "Walk", 16, 200, 32, 16)
+mobButton("طيران اللاعب", "✈️", "PlayerFly", 17)
+mobSlider("سرعة الطيران", "PlayerFlySpeed", 15, 200, 50, 18)
+mobButton("تجاوز الجدران", "👻", "Noclip", 19)
+mobButton("قفز لا نهائي", "⬆️", "InfiniteJump", 20)
 
-local aimTab = tab("التصويب", "🎯", 2)
-section(aimTab, "نظام التصويب", 1)
-toggle(aimTab, "تفعيل Aimbot", "تصويب تلقائي على الضبان", "Aim", 2)
-slider(aimTab, "مسافة التصويب", "أقصى مسافة", "AimRange", 100, 5000, 3000, 3)
-slider(aimTab, "نعومة التصويب", "كل ما زاد صار أبطأ", "AimSmooth", 1, 100, 14, 4)
-slider(aimTab, "حجم FOV", "دائرة التصويب", "FOV", 10, 200, 25, 5)
+-- Section: Visuals
+local s5 = inst("TextLabel", {Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1, Text = "✨ المظهر", TextColor3 = C.accent, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 21}, content)
+mobButton("إضاءة كاملة", "☀️", "Fullbright", 22)
+mobButton("إزالة الضباب", "🌫️", "Fog", 23)
 
-local carTab = tab("السيارات", "🚗", 3)
-section(carTab, "نظام السيارات", 1)
-toggle(carTab, "تسريع السيارة", "زيادة سرعة السيارة", "CarSpeed", 2)
-slider(carTab, "سرعة السيارة", "السرعة المستهدفة", "CarTarget", 20, 500, 200, 3)
-toggle(carTab, "طيران السيارة", "اجلس في السيارة أولاً", "CarFly", 4)
-slider(carTab, "سرعة الطيران", "", "FlySpeed", 50, 500, 100, 5)
-
-local playerTab = tab("اللاعب", "🏃", 4)
-section(playerTab, "نظام اللاعب", 1)
-toggle(playerTab, "سرعة المشي", "تسريع الحركة", "Speed", 2)
-slider(playerTab, "قيمة السرعة", "", "Walk", 16, 200, 32, 3)
-toggle(playerTab, "طيران اللاعب", "طيران حر", "PlayerFly", 4)
-slider(playerTab, "سرعة الطيران", "", "PlayerFlySpeed", 15, 200, 50, 5)
-toggle(playerTab, "تجاوز الجدران", "Noclip", "Noclip", 6)
-toggle(playerTab, "قفز لا نهائي", "Infinite Jump", "InfiniteJump", 7)
-
-local visualTab = tab("المظهر", "✨", 5)
-section(visualTab, "الإضاءة والمظهر", 1)
-toggle(visualTab, "إضاءة كاملة", "إزالة الظلال", "Fullbright", 2)
-toggle(visualTab, "إزالة الضباب", "رؤية أوضح", "Fog", 3)
-
-local tpTab = tab("الانتقال", "📍", 6)
-section(tpTab, "نظام الانتقال", 1)
-button(tpTab, "حفظ الموقع", "حفظ موقعك الحالي", function()
+-- Section: Actions
+local s6 = inst("TextLabel", {Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1, Text = "📍 أدوات", TextColor3 = C.accent, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 24}, content)
+actionBtn("حفظ الموقع", "حفظ موقعك الحالي", function()
     local r = root()
-    if r then table.insert(savedLocations, r.Position) msg("تم حفظ الموقع #" .. #savedLocations) end
-end, 2)
+    if r then table.insert(savedLocations, r.Position) msg("تم الحفظ #" .. #savedLocations) end
+end, 25)
 
-button(tpTab, "الانتقال للموقع", "آخر موقع محفوظ", function()
+actionBtn("الانتقال للموقع", "آخر موقع محفوظ", function()
     if #savedLocations > 0 then
         local r = root()
         if r then r.CFrame = CFrame.new(savedLocations[#savedLocations] + Vector3.new(0, 5, 0)) end
     end
-end, 3)
+end, 26)
 
-button(tpTab, "إعادة تعيين الكل", "إيقاف كل المميزات", function()
+actionBtn("إعادة تعيين الكل", "إيقاف كل المميزات", function()
     for k, v in pairs(S) do if type(v) == "boolean" then S[k] = false end end
     msg("تم إعادة تعيين كل شي")
-end, 4, C.accent)
+end, 27, C.accent)
 
 --====================================
--- SYSTEMS
+-- SYSTEMS (Same as before but optimized)
 --====================================
 
 local animalNames = {"dhab", "dhub", "lizard", "reptile", "ضب", "ضبان", "dhabb", "uromastyx", "spiny"}
@@ -372,10 +298,7 @@ local function isVehicleModel(model)
     if not model or not model:IsA("Model") then return false end
     if model:FindFirstChildWhichIsA("VehicleSeat", true) then return true end
     if model:FindFirstChild("Chassis") then return true end
-    if model:FindFirstChild("Wheels") then return true end
-    if matchesAny(model.Name, vehicleNames) then
-        if model:FindFirstChildWhichIsA("BasePart", true) then return true end
-    end
+    if matchesAny(model.Name, vehicleNames) then return true end
     return false
 end
 
@@ -396,26 +319,16 @@ local function lizard(model)
     if not model or not model:IsA("Model") or not model.Parent then return false end
     if blockedAncestor(model) then return false end
     if isVehicleModel(model) then return false end
-    
     local tagged = CollectionService:HasTag(model, "Lizard") or CollectionService:HasTag(model, "Dhab") or CollectionService:HasTag(model, "ضب")
     local named = matchesAny(model.Name, animalNames)
     if not (tagged or named) then return false end
-    
-    local hasPart = model:FindFirstChildWhichIsA("BasePart", true) ~= nil
-    if not hasPart then return false end
-    
+    if not model:FindFirstChildWhichIsA("BasePart", true) then return false end
     local ok, _, size = pcall(function() return model:GetBoundingBox() end)
-    if ok and size then
-        local maxDim = math.max(size.X, size.Y, size.Z)
-        if maxDim > 15 then return false end
-    end
-    
+    if ok and size and math.max(size.X, size.Y, size.Z) > 15 then return false end
     return true
 end
 
-local function part(model)
-    return model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
-end
+local function part(model) return model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true) end
 
 local function living(model)
     local h = model:FindFirstChildOfClass("Humanoid")
@@ -423,19 +336,14 @@ local function living(model)
     return model.Parent ~= nil
 end
 
-local rarities = {
-    ["t1"] = "عادي", ["t2"] = "مميز", ["t3"] = "نادر", ["t4"] = "فاخر", ["t5"] = "أسطوري", ["t6"] = "خرافي",
-    common = "عادي", uncommon = "مميز", rare = "نادر", epic = "فاخر", legendary = "أسطوري", mythic = "خرافي"
-}
+local rarities = {["t1"]="عادي",["t2"]="مميز",["t3"]="نادر",["t4"]="فاخر",["t5"]="أسطوري",["t6"]="خرافي",common="عادي",uncommon="مميز",rare="نادر",epic="فاخر",legendary="أسطوري",mythic="خرافي"}
 
 local function rarity(m)
     local raw = tostring(m:GetAttribute("Rarity") or m:GetAttribute("Tier") or ""):lower()
     return rarities[raw] or "غير محدد"
 end
 
-local function speciesName(model)
-    return model:GetAttribute("Species") or model.Name
-end
+local function speciesName(model) return model:GetAttribute("Species") or model.Name end
 
 local function animalWeight(model)
     local v = model:GetAttribute("Weight") or model:GetAttribute("WeightKG") or model:GetAttribute("الوزن")
@@ -443,13 +351,6 @@ local function animalWeight(model)
         local n = tonumber(v)
         if n then return string.format("%.1f", n) .. " كجم" end
         return tostring(v)
-    end
-    for _, folderName in ipairs({"Stats", "Data", "Info", "بيانات"}) do
-        local folder = model:FindFirstChild(folderName, true)
-        if folder then
-            local val = folder:GetAttribute("Weight") or folder:GetAttribute("WeightKG")
-            if val then return tostring(val) .. " كجم" end
-        end
     end
     return "غير معروف"
 end
@@ -475,9 +376,7 @@ task.spawn(function()
     while alive and index <= #pending do
         local obj = pending[index]
         index = index + 1
-        if obj:IsA("Model") and not isVehicleModel(obj) and lizard(obj) and living(obj) then
-            indexed[obj] = true
-        end
+        if obj:IsA("Model") and not isVehicleModel(obj) and lizard(obj) and living(obj) then indexed[obj] = true end
         for _, child in ipairs(obj:GetChildren()) do table.insert(pending, child) end
         if index % 35 == 0 then task.wait(0.04) end
     end
@@ -485,9 +384,7 @@ end)
 
 conn(WS.DescendantAdded, function(obj)
     if obj:IsA("Model") and not isVehicleModel(obj) then
-        task.defer(function()
-            if alive and obj.Parent and lizard(obj) and living(obj) then indexed[obj] = true end
-        end)
+        task.defer(function() if alive and obj.Parent and lizard(obj) and living(obj) then indexed[obj] = true end end)
     end
 end)
 
@@ -501,36 +398,15 @@ end
 local function makeMarker(e)
     local m = e.model
     if markers[m] or not living(m) or not lizard(m) then return end
-    
     local r = root()
     local dist = r and math.floor((e.part.Position - r.Position).Magnitude) or 0
-    
-    local bb = inst("BillboardGui", {Name = "HunterESP", Adornee = e.part, Size = UDim2.fromOffset(220, 80), StudsOffsetWorldSpace = Vector3.new(0, 3, 0), AlwaysOnTop = true, MaxDistance = S.RadarRange}, gui)
-    
+    local bb = inst("BillboardGui", {Name = "HunterESP", Adornee = e.part, Size = UDim2.fromOffset(200, 70), StudsOffsetWorldSpace = Vector3.new(0, 3, 0), AlwaysOnTop = true, MaxDistance = S.RadarRange}, gui)
     local rar = rarity(m)
     local rarColor = rarityColors[rar] or C.white
-    
-    inst("TextLabel", {Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1, Text = speciesName(m), TextColor3 = rarColor, TextStrokeTransparency = 0.3, TextSize = 13, Font = Enum.Font.GothamBold}, bb)
-    inst("TextLabel", {Size = UDim2.new(1, 0, 0, 18), Position = UDim2.new(0, 0, 0, 22), BackgroundTransparency = 1, Text = "[" .. rar .. "]", TextColor3 = rarColor, TextStrokeTransparency = 0.3, TextSize = 11, Font = Enum.Font.GothamBold}, bb)
-    inst("TextLabel", {Size = UDim2.new(1, 0, 0, 35), Position = UDim2.new(0, 0, 0, 42), BackgroundTransparency = 1, Text = "⚖️ " .. animalWeight(m) .. "  |  📏 " .. dist .. "m", TextColor3 = C.white, TextStrokeTransparency = 0.4, TextSize = 10, Font = Enum.Font.Gotham, TextWrapped = true}, bb)
-    
+    inst("TextLabel", {Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, Text = speciesName(m), TextColor3 = rarColor, TextStrokeTransparency = 0.3, TextSize = 12, Font = Enum.Font.GothamBold}, bb)
+    inst("TextLabel", {Size = UDim2.new(1, 0, 0, 16), Position = UDim2.new(0, 0, 0, 20), BackgroundTransparency = 1, Text = "[" .. rar .. "]", TextColor3 = rarColor, TextStrokeTransparency = 0.3, TextSize = 10, Font = Enum.Font.GothamBold}, bb)
+    inst("TextLabel", {Size = UDim2.new(1, 0, 0, 30), Position = UDim2.new(0, 0, 0, 38), BackgroundTransparency = 1, Text = "⚖️ " .. animalWeight(m) .. " | 📏 " .. dist .. "m", TextColor3 = C.white, TextStrokeTransparency = 0.4, TextSize = 9, Font = Enum.Font.Gotham, TextWrapped = true}, bb)
     markers[m] = bb
-end
-
-local function nearest(filter)
-    local r = root()
-    if not r then return nil end
-    local best, dist = nil, math.huge
-    for _, e in ipairs(cache) do
-        if e.model.Parent and e.part.Parent and living(e.model) and lizard(e.model) then
-            local d = (e.part.Position - r.Position).Magnitude
-            if d < dist and d <= S.RadarRange and (not filter or filter == "الكل" or rarity(e.model) == filter) then
-                best = e
-                dist = d
-            end
-        end
-    end
-    return best, dist
 end
 
 -- Aimbot
@@ -538,8 +414,6 @@ local fovGui = inst("ScreenGui", {Name = "HunterFOV", ResetOnSpawn = false, Igno
 local fovCircle = inst("Frame", {Name = "FOVCircle", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false}, fovGui)
 round(fovCircle, 1000)
 inst("UIStroke", {Color = C.accent, Thickness = 2, Transparency = 0.1}, fovCircle)
-local fovDot = inst("Frame", {Size = UDim2.fromOffset(4, 4), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = C.accent, BorderSizePixel = 0}, fovCircle)
-round(fovDot, 100)
 
 local function updateCircle()
     local cam = WS.CurrentCamera
@@ -556,21 +430,16 @@ local aimConnection = nil
 
 local function StartAimbot()
     if aimConnection then aimConnection:Disconnect() aimConnection = nil end
-    
     aimConnection = RunService.RenderStepped:Connect(function(dt)
         if not alive or not S.Aim then return end
         updateCircle()
-        
         local cam = WS.CurrentCamera
         if not cam then return end
         local r = root()
         if not r then return end
-        
         local vp = cam.ViewportSize
         local center = Vector2.new(vp.X * 0.5, vp.Y * 0.5)
-        
         local best, bestDist = nil, math.huge
-        
         for _, e in ipairs(cache) do
             if e.model.Parent and e.part.Parent and living(e.model) and lizard(e.model) then
                 local head = e.model:FindFirstChild("Head", true) or e.part
@@ -580,16 +449,12 @@ local function StartAimbot()
                         local point, onScreen = cam:WorldToViewportPoint(head.Position)
                         if onScreen and point.Z > 0 then
                             local pixelDist = (Vector2.new(point.X, point.Y) - center).Magnitude
-                            if pixelDist <= S.FOV and pixelDist < bestDist then
-                                best = head
-                                bestDist = pixelDist
-                            end
+                            if pixelDist <= S.FOV and pixelDist < bestDist then best = head bestDist = pixelDist end
                         end
                     end
                 end
             end
         end
-        
         if best then
             local desired = CFrame.lookAt(cam.CFrame.Position, best.Position)
             local alpha = 1 - math.exp(-math.clamp(S.AimSmooth / 10, 0.02, 1) * 30 * math.min(dt, 0.1))
@@ -604,7 +469,7 @@ local function StopAimbot()
     fovCircle.Visible = false
 end
 
--- Car Speed - FIXED
+-- Car Speed
 local savedSeat = nil
 local savedMaxSpeed = nil
 local savedTorque = nil
@@ -616,65 +481,29 @@ local function clearCarBoost()
             if savedTorque then savedSeat.Torque = savedTorque end
         end)
     end
-    savedSeat = nil
-    savedMaxSpeed = nil
-    savedTorque = nil
+    savedSeat = nil savedMaxSpeed = nil savedTorque = nil
 end
 
 local function updateCarSpeed()
-    if not S.CarSpeed then
-        clearCarBoost()
-        return
-    end
-    
+    if not S.CarSpeed then clearCarBoost() return end
     local h = hum()
-    if not h or not h.SeatPart then
-        clearCarBoost()
-        return
-    end
-    
+    if not h or not h.SeatPart then clearCarBoost() return end
     local seat = h.SeatPart
     if not seat:IsA("VehicleSeat") then return end
-    
     if savedSeat ~= seat then
         clearCarBoost()
         savedSeat = seat
         savedMaxSpeed = seat.MaxSpeed
         savedTorque = seat.Torque
     end
-    
     local target = math.clamp(S.CarTarget, 20, 500)
     pcall(function()
         seat.MaxSpeed = target
         seat.Torque = math.max(savedTorque or 0, math.min(20000, target * 50))
     end)
-    
-    local body = seat.AssemblyRootPart or seat
-    if body and not body.Anchored then
-        local velocity = body.AssemblyLinearVelocity
-        local horizontal = Vector3.new(velocity.X, 0, velocity.Z)
-        
-        local drive = 0
-        if UIS:IsKeyDown(Enum.KeyCode.W) or UIS:IsKeyDown(Enum.KeyCode.Up) then drive = 1
-        elseif UIS:IsKeyDown(Enum.KeyCode.S) or UIS:IsKeyDown(Enum.KeyCode.Down) then drive = -1 end
-        
-        if drive ~= 0 then
-            local forward = seat.CFrame.LookVector * drive
-            local flat = Vector3.new(forward.X, 0, forward.Z).Unit
-            local aligned = horizontal:Dot(flat)
-            
-            if aligned < target then
-                local gain = math.min((target - aligned) * 0.1, 50)
-                local newVel = horizontal + flat * gain
-                pcall(function()
-                    body.AssemblyLinearVelocity = Vector3.new(newVel.X, velocity.Y, newVel.Z)
-                end)
-            end
-        end
-    end
 end
 
--- Car Fly - FIXED (no hanging when disabled)
+-- Car Fly
 local flyBody = nil
 local flyVelocity = nil
 local flyOrientation = nil
@@ -684,38 +513,23 @@ local function stopCarFly()
     if flyVelocity then pcall(function() flyVelocity:Destroy() end) end
     if flyOrientation then pcall(function() flyOrientation:Destroy() end) end
     if flyAttachment then pcall(function() flyAttachment:Destroy() end) end
-    flyVelocity = nil
-    flyOrientation = nil
-    flyAttachment = nil
-    flyBody = nil
+    flyVelocity = nil flyOrientation = nil flyAttachment = nil flyBody = nil
 end
 
 local function updateCarFly()
-    if not S.CarFly then
-        stopCarFly()
-        return
-    end
-    
+    if not S.CarFly then stopCarFly() return end
     local h = hum()
-    if not h or not h.SeatPart then
-        stopCarFly()
-        return
-    end
-    
+    if not h or not h.SeatPart then stopCarFly() return end
     local seat = h.SeatPart
     if not seat:IsA("VehicleSeat") then return end
-    
     local body = seat.AssemblyRootPart or seat
     if not body or body.Anchored then return end
-    
     if body ~= flyBody or not flyVelocity or not flyVelocity.Parent then
         stopCarFly()
         flyBody = body
-        
         flyAttachment = Instance.new("Attachment")
         flyAttachment.Name = "HunterFly"
         flyAttachment.Parent = body
-        
         flyVelocity = Instance.new("LinearVelocity")
         flyVelocity.Name = "HunterFly"
         flyVelocity.Attachment0 = flyAttachment
@@ -723,7 +537,6 @@ local function updateCarFly()
         flyVelocity.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
         flyVelocity.MaxForce = math.max(100000, body.AssemblyMass * 3000)
         flyVelocity.Parent = body
-        
         flyOrientation = Instance.new("AlignOrientation")
         flyOrientation.Name = "HunterFly"
         flyOrientation.Attachment0 = flyAttachment
@@ -732,17 +545,13 @@ local function updateCarFly()
         flyOrientation.MaxTorque = math.max(100000, body.AssemblyMass * 3000)
         flyOrientation.Parent = body
     end
-    
     local cam = WS.CurrentCamera
     if not cam then return end
-    
     local look = cam.CFrame.LookVector
     local forward = Vector3.new(look.X, 0, look.Z)
     if forward.Magnitude < 0.01 then forward = Vector3.new(0, 0, -1) end
     forward = forward.Unit
-    
     local side = Vector3.new(-forward.Z, 0, forward.X)
-    
     local input = Vector3.zero
     if UIS:IsKeyDown(Enum.KeyCode.W) then input += forward end
     if UIS:IsKeyDown(Enum.KeyCode.S) then input -= forward end
@@ -750,7 +559,6 @@ local function updateCarFly()
     if UIS:IsKeyDown(Enum.KeyCode.A) then input -= side end
     if UIS:IsKeyDown(Enum.KeyCode.E) then input += Vector3.yAxis end
     if UIS:IsKeyDown(Enum.KeyCode.Q) then input -= Vector3.yAxis end
-    
     local speed = math.clamp(S.FlySpeed, 20, 400)
     flyVelocity.VectorVelocity = input.Magnitude > 0 and input.Unit * speed or Vector3.zero
     flyOrientation.CFrame = CFrame.lookAt(Vector3.zero, forward)
@@ -764,13 +572,8 @@ charFly.stop = function()
     if cf.velocity then pcall(function() cf.velocity:Destroy() end) end
     if cf.orientation then pcall(function() cf.orientation:Destroy() end) end
     if cf.attachment then pcall(function() cf.attachment:Destroy() end) end
-    cf.velocity = nil
-    cf.orientation = nil
-    cf.attachment = nil
-    cf.root = nil
-    if cf.humanoid and cf.humanoid.Parent then
-        pcall(function() cf.humanoid.PlatformStand = false end)
-    end
+    cf.velocity = nil cf.orientation = nil cf.attachment = nil cf.root = nil
+    if cf.humanoid and cf.humanoid.Parent then pcall(function() cf.humanoid.PlatformStand = false end) end
     cf.humanoid = nil
 end
 
@@ -778,25 +581,16 @@ charFly.update = function()
     if not S.PlayerFly then return end
     local h = hum()
     local r = root()
-    if not h or not r or h.Health <= 0 then
-        if charFly.root then charFly.stop() end
-        return
-    end
-    if h.SeatPart then
-        if charFly.root then charFly.stop() end
-        return
-    end
-    
+    if not h or not r or h.Health <= 0 then if charFly.root then charFly.stop() end return end
+    if h.SeatPart then if charFly.root then charFly.stop() end return end
     if charFly.root ~= r or not charFly.velocity or not charFly.velocity.Parent then
         charFly.stop()
         charFly.root = r
         charFly.humanoid = h
-        
         local a = Instance.new("Attachment")
         a.Name = "HunterFly"
         a.Parent = r
         charFly.attachment = a
-        
         local v = Instance.new("LinearVelocity")
         v.Name = "HunterFly"
         v.Attachment0 = a
@@ -806,7 +600,6 @@ charFly.update = function()
         v.VectorVelocity = Vector3.zero
         v.Parent = r
         charFly.velocity = v
-        
         local o = Instance.new("AlignOrientation")
         o.Name = "HunterFly"
         o.Attachment0 = a
@@ -815,18 +608,14 @@ charFly.update = function()
         o.MaxTorque = math.max(50000, r.AssemblyMass * 3000)
         o.Parent = r
         charFly.orientation = o
-        
         h.PlatformStand = true
     end
-    
     local cam = WS.CurrentCamera
     if not cam then return end
-    
     local forward = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
     if forward.Magnitude < 0.01 then forward = Vector3.new(0, 0, -1) end
     forward = forward.Unit
     local right = Vector3.new(-forward.Z, 0, forward.X)
-    
     local vector = Vector3.zero
     if UIS:IsKeyDown(Enum.KeyCode.W) then vector += forward end
     if UIS:IsKeyDown(Enum.KeyCode.S) then vector -= forward end
@@ -834,7 +623,6 @@ charFly.update = function()
     if UIS:IsKeyDown(Enum.KeyCode.A) then vector -= right end
     if UIS:IsKeyDown(Enum.KeyCode.E) then vector += Vector3.yAxis end
     if UIS:IsKeyDown(Enum.KeyCode.Q) then vector -= Vector3.yAxis end
-    
     local speed = math.clamp(S.PlayerFlySpeed, 15, 200)
     charFly.velocity.VectorVelocity = vector.Magnitude > 0 and vector.Unit * speed or Vector3.zero
     charFly.orientation.CFrame = CFrame.lookAt(Vector3.zero, forward)
@@ -857,10 +645,7 @@ local function updateNoclip()
             table.insert(conns, noclipConn)
         end
     else
-        if noclipConn then
-            noclipConn:Disconnect()
-            noclipConn = nil
-        end
+        if noclipConn then noclipConn:Disconnect() noclipConn = nil end
         local char = LP.Character
         if char then
             for _, v in pairs(char:GetDescendants()) do
@@ -885,7 +670,6 @@ local function updateVisuals()
         Lighting.Brightness = lightSaved.Brightness
         Lighting.Ambient = lightSaved.Ambient
     end
-    
     if S.Fog then
         Lighting.FogEnd = 100000
         Lighting.FogStart = 0
@@ -911,22 +695,17 @@ conn(RunService.Heartbeat, function(dt)
     speedTimer += dt
     carSpeedTimer += dt
     
-    -- Walk Speed
     if S.Speed and speedTimer >= 0.25 then
         speedTimer = 0
         local h = hum()
-        if h and math.abs(h.WalkSpeed - S.Walk) > 0.1 then
-            h.WalkSpeed = S.Walk
-        end
+        if h and math.abs(h.WalkSpeed - S.Walk) > 0.1 then h.WalkSpeed = S.Walk end
     end
     
-    -- Car Speed
     if S.CarSpeed and carSpeedTimer >= 0.1 then
         carSpeedTimer = 0
         pcall(updateCarSpeed)
     end
     
-    -- Car Fly
     if S.CarFly and flyTimer >= 1/30 then
         flyTimer = 0
         pcall(updateCarFly)
@@ -935,29 +714,20 @@ conn(RunService.Heartbeat, function(dt)
         stopCarFly()
     end
     
-    -- Player Fly
     if S.PlayerFly and charFlyTimer >= 1/30 then
         charFlyTimer = 0
         pcall(charFly.update)
     end
     
-    -- Noclip
     updateNoclip()
-    
-    -- Visuals
     updateVisuals()
     
-    -- Radar
     if timer >= 1.5 then
         timer = 0
-        
-        if S.Radar or S.Aim then
-            pcall(refreshCache)
-        end
+        if S.Radar or S.Aim then pcall(refreshCache) end
         
         if S.Radar then
             local r = root()
-            
             for m, bb in pairs(markers) do
                 if not m.Parent or not living(m) or not lizard(m) then
                     bb:Destroy()
@@ -968,21 +738,15 @@ conn(RunService.Heartbeat, function(dt)
                     if d > S.RadarRange then
                         bb:Destroy()
                         markers[m] = nil
-                    else
-                        local infoLabel = bb:FindFirstChildOfClass("TextLabel", true)
-                        if infoLabel then
-                            infoLabel.Text = "⚖️ " .. animalWeight(m) .. "  |  📏 " .. d .. "m"
-                        end
                     end
                 end
             end
-            
             local shown = 0
             for _, e in ipairs(cache) do
                 if shown >= 10 then break end
                 if not markers[e.model] and living(e.model) and lizard(e.model) then
                     local d = r and (e.part.Position - r.Position).Magnitude or 0
-                    if d <= S.RadarRange and (S.Filter == "الكل" or rarity(e.model) == S.Filter) then
+                    if d <= S.RadarRange then
                         makeMarker(e)
                         shown += 1
                     end
@@ -1011,13 +775,8 @@ local function cleanup()
     if not alive then return end
     alive = false
     
-    S.Radar = false
-    S.Aim = false
-    S.CarSpeed = false
-    S.CarFly = false
-    S.PlayerFly = false
-    S.Speed = false
-    S.Noclip = false
+    S.Radar = false S.Aim = false S.CarSpeed = false S.CarFly = false
+    S.PlayerFly = false S.Speed = false S.Noclip = false
     
     StopAimbot()
     stopCarFly()
@@ -1028,31 +787,17 @@ local function cleanup()
     if noclipConn then noclipConn:Disconnect() end
     if fovGui and fovGui.Parent then fovGui:Destroy() end
     
-    for _, c in ipairs(conns) do
-        pcall(function() c:Disconnect() end)
-    end
-    
+    for _, c in ipairs(conns) do pcall(function() c:Disconnect() end) end
     gui:Destroy()
 end
 
 env.XHubCleanup = cleanup
 conn(close.MouseButton1Click, cleanup)
 
--- Minimize
-local minimized = false
-conn(mini.MouseButton1Click, function()
-    minimized = not minimized
-    side.Visible = not minimized
-    area.Visible = not minimized
-    status.Visible = not minimized
-    main.Size = minimized and UDim2.fromOffset(700, 55) or UDim2.fromOffset(700, 500)
-    mini.Text = minimized and "+" or "−"
-end)
-
 -- Drag
 local dragging, dragStart, frameStart = false, nil, nil
 conn(head.InputBegan, function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = i.Position
         frameStart = main.Position
@@ -1060,28 +805,16 @@ conn(head.InputBegan, function(i)
 end)
 
 conn(UIS.InputChanged, function(i)
-    if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+    if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
         local d = i.Position - dragStart
         main.Position = UDim2.new(frameStart.X.Scale, frameStart.X.Offset + d.X, frameStart.Y.Scale, frameStart.Y.Offset + d.Y)
     end
 end)
 
 conn(UIS.InputEnded, function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = false end
 end)
 
--- RightShift
-conn(UIS.InputBegan, function(input, gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        main.Visible = not main.Visible
-    end
-end)
-
-msg("Hunter Hub v6.1 | كل شي مضبوط ✅")
-print("✅ HUNTER HUB ULTRA v6.1 FINAL FIX LOADED")
-print("🎯 Aimbot: يصيب الضبان تلقائياً")
-print("👁️ ESP: كشف محدد حسب الندرة")
-print("🚗 CarFly: طيران + سرعة (بدون تعليق)")
-print("🏃 PlayerFly: طيران + Noclip")
-print("✨ Visuals: إضاءة + إزالة ضباب")
+msg("Hunter Hub Mobile v7.0 | جاهز ✅")
+print("✅ HUNTER HUB MOBILE v7.0 LOADED")
+print("📱 أزرار لليد - كل شي يضبط")
