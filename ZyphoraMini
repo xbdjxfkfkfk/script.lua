@@ -1,6 +1,6 @@
 -- Startup guard: report Lua execution errors in a visible on-screen panel.
 local function launchRedline()
--- Lx REDLINE PRO v82 | repaired full client | launcher, navigation, animal radar, vehicle controls, diagnostics
+-- Lx REDLINE PRO v83 | repaired full client | launcher, navigation, animal radar, vehicle controls, diagnostics
 -- Loaded client objects only; server-streamed distant objects cannot be detected.
 -- Lx NEXUS PRO v47 | single-file Luau client utility
 -- Features are best-effort and limited to replicated objects and client authority.
@@ -19,7 +19,7 @@ if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='
 if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
 if type(_G.LxV81Stop)=='function' then pcall(_G.LxV81Stop) end
 if type(_G.LxRedlineV80Cleanup)=='function' then pcall(_G.LxRedlineV80Cleanup) end
-if type(env.LxV82Cleanup)=='function' then pcall(env.LxV82Cleanup) end
+if type(env.LxV83Cleanup)=='function' then pcall(env.LxV83Cleanup) end
 for _,previousName in ipairs({'Lx_REDLINE_v81','Lx_REDLINE_v80','Lx_REDLINE_v79_FIXED','Lx_REDLINE_v78','Lx_REDLINE_v82'}) do
  local previous=PG:FindFirstChild(previousName)
  if previous then previous:Destroy() end
@@ -32,7 +32,7 @@ for _,version in ipairs({55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,7
  pcall(function() RunService:UnbindFromRenderStep('Lx_NexusAimV'..version) end)
 end
 local alive=true;local conns={};local markers={};local lightSaved={};local atmoSaved={};local originalSpeed=nil;local speedHum=nil
-local S={Radar=false,RadarRange=3000,Aim=false,AimRange=3000,AimSmooth=.14,FOV=25,Speed=false,Walk=32,CarSpeed=false,CarTarget=200,CarDirection=1,CarFly=false,FlySpeed=100,PlayerFly=false,PlayerFlySpeed=50,Fog=false,Fullbright=false,Merchant=false,ResourceESP=false,RareAlert=false,ResourceAlert=false,Filter='الكل'}
+local S={Radar=false,RadarRange=3000,Aim=false,AimRange=3000,AimSmooth=.14,FOV=25,Speed=false,Walk=32,CarSpeed=false,CarTarget=200,CarDirection=1,CarTouchDrive=0,CarFly=false,FlySpeed=100,PlayerFly=false,PlayerFlySpeed=50,Fog=false,Fullbright=false,Merchant=false,ResourceESP=false,RareAlert=false,ResourceAlert=false,Filter='الكل'}
 local function conn(signal,fn) local c=signal:Connect(fn);conns[#conns+1]=c;return c end
 local layoutOrders=setmetatable({}, {__mode='k'})
 local function inst(typ,props,parent)
@@ -182,7 +182,7 @@ local function number(p,title,key,min,max,step)
 end
 -- Split the heavy features from the GUI/bootstrap to prevent Luau register/local limits.
 -- The menu renders first; feature initialization happens on the next scheduler cycle.
-status.Text='Lx v82 | الواجهة جاهزة؛ جار تحميل الميزات...'
+status.Text='Lx v83 | الواجهة جاهزة؛ جار تحميل الميزات...'
 -- Register a provisional cleanup BEFORE feature initialization. If any feature
 -- throws, restarting the script still disconnects its partial connections.
 local function provisionalCleanup()
@@ -194,14 +194,14 @@ local function provisionalCleanup()
  if orphan then pcall(function()orphan:Destroy()end) end
  if gui and gui.Parent then pcall(function()gui:Destroy()end) end
   if env.XHubCleanup==provisionalCleanup then env.XHubCleanup=nil end
-  if env.LxV82Cleanup==provisionalCleanup then env.LxV82Cleanup=nil end
+  if env.LxV83Cleanup==provisionalCleanup then env.LxV83Cleanup=nil end
 end
 env.XHubCleanup=provisionalCleanup
-env.LxV82Cleanup=provisionalCleanup
+env.LxV83Cleanup=provisionalCleanup
 -- Emergency close works even if feature initialization throws an error.
 conn(close.MouseButton1Click,function() main.Visible=false;msg('تم إخفاء القائمة؛ اضغط زر Lx الأحمر لإعادتها') end)
 local function showFeatureError(detail)
- status.Text='Lx v82 | خطأ في تحميل الميزات (موضح في النافذة)'
+ status.Text='Lx v83 | خطأ في تحميل الميزات (موضح في النافذة)'
  local errorFrame=inst('Frame',{Name='FeatureError',Size=UDim2.new(1,-24,0,137),Position=UDim2.new(0,12,1,-170),BackgroundColor3=Color3.fromRGB(57,21,25),BorderSizePixel=0,ZIndex=100},main)
  round(errorFrame,10)
  local errorLabel=inst('TextLabel',{Size=UDim2.new(1,-20,1,-54),Position=UDim2.fromOffset(10,8),BackgroundTransparency=1,Text='STARTUP ERROR | '..tostring(detail):sub(1,250),Font=Enum.Font.Code,TextSize=12,TextColor3=C.white,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=101},errorFrame)
@@ -598,12 +598,41 @@ toggle(vehicle,'طيران السيارة أثناء القيادة','CarFly',fu
 end)
 number(vehicle,'سرعة طيران السيارة','FlySpeed',20,300,10)
 label(vehicle,'التحكم في الطيران','OFF يزيل قوة الرفع فورًا وتعود الجاذبية. فعّل مساعد السرعة الأرضي للقيادة. W للأمام • S للخلف • A و D للجانبين • E صعود • Q نزول. اتجاه الطيران حسب الكاميرا. عند إيقاف الطيران تعود الفيزياء الطبيعية.')
-local directionButton=action(vehicle,'اتجاه الدفع: أمام السيارة',function()
+local directionButton
+directionButton=action(vehicle,'اتجاه الدفع: أمام السيارة',function()
  S.CarDirection=-S.CarDirection
  directionButton.Text=S.CarDirection==1 and 'اتجاه الدفع: أمام السيارة' or 'اتجاه الدفع: عكس اتجاه المقعد'
  msg('تم تغيير اتجاه دفع السيارة؛ جرّب القيادة للأمام')
 end)
-label(vehicle,'معلومة مهمة','اضغط W أثناء القيادة. إن كان اتجاه الدفع عكسيًا بدّله من الزر. السيرفر قد يمنع تغيير السرعة.')
+-- Touchscreen controls: a hold button, not a persistent throttle toggle.
+-- This avoids accidentally leaving the car accelerating after closing the menu.
+local function mobileDriveButton(title, direction)
+ local b=inst('TextButton',{Size=UDim2.new(1,-2,0,43),Text=title,
+  TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,
+  BackgroundColor3=Color3.fromRGB(65,27,32),Active=true},vehicle)
+ round(b,10)
+ local activeInputs={}
+ local function release(input)
+  activeInputs[input]=nil
+  if next(activeInputs)==nil and S.CarTouchDrive==direction then
+   S.CarTouchDrive=0
+   b.BackgroundColor3=Color3.fromRGB(65,27,32)
+  end
+ end
+ conn(b.InputBegan,function(input)
+  if input.UserInputType==Enum.UserInputType.Touch or input.UserInputType==Enum.UserInputType.MouseButton1 then
+   activeInputs[input]=true
+   S.CarTouchDrive=direction
+   b.BackgroundColor3=C.purple
+  end
+ end)
+ conn(b.InputEnded,release)
+ conn(UIS.InputEnded,release)
+ return b
+end
+mobileDriveButton('الجوال: اضغط باستمرار للتسارع للأمام',1)
+mobileDriveButton('الجوال: اضغط باستمرار للرجوع للخلف',-1)
+label(vehicle,'معلومة مهمة','السرعة بوحدة studs/second وليست كم/س. W / S للكمبيوتر، وأزرار الضغط المطوّل للجوال. تحتاج فيزياء السيارة إلى صلاحية محلية؛ سيرفر اللعبة قد يرفض التعديل.')
 local vehicleDiagnostic=label(vehicle,'التشخيص: لم يبدأ','مقعد السائق والسرعة الفعلية؛ قد يمنع السيرفر التعديل')
 local vehicleDiagnosticText=vehicleDiagnostic:FindFirstChildOfClass('TextLabel')
 local carList=inst('Frame',{Size=UDim2.new(1,-2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},vehicle)
@@ -1111,7 +1140,7 @@ action(protection,'تصفير عداد الإرجاع',function()
  msg('تم تصفير عداد الانتقالات المحتملة')
 end)
 action(protection,'نسخ تقرير الإرجاع',function()
- local textLines={'Lx REDLINE v82 | تقرير مراقبة الحركة','الأحداث: '..tostring(protectionCount),'آخر حالة: '..protectionCause}
+ local textLines={'Lx REDLINE v83 | تقرير مراقبة الحركة','الأحداث: '..tostring(protectionCount),'آخر حالة: '..protectionCause}
  for _,entry in ipairs(protectionRecent) do textLines[#textLines+1]=entry end
  local report=table.concat(textLines,'\n')
  if type(setclipboard)=='function' then
@@ -1358,8 +1387,17 @@ updateCarFly=function()
  flyOrientation.CFrame=CFrame.lookAt(Vector3.zero,forward)
  flyState=string.format('الطيران نشط | سرعة %.0f | الحركة %s',speed,input.Magnitude>0 and 'نعم' or 'ثبات')
 end
+-- v83 vehicle propulsion: continuous horizontal VectorForce rather than
+-- occasional AssemblyLinearVelocity writes that vehicle chassis scripts undo.
 local lastVehicleSpeed,vehicleSpeedStuckFor=0,0
+local boostAttachment,boostForce,boostBody=nil,nil,nil
+local function destroyBoostActuator()
+ if boostForce then pcall(function()boostForce:Destroy()end) end
+ if boostAttachment then pcall(function()boostAttachment:Destroy()end) end
+ boostForce=nil;boostAttachment=nil;boostBody=nil
+end
 local function restoreSeat()
+ destroyBoostActuator()
  if savedSeat and savedSeat.Parent then
   pcall(function() if savedMaxSpeed~=nil then savedSeat.MaxSpeed=savedMaxSpeed end end)
   pcall(function() if savedTorque~=nil then savedSeat.Torque=savedTorque end end)
@@ -1368,47 +1406,75 @@ local function restoreSeat()
 end
 clearVehicleBoost=function()
  restoreSeat()
+ S.CarTouchDrive=0
  lastVehicleSpeed=0;vehicleSpeedStuckFor=0
+end
+local function ensureBoostActuator(body)
+ if boostBody==body and boostForce and boostForce.Parent and boostAttachment and boostAttachment.Parent then
+  return true
+ end
+ destroyBoostActuator()
+ -- Remove leftovers from a previous interrupted script run on the same car.
+ for _,child in ipairs(body:GetChildren()) do
+  if child.Name=='LxV83SpeedForce' or child.Name=='LxV83SpeedAttachment' then
+   pcall(function()child:Destroy()end)
+  end
+ end
+ local a=Instance.new('Attachment')
+ a.Name='LxV83SpeedAttachment';a.Parent=body
+ local f=Instance.new('VectorForce')
+ f.Name='LxV83SpeedForce'
+ f.Attachment0=a
+ f.RelativeTo=Enum.ActuatorRelativeTo.World
+ f.ApplyAtCenterOfMass=true
+ f.Force=Vector3.zero
+ f.Parent=body
+ boostAttachment=a;boostForce=f;boostBody=body
+ return true
 end
 local function updateVehicleBoost(dt)
  if S.CarFly then
   vehicleState='الطيران مفعّل؛ مساعد السرعة الأرضي معلّق'
+  if boostForce then boostForce.Force=Vector3.zero end
   return
  end
  if not S.CarSpeed then
   vehicleState='مساعد السرعة متوقف'
-  if savedSeat then clearVehicleBoost() end
+  if savedSeat or boostForce then clearVehicleBoost() end
   return
  end
  local h=hum()
  local seat=h and h.SeatPart
  if not seat or not seat:IsA('VehicleSeat') or seat.Occupant~=h then
-  vehicleState=seat and 'هذا الماب يستخدم مقعد قيادة مخصصًا' or 'اجلس في مقعد قيادة السيارة'
-  if savedSeat then clearVehicleBoost() end
+  vehicleState=seat and 'مقعد مخصص: لا يوجد VehicleSeat قياسي' or 'اجلس في مقعد سائق السيارة'
+  if savedSeat or boostForce then clearVehicleBoost() end
   return
  end
  local body=seat.AssemblyRootPart or seat
  if not body or body.Anchored then
-  vehicleState='جسم السيارة مثبت ولا يقبل تغيير السرعة'
-  if savedSeat then clearVehicleBoost() end
+  vehicleState='جسم السيارة مثبت؛ لا يمكن دفعه محليًا'
+  if savedSeat or boostForce then clearVehicleBoost() end
   return
  end
  if savedSeat~=seat then
   restoreSeat()
+  S.CarTouchDrive=0
   savedSeat=seat
   savedMaxSpeed=seat.MaxSpeed
   savedTorque=seat.Torque
  end
  local target=math.clamp(tonumber(S.CarTarget) or 200,20,400)
- -- Some vehicles use native VehicleSeat propulsion; adjust only on change.
+ -- Native VehicleSeat values are a fallback, not the only acceleration method.
  pcall(function()
   local wantedMax=math.max(savedMaxSpeed or 0,target)
   if math.abs(seat.MaxSpeed-wantedMax)>0.1 then seat.MaxSpeed=wantedMax end
-  local wantedTorque=math.max(savedTorque or 0,math.min(18000,target*45))
+  local wantedTorque=math.max(savedTorque or 0,math.min(20000,target*65))
   if math.abs(seat.Torque-wantedTorque)>0.1 then seat.Torque=wantedTorque end
  end)
+ ensureBoostActuator(body)
  if UIS:GetFocusedTextBox() then
-  vehicleState='كتابة قيمة السرعة؛ لا يوجد دفع أثناء الكتابة'
+  boostForce.Force=Vector3.zero
+  vehicleState='أغلق خانة الكتابة قبل القيادة'
   return
  end
  local nativeThrottle=seat.ThrottleFloat
@@ -1417,45 +1483,47 @@ local function updateVehicleBoost(dt)
  local drive=0
  if wantsForward~=wantsReverse then
   drive=wantsForward and 1 or -1
- elseif math.abs(nativeThrottle)>0.1 then
+ elseif S.CarTouchDrive~=0 then
+  drive=S.CarTouchDrive
+ elseif math.abs(nativeThrottle)>0.05 then
   drive=nativeThrottle>0 and 1 or -1
  end
  local velocity=body.AssemblyLinearVelocity
  local horizontal=Vector3.new(velocity.X,0,velocity.Z)
+ local current=horizontal.Magnitude
  if drive==0 then
-  vehicleState=('انتظار W / S | الحالية %.1f | الهدف %.0f'):format(horizontal.Magnitude,target)
+  boostForce.Force=Vector3.zero
+  vehicleState=('بدون تسارع | الحالية %.1f / الهدف %.0f وحدة/ث'):format(current,target)
   vehicleSpeedStuckFor=0
+  lastVehicleSpeed=current
   return
  end
- local forward=seat.CFrame.LookVector * S.CarDirection * drive
+ local forward=seat.CFrame.LookVector*S.CarDirection*drive
  local flat=Vector3.new(forward.X,0,forward.Z)
- if flat.Magnitude<0.05 then vehicleState='اتجاه مقعد القيادة غير صالح';return end
- flat=flat.Unit
- -- Drive in the requested direction without destroying sideways motion on turns.
- local aligned=horizontal:Dot(flat)
- local desired=math.min(target,math.max(0,aligned)+math.clamp(dt,0,0.12)*math.max(45,target*0.65))
- local gain=math.clamp(desired-aligned,0,math.max(45,target*0.65)*math.clamp(dt,0,0.12))
- if gain>0.01 then
-  local candidate=horizontal+flat*gain
-  -- Never write a huge impulse when the car is already moving faster than target.
-  if candidate.Magnitude<=target+math.max(12,target*0.15) then
-   local ok,err=pcall(function()
-    body.AssemblyLinearVelocity=Vector3.new(candidate.X,velocity.Y,candidate.Z)
-   end)
-   if not ok then vehicleState='تعذر تعديل السرعة: '..tostring(err):sub(1,45);return end
-  end
+ if flat.Magnitude<0.05 then
+  boostForce.Force=Vector3.zero
+  vehicleState='اتجاه المقعد غير صالح'
+  return
  end
- local actual=body.AssemblyLinearVelocity
- local now=Vector3.new(actual.X,0,actual.Z).Magnitude
- if now<target*0.35 and math.abs(now-lastVehicleSpeed)<0.15 then
-  vehicleSpeedStuckFor+=math.clamp(dt,0,0.12)
+ flat=flat.Unit
+ local along=horizontal:Dot(flat)
+ -- Smooth proportional acceleration. Force is applied at the assembly COM to
+ -- avoid pitching or flipping the vehicle, and never cancels gravity.
+ local response=2.6
+ local maxAcceleration=math.clamp(target*1.15,70,250)
+ local desiredAcceleration=math.clamp((target-along)*response,-maxAcceleration,maxAcceleration)
+ local mass=math.max(1,body.AssemblyMass)
+ boostForce.Force=flat*(mass*desiredAcceleration)
+ local now=Vector3.new(body.AssemblyLinearVelocity.X,0,body.AssemblyLinearVelocity.Z).Magnitude
+ if now<target*0.45 and math.abs(now-lastVehicleSpeed)<0.18 then
+  vehicleSpeedStuckFor+=math.clamp(dt,0,0.2)
  else
   vehicleSpeedStuckFor=0
  end
  lastVehicleSpeed=now
- vehicleState=('سرعة فعلية %.1f / %.0f | %s'):format(now,target,drive>0 and 'أمام' or 'خلف')
- if vehicleSpeedStuckFor>2.5 then
-  vehicleState='السيارة لا تستجيب للتسارع المحلي؛ ربما يتحكم السيرفر أو نظام السيارة'
+ vehicleState=('الفعلية %.1f / الهدف %.0f وحدة/ث | %s'):format(now,target,drive>0 and 'أمام' or 'خلف')
+ if vehicleSpeedStuckFor>3 then
+  vehicleState=('السرعة ثابتة %.1f / %.0f: نظام السيارة أو السيرفر قد يمنع الدفع'):format(now,target)
  end
 end
 -- Character flight: client-side actuation only. Server corrections remain authoritative.
@@ -1564,11 +1632,11 @@ local function cleanup()
  for _,c in ipairs(conns) do c:Disconnect() end
  pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV77')end)
  if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
- if env.LxV82Cleanup==cleanup then env.LxV82Cleanup=nil end
+ if env.LxV83Cleanup==cleanup then env.LxV83Cleanup=nil end
  gui:Destroy()
 end
 env.XHubCleanup=cleanup
-env.LxV82Cleanup=cleanup
+env.LxV83Cleanup=cleanup
 action(extras,'إيقاف Lx بالكامل وتنظيف الأدوات',cleanup)
 -- Close only hides; launcher always remains visible until full cleanup.
 local timer=0;local characterFlyTimer=0;local flyUpdateTimer=0;local groundUpdateTimer=0;local walkUpdateTimer=0;local aimTarget=nil;local aimTimer=0;local fitTimer=0;local listTimer=0;local extrasTimer=0;local visualTimer=0
@@ -1712,8 +1780,8 @@ RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,functi
   cam.CFrame=cam.CFrame:Lerp(desired,math.clamp(alpha,0,1))
  end
 end)
-msg('Lx REDLINE v82 | تشغيل مستقر + مراقبة تغيّرات الموقع')
-print('[Lx REDLINE PRO] v82 loaded')
+msg('Lx REDLINE v83 | تشغيل مستقر + مراقبة تغيّرات الموقع')
+print('[Lx REDLINE PRO] v83 loaded')
 end -- initializeFeatures
 
 task.defer(function()
@@ -1722,14 +1790,14 @@ task.defer(function()
   return tostring(e)
  end)
  if not ok then
-  warn('[Lx REDLINE v82 FEATURES]',err)
+  warn('[Lx REDLINE v83 FEATURES]',err)
   showFeatureError(err)
  end
 end)
 end -- launchRedline
 local ok, issue=xpcall(launchRedline,function(err)
  local trace=(debug and debug.traceback and debug.traceback(tostring(err),2)) or tostring(err)
- warn('[Lx REDLINE v82 STARTUP ERROR] '..trace)
+ warn('[Lx REDLINE v83 STARTUP ERROR] '..trace)
  return trace
 end)
 if not ok then
@@ -1738,12 +1806,12 @@ if not ok then
   if not player then return end
   local pg=player:FindFirstChildOfClass('PlayerGui')
   if not pg then return end
-  local previous=pg:FindFirstChild('Lx_Error_v82')
+  local previous=pg:FindFirstChild('Lx_Error_v83')
   if previous then previous:Destroy() end
-  local gui=Instance.new('ScreenGui');gui.Name='Lx_Error_v82';gui.ResetOnSpawn=false;gui.DisplayOrder=10000;gui.Parent=pg
+  local gui=Instance.new('ScreenGui');gui.Name='Lx_Error_v83';gui.ResetOnSpawn=false;gui.DisplayOrder=10000;gui.Parent=pg
   local frame=Instance.new('Frame');frame.Size=UDim2.new(.9,0,0,195);frame.AnchorPoint=Vector2.new(.5,.5);frame.Position=UDim2.fromScale(.5,.35);frame.BackgroundColor3=Color3.fromRGB(30,17,18);frame.Parent=gui
   local corner=Instance.new('UICorner');corner.Parent=frame
-  local lab=Instance.new('TextLabel');lab.Size=UDim2.new(1,-24,1,-62);lab.Position=UDim2.fromOffset(12,10);lab.BackgroundTransparency=1;lab.TextWrapped=true;lab.TextXAlignment=Enum.TextXAlignment.Left;lab.TextYAlignment=Enum.TextYAlignment.Top;lab.TextSize=15;lab.Font=Enum.Font.Code;lab.TextColor3=Color3.new(1,1,1);lab.Text='Lx REDLINE v82 - STARTUP ERROR\n'..tostring(issue):sub(1,350);lab.Parent=frame
+  local lab=Instance.new('TextLabel');lab.Size=UDim2.new(1,-24,1,-62);lab.Position=UDim2.fromOffset(12,10);lab.BackgroundTransparency=1;lab.TextWrapped=true;lab.TextXAlignment=Enum.TextXAlignment.Left;lab.TextYAlignment=Enum.TextYAlignment.Top;lab.TextSize=15;lab.Font=Enum.Font.Code;lab.TextColor3=Color3.new(1,1,1);lab.Text='Lx REDLINE v83 - STARTUP ERROR\n'..tostring(issue):sub(1,350);lab.Parent=frame
   local close=Instance.new('TextButton');close.Size=UDim2.new(1,-24,0,35);close.Position=UDim2.new(0,12,1,-45);close.Text='إغلاق';close.TextSize=17;close.TextColor3=Color3.new(1,1,1);close.BackgroundColor3=Color3.fromRGB(209,28,41);close.Parent=frame
   close.MouseButton1Click:Connect(function()gui:Destroy()end)
  end)
