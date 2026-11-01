@@ -1,6 +1,6 @@
 -- Safe entrypoint: a failure in any feature must not leave the user with an invisible menu.
 local function LxStartup()
--- Lx REDLINE PRO v77 | menu visibility + mobile layout repair for an authorized Studio LocalScript.
+-- Lx REDLINE PRO v77 | ON/OFF FIX | server-authorized gameplay + functional local effects.
 -- Install in StarterPlayer/StarterPlayerScripts. Never put Discord secrets in this file.
 -- Server-side capabilities require the companion SERVER.lua + Discord gateway.
 local Players = game:GetService("Players")
@@ -34,7 +34,7 @@ local errors = {}
 local toggles = {}
 local activePage = nil
 local isAuthed = false
-local previewing = false
+local previewing = true
 local flyMode = nil
 local dragging = false
 local inputHeld = {}
@@ -244,7 +244,7 @@ sidebarLayout = create("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = En
 content = create("Frame", {Position = UDim2.fromOffset(194, 74), Size = UDim2.new(1, -206, 1, -110),
     BackgroundTransparency = 1, ClipsDescendants = true}, main)
 local statusText = create("TextLabel", {Position = UDim2.new(0, 16, 1, -31), Size = UDim2.new(1, -30, 0, 26),
-    BackgroundTransparency = 1, Text = "الواجهة جاهزة • جار الاتصال بالسيرفر",
+    BackgroundTransparency = 1, Text = "الأدوات المحلية جاهزة • التحكم بالسيارة يحتاج سيرفر",
     TextColor3 = COLORS.muted, Font = Enum.Font.Gotham, TextSize = 12,
     TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd}, main)
 _G.__LxStatusText = statusText
@@ -275,7 +275,7 @@ local function makePage(label)
         if not isAuthed then
             previewing = true
             welcome.Visible = false
-            log("معاينة القوائم فقط: التحكم مقفل إلى أن يثبت السيرفر العضوية")
+            log("القسم مفتوح؛ وظائف السيرفر تحتاج تحقق Discord، والأدوات المحلية متاحة")
         end
     end)
     if index == 1 then activate() end
@@ -303,7 +303,9 @@ local function button(page, title, callback, allowWithoutAuth)
         TextColor3 = COLORS.white, TextSize = 12, Font = Enum.Font.GothamBold, Text = title}, page)
     corner(b, 9)
     connect(b.MouseButton1Click, function()
-        if not isAuthed and not allowWithoutAuth then log("القائمة للمعاينة فقط: التحكم يحتاج تحقق Discord وسيرفر اللعبة") return end
+        -- This GUI callback is always reachable. Client-only effects run locally.
+        -- Server commands invoke the authoritative server, which performs its own
+        -- Discord/permission checks. Never treat a button click as authorization.
         task.spawn(function()
             local ok, err = pcall(callback, b)
             if not ok then log("[" .. title .. "] " .. tostring(err), true) end
@@ -379,7 +381,7 @@ end
 
 -- Secure membership screen. Roblox cannot safely embed a Discord client secret.
 welcome = create("Frame", {Name = "DiscordGate", Position = UDim2.fromOffset(194, 74),
-    Size = UDim2.new(1, -206, 1, -110), BackgroundColor3 = COLORS.black, ZIndex = 9}, main)
+    Size = UDim2.new(1, -206, 1, -110), BackgroundColor3 = COLORS.black, ZIndex = 9, Visible = false}, main)
 corner(welcome, 12)
 local welcomeStatus = create("TextLabel", {Position = UDim2.fromOffset(20, 12), Size = UDim2.new(1, -40, 0, 70),
     BackgroundTransparency = 1, Text = "مرحبًا بك في Lx REDLINE PRO\nتحقق من عضويتك عبر Discord لفتح القوائم",
@@ -409,7 +411,7 @@ local generateButton = gateButton("إنشاء رمز الربط")
 local checkButton = gateButton("تحديث حالة العضوية")
 local previewButton = create("TextButton", {
     Name = "PreviewMenu", Position = UDim2.fromOffset(24, 300),
-    Size = UDim2.new(1, -48, 0, 45), Text = "عرض القوائم (معاينة فقط)",
+    Size = UDim2.new(1, -48, 0, 45), Text = "فتح الأدوات المحلية وفحص السيرفر",
     TextColor3 = COLORS.white, BackgroundColor3 = COLORS.panel,
     Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 11
 }, welcome)
@@ -417,7 +419,7 @@ corner(previewButton, 9)
 connect(previewButton.MouseButton1Click, function()
     previewing = true
     welcome.Visible = false
-    log("القوائم ظاهرة • العمليات المحمية تحتاج تحقق Discord وسيرفر اللعبة")
+    log("الأدوات المحلية تعمل • قيادة وطيران وانتقال السيارة تحتاج إعداد السيرفر والتحقق")
 end)
 local membershipButton = create("TextButton", {
     Name = "MembershipButton", Position = UDim2.new(1, -169, 0, 15),
@@ -601,7 +603,7 @@ local banner = create("TextLabel", {Name = "LxNewDiscovery", AnchorPoint = Vecto
 corner(banner, 9)
 local alertTicket = 0
 local function alertNew(text)
-    if not alive or not isAuthed then return end
+    if not alive then return end
     alertTicket = alertTicket + 1
     local ticket = alertTicket
     banner.Text = text
@@ -957,11 +959,17 @@ local function setAuthorized(allowed, reason)
     isAuthed = allowed == true
     welcome.Visible = not isAuthed and not previewing and not minimized
     if not isAuthed then
-        stopLocalEffects()
+        -- Auth revocation only clears server-controlled UI state; client-only
+        -- effects (lighting, radar, diagnostics) are not gated by Discord.
+        flyMode = nil
+        carFlyControl:set(false)
+        playerFlyControl:set(false)
+        carSpeedControl:set(false)
+        touchFrame.Visible = false
         welcomeStatus.Text = "التحقق مطلوب\n" .. tostring(reason or "لا توجد عضوية مثبتة")
-        log("القائمة مقفلة: " .. tostring(reason or "تحقق من Discord"))
+        log("وظائف السيرفر مقفلة: " .. tostring(reason or "تحقق من Discord") .. " | الأدوات المحلية متاحة")
     else
-        log("تم التحقق من عضوية Discord • القوائم مفتوحة")
+        log("تم التحقق من عضوية Discord • وظائف السيرفر متاحة")
     end
 end
 local function refreshAuth()
@@ -1094,14 +1102,14 @@ connect(RunService.Heartbeat, function(dt)
     end
     if radarTimer >= 2 then
         radarTimer = 0
-        if isAuthed and (radarEnabled or activePage == animalsPage) then
+        if radarEnabled or activePage == animalsPage then
             local ok, e = pcall(fillAnimals)
             if not ok then log("Radar refresh: " .. tostring(e), true) end
         end
     end
     if resourceTimer >= 3 then
         resourceTimer = 0
-        if isAuthed and (resourceEnabled or activePage == resourcesPage) then
+        if resourceEnabled or activePage == resourcesPage then
             local ok, e = pcall(refreshResources)
             if not ok then log("Resource refresh: " .. tostring(e), true) end
         end
@@ -1127,7 +1135,7 @@ connect(RunService.Heartbeat, function(dt)
     end
     if monitorTimer >= 0.25 then
         monitorTimer = 0
-        if monitorEnabled and isAuthed then
+        if monitorEnabled then
             local r = playerRoot()
             if r then
                 if lastPosition and (r.Position - lastPosition).Magnitude > 70 then
@@ -1146,11 +1154,11 @@ end)
 connect(RunService.RenderStepped, function()
     local camera = Workspace.CurrentCamera
     if not camera then return end
-    fovRing.Visible = isAuthed and aimEnabled
-    aimTouchButton.Visible = isAuthed and aimEnabled and UserInputService.TouchEnabled
+    fovRing.Visible = aimEnabled
+    aimTouchButton.Visible = aimEnabled and UserInputService.TouchEnabled
     fovRing.Size = UDim2.fromOffset(aimRadius * 2, aimRadius * 2)
     fovRing.Position = UDim2.fromOffset(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-    if isAuthed and aimEnabled and (aimTouchHeld or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)) then
+    if aimEnabled and (aimTouchHeld or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)) then
         local target = nearestAimPart()
         if target then
             camera.CFrame = camera.CFrame:Lerp(CFrame.lookAt(camera.CFrame.Position, target.Position), 0.12)
@@ -1184,7 +1192,7 @@ task.spawn(function()
         previewing = true
         welcome.Visible = false
         welcomeStatus.Text = "السيرفر غير جاهز\nأضف Lx_REDLINE_PRO_v77_SERVER.lua إلى ServerScriptService"
-        log("القائمة في وضع المعاينة: ركّب سكربت السيرفر لتعمل وظائف التحكم", true)
+        log("الأدوات المحلية جاهزة؛ تحكم السيارة والطيران والانتقال يحتاج ملف السيرفر", true)
         return
     end
     remoteFunction = folder:FindFirstChild("Action")
@@ -1193,7 +1201,7 @@ task.spawn(function()
         previewing = true
         welcome.Visible = false
         welcomeStatus.Text = "ملفات الاتصال ناقصة في ReplicatedStorage/Lx_REDLINE_v77"
-        log("القائمة في وضع المعاينة: RemoteFunction أو RemoteEvent غير موجود", true)
+        log("الأدوات المحلية جاهزة؛ اتصال سيرفر Lx ناقص", true)
         return
     end
     connect(remoteEvent.OnClientEvent, function(eventName, result)
