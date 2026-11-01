@@ -1,136 +1,193 @@
--- Lx REDLINE v78 | Standalone navigation panel (LocalScript)
--- Works in a Roblox client context with LocalPlayer and PlayerGui.
--- Only searches replicated Workspace objects. Server authority may reject movement.
+-- Lx REDLINE v78 | standalone LocalScript for Roblox Studio
+-- Client-only: uses replicated objects; server controls money, kills, sales, and teleports.
 local Players=game:GetService('Players')
 local UIS=game:GetService('UserInputService')
 local WS=game:GetService('Workspace')
 local player=Players.LocalPlayer
-if not player then warn('Lx v78: run as a client LocalScript');return end
+if not player then warn('Lx v78 requires a LocalScript'); return end
 local pg=player:WaitForChild('PlayerGui',15)
-if not pg then warn('Lx v78: PlayerGui missing');return end
-local previous=pg:FindFirstChild('Lx_v78_Standalone')
-if previous then previous:Destroy() end
-local gui=Instance.new('ScreenGui')
-gui.Name='Lx_v78_Standalone';gui.ResetOnSpawn=false;gui.DisplayOrder=200;gui.Parent=pg
+if not pg then warn('Lx v78: PlayerGui unavailable');return end
+local prior=pg:FindFirstChild('Lx_REDLINE_v78')
+if prior then prior:Destroy() end
+local gui=Instance.new('ScreenGui');gui.Name='Lx_REDLINE_v78';gui.ResetOnSpawn=false;gui.DisplayOrder=100;gui.Parent=pg
+local alive=true
+local pending=0
+local connections={}
+local function listen(sig,cb) local c=sig:Connect(cb);table.insert(connections,c);return c end
 local function make(class,props,parent)
- local obj=Instance.new(class)
- for k,v in pairs(props) do obj[k]=v end
- obj.Parent=parent
- return obj
+ local o=Instance.new(class)
+ for k,v in pairs(props) do o[k]=v end
+ o.Parent=parent;return o
 end
-local red=Color3.fromRGB(220,36,48)
-local dark=Color3.fromRGB(18,19,22)
-local card=Color3.fromRGB(36,37,41)
+local bg=Color3.fromRGB(15,15,18)
+local card=Color3.fromRGB(34,34,39)
+local red=Color3.fromRGB(210,34,47)
 local white=Color3.fromRGB(245,245,245)
-local panel=make('Frame',{AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(350,370),BackgroundColor3=dark,BorderSizePixel=0,Active=true},gui)
-make('UICorner',{CornerRadius=UDim.new(0,14)},panel)
-make('UIStroke',{Color=red,Thickness=2},panel)
-local scale=make('UIScale',{Scale=1},panel)
+local main=make('Frame',{Size=UDim2.fromOffset(410,475),Position=UDim2.new(.5,-205,.5,-237),BackgroundColor3=bg,BorderSizePixel=0,Active=true},gui)
+make('UICorner',{CornerRadius=UDim.new(0,14)},main)
+make('UIStroke',{Color=red,Thickness=2},main)
+local scale=make('UIScale',{Scale=1},main)
 local function resize()
- local camera=WS.CurrentCamera
- if camera then local v=camera.ViewportSize;scale.Scale=math.min(1,math.max(.65,math.min((v.X-20)/350,(v.Y-20)/370))) end
+ local cam=WS.CurrentCamera
+ if cam then local v=cam.ViewportSize;scale.Scale=math.clamp(math.min((v.X-20)/410,(v.Y-20)/475),.48,1) end
 end
 resize()
-local header=make('TextLabel',{Size=UDim2.new(1,-52,0,47),Position=UDim2.fromOffset(14,4),BackgroundTransparency=1,Text='Lx REDLINE v78 | الانتقال',TextColor3=white,TextSize=17,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},panel)
-local function button(text,y,height)
- local b=make('TextButton',{Size=UDim2.new(1,-28,0,height or 39),Position=UDim2.fromOffset(14,y),BackgroundColor3=card,Text=text,TextColor3=white,TextSize=13,Font=Enum.Font.GothamBold},panel)
- make('UICorner',{CornerRadius=UDim.new(0,9)},b)
+local title=make('TextLabel',{Size=UDim2.new(1,-100,0,48),Position=UDim2.fromOffset(15,5),BackgroundTransparency=1,Text='Lx REDLINE PRO v78',TextColor3=white,Font=Enum.Font.GothamBold,TextSize=19,TextXAlignment=Enum.TextXAlignment.Left},main)
+local close=make('TextButton',{Size=UDim2.fromOffset(34,32),Position=UDim2.new(1,-42,0,12),Text='×',Font=Enum.Font.GothamBold,TextSize=24,TextColor3=white,BackgroundColor3=red},main)
+make('UICorner',{CornerRadius=UDim.new(0,8)},close)
+local status=make('TextLabel',{Size=UDim2.new(1,-24,0,55),Position=UDim2.new(0,12,1,-62),BackgroundColor3=card,Text='جاهز | الكشف يعتمد على المجسمات المحمّلة',TextColor3=white,TextSize=12,Font=Enum.Font.Gotham,TextWrapped=true},main)
+make('UICorner',{CornerRadius=UDim.new(0,8)},status)
+local scroll=make('ScrollingFrame',{Size=UDim2.new(1,-24,1,-125),Position=UDim2.fromOffset(12,57),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=4,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.fromOffset(0,0)},main)
+make('UIListLayout',{Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder},scroll)
+local function say(s)if alive then status.Text=s end end
+local function button(text,callback)
+ local b=make('TextButton',{Size=UDim2.new(1,-7,0,39),BackgroundColor3=card,Text=text,TextColor3=white,TextSize=13,Font=Enum.Font.GothamBold},scroll)
+ make('UICorner',{CornerRadius=UDim.new(0,8)},b)
+ listen(b.MouseButton1Click,function()
+  local ok,err=pcall(callback)
+  if not ok then warn('[Lx v78]',err);say('خطأ: '..tostring(err):sub(1,110)) end
+ end)
  return b
 end
-local close=make('TextButton',{Size=UDim2.fromOffset(32,30),Position=UDim2.new(1,-40,0,12),BackgroundColor3=red,Text='×',TextColor3=white,Font=Enum.Font.GothamBold,TextSize=19},panel)
-make('UICorner',{CornerRadius=UDim.new(0,7)},close)
-local status=make('TextLabel',{Size=UDim2.new(1,-28,0,64),Position=UDim2.fromOffset(14,290),BackgroundTransparency=1,Text='القائمة جاهزة. اختر الوجهة ثم اضغط انتقال.',TextColor3=white,TextSize=12,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,Font=Enum.Font.Gotham},panel)
+local function characterRoot()
+ local char=player.Character
+ return char and char:FindFirstChild('HumanoidRootPart')
+end
+local function vehicle()
+ local h=player.Character and player.Character:FindFirstChildOfClass('Humanoid')
+ local seat=h and h.SeatPart
+ if not seat or not seat:IsA('VehicleSeat') or seat.Occupant~=h then return nil end
+ local model=seat:FindFirstAncestorOfClass('Model')
+ return model,seat
+end
+local function pos(obj)
+ if obj:IsA('BasePart') then return obj.Position end
+ if obj:IsA('Model') then
+  local ok,p=pcall(function()return obj:GetPivot().Position end)
+  if ok then return p end
+ end
+ return nil
+end
+local function hasAny(n,terms)
+ n=string.lower(n)
+ for _,word in ipairs(terms) do if string.find(n,string.lower(word),1,true) then return true end end
+ return false
+end
 local destinations={
- {title='تاجر الخلا',words={'تاجر الخلا','merchant','trader','dealer'}},
- {title='نفرة الفيروز',words={'نفرة الفيروز','فيروز','turquoise'}},
- {title='القولد',words={'قولد','gold','golden'}},
- {title='الألماسي',words={'الماسي','ألماسي','diamond'}},
- {title='العالم الثاني',words={'العالم الثاني','world 2','world2','second world','portal2'}},
- {title='الديرة',words={'ديرة','home','base','spawnlocation'}}
+ {'تاجر الخلا',{'تاجر الخلا','merchant','trader','dealer'}},
+ {'الديرة / البيع',{'الديرة','ديرة','sellpoint','sell zone','buyer','نقطة البيع'}},
+ {'الفيروز',{'فيروز','turquoise'}},
+ {'القولد / الذهب',{'قولد','gold','ذهب'}},
+ {'الألماسي',{'ألماسي','الماسي','diamond'}},
+ {'العالم الثاني',{'العالم الثاني','world2','world 2','second world'}},
+ {'الضبان',{'ضب','ضبان','lizard','dhab','dhub'}},
 }
-local index=1
-local pending=0
-local selected=button('الوجهة: '..destinations[index].title..'  ↻',62)
-local go=button('انتقال للوجهة بالسيارة أو اللاعب',112)
-local cancel=button('إلغاء الانتقال ✕',162)
-cancel.BackgroundColor3=Color3.fromRGB(105,29,35)
-local refresh=button('فحص الوجهة المحددة',212)
-local note=make('TextLabel',{Size=UDim2.new(1,-28,0,28),Position=UDim2.fromOffset(14,257),BackgroundTransparency=1,Text='مهلة 3 ثوانٍ للإلغاء قبل الانتقال',TextColor3=Color3.fromRGB(190,190,195),TextSize=11,Font=Enum.Font.Gotham},panel)
-local function findTarget(words)
- local character=player.Character
- local root=character and character:FindFirstChild('HumanoidRootPart')
- if not root then return nil end
- local best,bestDist=nil,math.huge
+local selected=nil
+local chosen=nil
+local savedHome=nil
+local function scan(terms)
+ local root=characterRoot()
+ if not root then return {} end
+ local result={}
  for _,obj in ipairs(WS:GetDescendants()) do
-  if obj:IsA('BasePart') or obj:IsA('Model') then
-   local name=obj.Name:lower()
-   local match=false
-   for _,word in ipairs(words) do if name:find(word:lower(),1,true) then match=true;break end end
-   if match then
-    local p=obj:IsA('BasePart') and obj or (obj.PrimaryPart or obj:FindFirstChildWhichIsA('BasePart',true))
-    if p and not (character and obj:IsDescendantOf(character)) then
-     local dist=(p.Position-root.Position).Magnitude
-     if dist<bestDist then best=p;bestDist=dist end
+  if (obj:IsA('BasePart') or obj:IsA('Model')) and hasAny(obj.Name,terms) then
+   local p=pos(obj)
+   if p then
+    local ancestor=obj:FindFirstAncestorOfClass('Model')
+    local char=ancestor and Players:GetPlayerFromCharacter(ancestor)
+    if not char then
+     table.insert(result,{object=obj,position=p,distance=(p-root.Position).Magnitude})
     end
    end
   end
  end
- return best,bestDist
+ table.sort(result,function(a,b)return a.distance<b.distance end)
+ return result
 end
-selected.MouseButton1Click:Connect(function()
- pending+=1
- index=index%#destinations+1
- selected.Text='الوجهة: '..destinations[index].title..'  ↻'
- status.Text='تم اختيار '..destinations[index].title
+local selectedLabel=button('الوجهة: لم يتم الاختيار',function()
+ if selected then say('الوجهة المحددة: '..selected.object:GetFullName()) else say('اختر وجهة من الأزرار') end
 end)
-refresh.MouseButton1Click:Connect(function()
- local target,dist=findTarget(destinations[index].words)
- status.Text=target and ('تم العثور على '..target.Name..' | المسافة '..math.floor(dist)..' وحدة') or 'الوجهة غير محمّلة أو اسمها مختلف في هذا الماب'
+for _,entry in ipairs(destinations) do
+ local label,terms=entry[1],entry[2]
+ button('تحديد: '..label,function()
+  local matches=scan(terms)
+  if #matches==0 then say(label..': لا توجد وجهة محمّلة بهذا الاسم');return end
+  selected=matches[1];chosen=label
+  selectedLabel.Text='الوجهة: '..label..' | '..math.floor(selected.distance)..' وحدة'
+  say('تم اختيار '..label..' | '..selected.object.Name..' | الاسم تقريبي، تحقق من المكان')
+ end)
+end
+button('حفظ مكاني الحالي كديرة',function()
+ local r=characterRoot()
+ if not r then say('الشخصية غير جاهزة');return end
+ savedHome=r.Position;say('تم حفظ موقع الديرة لهذه الجلسة')
 end)
-cancel.MouseButton1Click:Connect(function()
- pending+=1
- status.Text='تم إلغاء الانتقال المعلّق'
+button('تحديد الديرة المحفوظة',function()
+ if not savedHome then say('احفظ موقع الديرة أولاً');return end
+ selected={position=savedHome,distance=0,object=WS};chosen='الديرة المحفوظة'
+ selectedLabel.Text='الوجهة: الديرة المحفوظة'
+ say('تم تحديد الديرة المحفوظة')
 end)
-go.MouseButton1Click:Connect(function()
+local mode='player'
+local modeBtn=button('طريقة الانتقال: اللاعب',function()
+ mode=mode=='player' and 'car' or 'player'
+ modeBtn.Text='طريقة الانتقال: '..(mode=='car' and 'السيارة' or 'اللاعب')
+end)
+button('انتقال إلى الوجهة (بعد 3 ثوانٍ)',function()
+ if not selected then say('حدد وجهة أولاً');return end
+ if selected.object~=WS and not selected.object:IsDescendantOf(WS) then say('الوجهة اختفت؛ أعد البحث');return end
+ local target=selected.position
+ local label=chosen or 'الوجهة'
  pending+=1
- local token=pending
- local dest=destinations[index]
- status.Text='انتقال إلى '..dest.title..' بعد 3 ثوانٍ. اضغط إلغاء للتراجع.'
+ local request=pending
+ say('الانتقال إلى '..label..' بعد 3 ثوانٍ | اضغط إلغاء للتراجع')
  task.delay(3,function()
-  if token~=pending or not gui.Parent then return end
-  local target=findTarget(dest.words)
-  if not target or not target.Parent then status.Text='لم أجد '..dest.title..' ضمن العناصر المحمّلة';return end
-  local character=player.Character
-  local h=character and character:FindFirstChildOfClass('Humanoid')
-  local root=character and character:FindFirstChild('HumanoidRootPart')
-  if not root then status.Text='الشخصية غير جاهزة';return end
-  local seat=h and h.SeatPart
-  local car=seat and seat:FindFirstAncestorOfClass('Model')
-  local ok,err=pcall(function()
-   if car and seat:IsA('VehicleSeat') then
-    car:PivotTo(CFrame.new(target.Position+Vector3.new(0,7,0))*car:GetPivot().Rotation)
-   else
-    root.CFrame=CFrame.new(target.Position+Vector3.new(0,5,0))
-   end
+  if not alive or request~=pending then return end
+  local cf=CFrame.new(target+Vector3.new(0,6,0))
+  if mode=='car' then
+   local car=vehicle()
+   if not car then say('أنت لست في مقعد سائق VehicleSeat');return end
+   local ok,err=pcall(function()car:PivotTo(cf*car:GetPivot().Rotation)end)
+   if not ok then say('فشل تحريك السيارة: '..tostring(err):sub(1,65));return end
+  else
+   local r=characterRoot()
+   if not r then say('الشخصية غير جاهزة');return end
+   r.CFrame=cf
+  end
+  say('تمت محاولة الانتقال محلياً؛ السيرفر قد يعيد موقعك')
+  task.delay(1,function()
+   if not alive or request~=pending then return end
+   local r=characterRoot()
+   if r and (r.Position-target).Magnitude>40 then say('الانتقال لم يثبت؛ قد يكون السيرفر رفضه') end
   end)
-  status.Text=ok and ('تمت محاولة الانتقال إلى '..dest.title..'؛ السيرفر قد يعيد الموقع') or ('فشل الانتقال: '..tostring(err):sub(1,75))
  end)
 end)
-close.MouseButton1Click:Connect(function()pending+=1;gui:Destroy()end)
-local dragging=false
-local start,original
-header.InputBegan:Connect(function(input)
+button('إلغاء الانتقال المعلّق',function()
+ pending+=1;say('تم إلغاء الانتقال المعلّق')
+end)
+button('فحص عدد الضبان المحمّلة',function()
+ local matches=scan({'ضب','ضبان','lizard','dhab','dhub'})
+ say('مطابقات الأسماء المحمّلة: '..#matches..' | ليست تأكيدًا أنها ضبان حية')
+end)
+button('تحديث حجم القائمة',function()resize();say('تم تحديث مقياس القائمة')end)
+local dragging,startMouse,startPos=false,nil,nil
+listen(title.InputBegan,function(input)
  if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
-  dragging=true;start=input.Position;original=panel.Position
+  dragging=true;startMouse=input.Position;startPos=main.Position
  end
 end)
-UIS.InputChanged:Connect(function(input)
+listen(UIS.InputChanged,function(input)
  if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
-  local delta=input.Position-start
-  panel.Position=UDim2.new(original.X.Scale,original.X.Offset+delta.X,original.Y.Scale,original.Y.Offset+delta.Y)
+  local delta=input.Position-startMouse
+  main.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y)
  end
 end)
-UIS.InputEnded:Connect(function(input)
+listen(UIS.InputEnded,function(input)
  if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=false end
 end)
-print('[Lx REDLINE v78] standalone navigation menu loaded')
+listen(close.MouseButton1Click,function()
+ alive=false;pending+=1
+ for _,c in ipairs(connections) do c:Disconnect() end
+ gui:Destroy()
+end)
+print('[Lx REDLINE v78] standalone navigation UI loaded')
