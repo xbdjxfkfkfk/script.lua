@@ -1,175 +1,757 @@
--- Lx REDLINE PRO - Admin Kick Add-on
--- Install this Script in ServerScriptService of an experience you own/manage.
--- Only trusted UserIds (and the individual experience creator) can use it.
+
+-- Lx REDLINE PRO v77
+-- PLAYER KICK MANAGER - SERVER
+-- ضع هذا الملف داخل ServerScriptService
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- IMPORTANT: Replace 123456789 with your Roblox numeric UserId.
--- For a user-owned experience, the creator is automatically trusted.
--- For a group-owned experience, add your account's UserId below.
+-- ضع UserId الخاص بك هنا
 local ADMIN_USER_IDS = {
     [123456789] = true,
 }
 
-local REMOTE_NAME = "LxAdminKickRemote"
-local LIST_COOLDOWN = 0.75
-local KICK_COOLDOWN = 3
-local MAX_REASON_BYTES = 180
+local FOLDER_NAME = "LxAdminRemotes"
 
-local remote = ReplicatedStorage:FindFirstChild(REMOTE_NAME)
-if remote and not remote:IsA("RemoteFunction") then
-    remote:Destroy()
-    remote = nil
+local folder = ReplicatedStorage:FindFirstChild(FOLDER_NAME)
+
+if folder and not folder:IsA("Folder") then
+    folder:Destroy()
+    folder = nil
 end
 
-if not remote then
-    remote = Instance.new("RemoteFunction")
-    remote.Name = REMOTE_NAME
-    remote.Parent = ReplicatedStorage
+if not folder then
+    folder = Instance.new("Folder")
+    folder.Name = FOLDER_NAME
+    folder.Parent = ReplicatedStorage
 end
 
-local lastListRequest = {}
-local lastKickRequest = {}
+local function getRemote(name, className)
+    local remote = folder:FindFirstChild(name)
 
-local function isTrustedAdmin(player)
-    if not player or not player:IsA("Player") then
-        return false
+    if remote and not remote:IsA(className) then
+        remote:Destroy()
+        remote = nil
     end
 
-    if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
-        return true
+    if not remote then
+        remote = Instance.new(className)
+        remote.Name = name
+        remote.Parent = folder
     end
 
+    return remote
+end
+
+local GetPlayers = getRemote("GetPlayers", "RemoteFunction")
+local KickRequest = getRemote("KickRequest", "RemoteEvent")
+local KickResult = getRemote("KickResult", "RemoteEvent")
+
+local lastRequest = {}
+local REQUEST_COOLDOWN = 2
+
+local function isAdmin(player)
     return ADMIN_USER_IDS[player.UserId] == true
 end
 
-local function cleanReason(value)
-    if typeof(value) ~= "string" then
-        return "مخالفة قواعد التجربة"
-    end
-
-    local reason = value:gsub("[%c]", " "):gsub("%s+", " ")
-    reason = reason:match("^%s*(.-)%s*$") or ""
-
-    if reason == "" then
-        reason = "مخالفة قواعد التجربة"
-    end
-
-    -- Keep valid UTF-8 and stay comfortably below Roblox's 500-byte Kick message limit.
-    local nextByte = utf8.offset(reason, MAX_REASON_BYTES + 1)
-    if nextByte then
-        reason = string.sub(reason, 1, nextByte - 1)
-    end
-
-    return reason
-end
-
-local function getPlayerList(requester)
-    local result = {}
-
-    for _, target in ipairs(Players:GetPlayers()) do
-        if target ~= requester then
-            table.insert(result, {
-                userId = target.UserId,
-                name = target.Name,
-                displayName = target.DisplayName,
-                protected = isTrustedAdmin(target),
-            })
-        end
-    end
-
-    table.sort(result, function(a, b)
-        return string.lower(a.displayName) < string.lower(b.displayName)
-    end)
-
-    return result
-end
-
-local function handleRequest(requester, action, targetUserId, reasonText)
-    if not isTrustedAdmin(requester) then
-        return { ok = false, code = "NO_PERMISSION", message = "ليس لديك صلاحية استخدام لوحة الإدارة." }
-    end
-
-    if action == "list" then
-        local now = os.clock()
-        local previous = lastListRequest[requester.UserId] or 0
-        if now - previous < LIST_COOLDOWN then
-            return { ok = false, code = "RATE_LIMIT", message = "انتظر قليلًا قبل تحديث القائمة." }
-        end
-        lastListRequest[requester.UserId] = now
-
+GetPlayers.OnServerInvoke = function(requester)
+    if not isAdmin(requester) then
         return {
-            ok = true,
-            players = getPlayerList(requester),
-            serverCount = #Players:GetPlayers(),
+            ok = false,
+            message = "ليس لديك صلاحية الإدارة."
         }
     end
 
-    if action == "kick" then
-        local now = os.clock()
-        local previous = lastKickRequest[requester.UserId] or 0
-        if now - previous < KICK_COOLDOWN then
-            return { ok = false, code = "RATE_LIMIT", message = "انتظر ثلاث ثوانٍ قبل تنفيذ طرد آخر." }
-        end
+    local list = {}
 
-        if typeof(targetUserId) ~= "number" or targetUserId <= 0 or targetUserId % 1 ~= 0 then
-            return { ok = false, code = "INVALID_TARGET", message = "معرّف اللاعب غير صالح." }
-        end
-
-        if targetUserId == requester.UserId then
-            return { ok = false, code = "SELF_KICK_BLOCKED", message = "لا يمكنك طرد نفسك من هذه اللوحة." }
-        end
-
-        local target = Players:GetPlayerByUserId(targetUserId)
-        if not target then
-            return { ok = false, code = "TARGET_LEFT", message = "اللاعب غادر السيرفر بالفعل." }
-        end
-
-        if isTrustedAdmin(target) then
-            return { ok = false, code = "PROTECTED_TARGET", message = "لا يمكن طرد حساب إداري محمي." }
-        end
-
-        lastKickRequest[requester.UserId] = now
-        local reason = cleanReason(reasonText)
-        local kickMessage = "تم إخراجك من التجربة بواسطة الإدارة. السبب: " .. reason
-
-        local success, err = pcall(function()
-            target:Kick(kickMessage)
-        end)
-
-        if not success then
-            warn(string.format("[LxAdminKick] Failed to kick %s (%d): %s", target.Name, target.UserId, tostring(err)))
-            return { ok = false, code = "KICK_FAILED", message = "تعذر تنفيذ الطرد. راجع سجل الخادم." }
-        end
-
-        print(string.format(
-            "[LxAdminKick] %s (%d) kicked %s (%d). Reason: %s",
-            requester.Name,
-            requester.UserId,
-            target.Name,
-            target.UserId,
-            reason
-        ))
-
-        return { ok = true, code = "KICK_SENT", message = "تم إرسال أمر الطرد إلى الخادم.", targetUserId = targetUserId }
+    for _, player in ipairs(Players:GetPlayers()) do
+        table.insert(list, {
+            userId = player.UserId,
+            name = player.Name,
+            displayName = player.DisplayName,
+            isAdmin = isAdmin(player),
+            isSelf = player == requester
+        })
     end
 
-    return { ok = false, code = "UNKNOWN_ACTION", message = "طلب غير معروف." }
+    table.sort(list, function(a, b)
+        return string.lower(a.name) < string.lower(b.name)
+    end)
+
+    return {
+        ok = true,
+        players = list
+    }
 end
 
-remote.OnServerInvoke = function(requester, action, targetUserId, reasonText)
-    local success, response = pcall(handleRequest, requester, action, targetUserId, reasonText)
+KickRequest.OnServerEvent:Connect(function(requester, targetUserId, rawReason)
+    if not isAdmin(requester) then
+        KickResult:FireClient(requester, {
+            ok = false,
+            message = "رفض الطلب: ليس لديك صلاحية."
+        })
+        return
+    end
+
+    local now = os.clock()
+    local previous = lastRequest[requester.UserId] or 0
+
+    if now - previous < REQUEST_COOLDOWN then
+        KickResult:FireClient(requester, {
+            ok = false,
+            message = "انتظر قليلًا قبل تنفيذ طلب آخر."
+        })
+        return
+    end
+
+    lastRequest[requester.UserId] = now
+
+    if typeof(targetUserId) ~= "number"
+        or targetUserId % 1 ~= 0 then
+
+        KickResult:FireClient(requester, {
+            ok = false,
+            message = "رقم اللاعب غير صحيح."
+        })
+        return
+    end
+
+    local target = Players:GetPlayerByUserId(targetUserId)
+
+    if not target or target.Parent ~= Players then
+        KickResult:FireClient(requester, {
+            ok = false,
+            message = "اللاعب لم يعد موجودًا في السيرفر."
+        })
+        return
+    end
+
+    if target == requester then
+        KickResult:FireClient(requester, {
+            ok = false,
+            message = "لا يمكنك طرد نفسك."
+        })
+        return
+    end
+
+    if isAdmin(target) then
+        KickResult:FireClient(requester, {
+            ok = false,
+            message = "لا يمكنك طرد حساب إداري."
+        })
+        return
+    end
+
+    local reason = "إجراء إداري"
+
+    if typeof(rawReason) == "string" then
+        reason = rawReason:gsub("[%c]", " ")
+        reason = reason:match("^%s*(.-)%s*$") or ""
+        reason = string.sub(reason, 1, 100)
+
+        if reason == "" then
+            reason = "إجراء إداري"
+        end
+    end
+
+    local targetName = target.Name
+    local kickMessage = "تم إخراجك من السيرفر. السبب: " .. reason
+
+    local success, err = pcall(function()
+        target:Kick(kickMessage)
+    end)
+
     if not success then
-        warn("[LxAdminKick] Request error: " .. tostring(response))
-        return { ok = false, code = "SERVER_ERROR", message = "حدث خطأ داخلي في لوحة الإدارة." }
-    end
-    return response
-end
+        warn("[Lx Kick] Failed:", err)
 
-Players.PlayerRemoving:Connect(function(player)
-    lastListRequest[player.UserId] = nil
-    lastKickRequest[player.UserId] = nil
+        KickResult:FireClient(requester, {
+            ok = false,
+            message = "فشل تنفيذ الطرد. راجع سجل الخادم."
+        })
+
+        return
+    end
+
+    print("[Lx Kick] " .. requester.Name .. " kicked " .. targetName)
+
+    KickResult:FireClient(requester, {
+        ok = true,
+        message = "تم طرد اللاعب " .. targetName .. " بنجاح."
+    })
 end)
 
-print("[LxAdminKick] Server add-on ready. Trusted admin checks are enforced server-side.")
+Players.PlayerRemoving:Connect(function(player)
+    lastRequest[player.UserId] = nil
+end)
+
+print("[Lx REDLINE] Player Kick Manager Server Ready")
+
+-- Lx REDLINE PRO v77
+-- PLAYER KICK MANAGER - CLIENT
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local localPlayer = Players.LocalPlayer
+local playerGui = localPlayer:WaitForChild("PlayerGui")
+
+local folder = ReplicatedStorage:WaitForChild("LxAdminRemotes", 15)
+
+if not folder then
+    warn("[Lx] Admin remotes not found.")
+    return
+end
+
+local GetPlayers = folder:WaitForChild("GetPlayers", 10)
+local KickRequest = folder:WaitForChild("KickRequest", 10)
+local KickResult = folder:WaitForChild("KickResult", 10)
+
+if not GetPlayers or not KickRequest or not KickResult then
+    warn("[Lx] Missing admin remote.")
+    return
+end
+
+local oldGui = playerGui:FindFirstChild("LxKickManager")
+if oldGui then
+    oldGui:Destroy()
+end
+
+local function create(className, parent, properties)
+    local object = Instance.new(className)
+
+    for key, value in pairs(properties or {}) do
+        object[key] = value
+    end
+
+    object.Parent = parent
+    return object
+end
+
+local RED = Color3.fromRGB(220, 35, 48)
+local DARK = Color3.fromRGB(20, 20, 23)
+local PANEL = Color3.fromRGB(31, 31, 36)
+local WHITE = Color3.fromRGB(245, 245, 245)
+local GREY = Color3.fromRGB(170, 170, 178)
+
+local gui = create("ScreenGui", playerGui, {
+    Name = "LxKickManager",
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    DisplayOrder = 100
+})
+
+local main = create("Frame", gui, {
+    Name = "Main",
+    Size = UDim2.fromOffset(650, 440),
+    Position = UDim2.new(0.5, -325, 0.5, -220),
+    BackgroundColor3 = DARK,
+    BorderSizePixel = 0
+})
+
+create("UICorner", main, {
+    CornerRadius = UDim.new(0, 12)
+})
+
+create("UIStroke", main, {
+    Color = RED,
+    Thickness = 1.5
+})
+
+local topbar = create("Frame", main, {
+    Size = UDim2.new(1, 0, 0, 48),
+    BackgroundColor3 = Color3.fromRGB(35, 20, 23),
+    BorderSizePixel = 0,
+    Active = true
+})
+
+create("UICorner", topbar, {
+    CornerRadius = UDim.new(0, 12)
+})
+
+create("TextLabel", topbar, {
+    Size = UDim2.new(1, -120, 1, 0),
+    Position = UDim2.fromOffset(14, 0),
+    BackgroundTransparency = 1,
+    Text = "Lx REDLINE PRO  |  PLAYER MANAGER",
+    TextColor3 = WHITE,
+    Font = Enum.Font.GothamBold,
+    TextSize = 15,
+    TextXAlignment = Enum.TextXAlignment.Left
+})
+
+local closeButton = create("TextButton", topbar, {
+    Size = UDim2.fromOffset(35, 32),
+    Position = UDim2.new(1, -43, 0, 8),
+    BackgroundColor3 = RED,
+    Text = "X",
+    TextColor3 = WHITE,
+    Font = Enum.Font.GothamBold,
+    TextSize = 15
+})
+
+local minimizeButton = create("TextButton", topbar, {
+    Size = UDim2.fromOffset(35, 32),
+    Position = UDim2.new(1, -83, 0, 8),
+    BackgroundColor3 = PANEL,
+    Text = "-",
+    TextColor3 = WHITE,
+    Font = Enum.Font.GothamBold,
+    TextSize = 18
+})
+
+local body = create("Frame", main, {
+    Size = UDim2.new(1, 0, 1, -55),
+    Position = UDim2.fromOffset(0, 55),
+    BackgroundTransparency = 1
+})
+
+local searchBox = create("TextBox", body, {
+    Size = UDim2.fromOffset(400, 36),
+    Position = UDim2.fromOffset(14, 5),
+    BackgroundColor3 = PANEL,
+    TextColor3 = WHITE,
+    PlaceholderColor3 = GREY,
+    PlaceholderText = "ابحث باسم اللاعب أو اسم المستخدم...",
+    Text = "",
+    Font = Enum.Font.Gotham,
+    TextSize = 13,
+    ClearTextOnFocus = false
+})
+
+create("UICorner", searchBox, {
+    CornerRadius = UDim.new(0, 7)
+})
+
+local refreshButton = create("TextButton", body, {
+    Size = UDim2.fromOffset(210, 36),
+    Position = UDim2.fromOffset(425, 5),
+    BackgroundColor3 = RED,
+    Text = "تحديث قائمة اللاعبين",
+    TextColor3 = WHITE,
+    Font = Enum.Font.GothamBold,
+    TextSize = 13
+})
+
+create("UICorner", refreshButton, {
+    CornerRadius = UDim.new(0, 7)
+})
+
+local playerList = create("ScrollingFrame", body, {
+    Name = "PlayerList",
+    Size = UDim2.fromOffset(370, 280),
+    Position = UDim2.fromOffset(14, 52),
+    BackgroundColor3 = PANEL,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 5,
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y
+})
+
+create("UICorner", playerList, {
+    CornerRadius = UDim.new(0, 8)
+})
+
+local listLayout = create("UIListLayout", playerList, {
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0, 6)
+})
+
+create("UIPadding", playerList, {
+    PaddingTop = UDim.new(0, 7),
+    PaddingBottom = UDim.new(0, 7),
+    PaddingLeft = UDim.new(0, 7),
+    PaddingRight = UDim.new(0, 7)
+})
+
+local details = create("Frame", body, {
+    Size = UDim2.fromOffset(240, 280),
+    Position = UDim2.fromOffset(395, 52),
+    BackgroundColor3 = PANEL,
+    BorderSizePixel = 0
+})
+
+create("UICorner", details, {
+    CornerRadius = UDim.new(0, 8)
+})
+
+create("TextLabel", details, {
+    Size = UDim2.new(1, -20, 0, 35),
+    Position = UDim2.fromOffset(10, 8),
+    BackgroundTransparency = 1,
+    Text = "تفاصيل اللاعب",
+    TextColor3 = RED,
+    Font = Enum.Font.GothamBold,
+    TextSize = 16
+})
+
+local selectedLabel = create("TextLabel", details, {
+    Size = UDim2.new(1, -20, 0, 65),
+    Position = UDim2.fromOffset(10, 45),
+    BackgroundColor3 = DARK,
+    Text = "لم يتم اختيار لاعب",
+    TextColor3 = WHITE,
+    Font = Enum.Font.Gotham,
+    TextSize = 13,
+    TextWrapped = true
+})
+
+create("UICorner", selectedLabel, {
+    CornerRadius = UDim.new(0, 6)
+})
+
+local reasonBox = create("TextBox", details, {
+    Size = UDim2.new(1, -20, 0, 45),
+    Position = UDim2.fromOffset(10, 120),
+    BackgroundColor3 = DARK,
+    TextColor3 = WHITE,
+    PlaceholderColor3 = GREY,
+    PlaceholderText = "سبب الطرد...",
+    Text = "",
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    ClearTextOnFocus = false
+})
+
+create("UICorner", reasonBox, {
+    CornerRadius = UDim.new(0, 6)
+})
+
+local kickButton = create("TextButton", details, {
+    Size = UDim2.new(1, -20, 0, 42),
+    Position = UDim2.fromOffset(10, 180),
+    BackgroundColor3 = Color3.fromRGB(95, 35, 39),
+    Text = "طرد اللاعب المحدد",
+    TextColor3 = WHITE,
+    Font = Enum.Font.GothamBold,
+    TextSize = 13,
+    Active = false,
+    AutoButtonColor = false
+})
+
+create("UICorner", kickButton, {
+    CornerRadius = UDim.new(0, 7)
+})
+
+local statusLabel = create("TextLabel", body, {
+    Size = UDim2.new(1, -28, 0, 30),
+    Position = UDim2.fromOffset(14, 340),
+    BackgroundTransparency = 1,
+    Text = "جاري الاتصال بالخادم...",
+    TextColor3 = GREY,
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    TextXAlignment = Enum.TextXAlignment.Left
+})
+
+local confirmFrame = create("Frame", main, {
+    Size = UDim2.fromOffset(320, 155),
+    Position = UDim2.new(0.5, -160, 0.5, -77),
+    BackgroundColor3 = Color3.fromRGB(28, 22, 24),
+    BorderSizePixel = 0,
+    Visible = false,
+    ZIndex = 10
+})
+
+create("UICorner", confirmFrame, {
+    CornerRadius = UDim.new(0, 10)
+})
+
+create("UIStroke", confirmFrame, {
+    Color = RED,
+    Thickness = 1.5
+})
+
+local confirmText = create("TextLabel", confirmFrame, {
+    Size = UDim2.new(1, -20, 0, 65),
+    Position = UDim2.fromOffset(10, 8),
+    BackgroundTransparency = 1,
+    Text = "هل تريد تأكيد الطرد؟",
+    TextColor3 = WHITE,
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    TextWrapped = true,
+    ZIndex = 11
+})
+
+local confirmButton = create("TextButton", confirmFrame, {
+    Size = UDim2.fromOffset(135, 38),
+    Position = UDim2.fromOffset(12, 100),
+    BackgroundColor3 = RED,
+    Text = "تأكيد الطرد",
+    TextColor3 = WHITE,
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    ZIndex = 11
+})
+
+local cancelButton = create("TextButton", confirmFrame, {
+    Size = UDim2.fromOffset(135, 38),
+    Position = UDim2.fromOffset(173, 100),
+    BackgroundColor3 = PANEL,
+    Text = "إلغاء",
+    TextColor3 = WHITE,
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    ZIndex = 11
+})
+
+local currentPlayers = {}
+local selectedInfo = nil
+local renderPlayerList
+local refreshPlayers
+
+local function updateSelection()
+    if selectedInfo then
+        selectedLabel.Text =
+            selectedInfo.displayName ..
+            "\n@" .. selectedInfo.name ..
+            "\nUserId: " .. tostring(selectedInfo.userId)
+
+        kickButton.BackgroundColor3 = RED
+        kickButton.Active = true
+        kickButton.AutoButtonColor = true
+    else
+        selectedLabel.Text = "لم يتم اختيار لاعب"
+        kickButton.BackgroundColor3 = Color3.fromRGB(95, 35, 39)
+        kickButton.Active = false
+        kickButton.AutoButtonColor = false
+    end
+end
+
+renderPlayerList = function()
+    for _, child in ipairs(playerList:GetChildren()) do
+        if child:IsA("TextButton") or child.Name == "EmptyLabel" then
+            child:Destroy()
+        end
+    end
+
+    local query = string.lower(searchBox.Text or "")
+    local visibleCount = 0
+
+    for _, info in ipairs(currentPlayers) do
+        local combined = string.lower(
+            info.name .. " " .. info.displayName
+        )
+
+        if query == "" or string.find(combined, query, 1, true) then
+            visibleCount += 1
+
+            local suffix = ""
+
+            if info.isSelf then
+                suffix = "  [أنت]"
+            elseif info.isAdmin then
+                suffix = "  [إدارة]"
+            end
+
+            local row = create("TextButton", playerList, {
+                Size = UDim2.new(1, -4, 0, 42),
+                BackgroundColor3 =
+                    selectedInfo and selectedInfo.userId == info.userId
+                    and Color3.fromRGB(90, 30, 37)
+                    or DARK,
+                Text = "  " .. info.displayName ..
+                    "  |  @" .. info.name .. suffix,
+                TextColor3 = WHITE,
+                Font = Enum.Font.Gotham,
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                LayoutOrder = visibleCount
+            })
+
+            create("UICorner", row, {
+                CornerRadius = UDim.new(0, 6)
+            })
+
+            row.Activated:Connect(function()
+                selectedInfo = info
+                updateSelection()
+                renderPlayerList()
+            end)
+        end
+    end
+
+    if visibleCount == 0 then
+        create("TextLabel", playerList, {
+            Name = "EmptyLabel",
+            Size = UDim2.new(1, -4, 0, 45),
+            BackgroundTransparency = 1,
+            Text = "لا يوجد لاعب مطابق للبحث",
+            TextColor3 = GREY,
+            Font = Enum.Font.Gotham,
+            TextSize = 12
+        })
+    end
+end
+
+refreshPlayers = function()
+    statusLabel.Text = "جاري تحديث القائمة..."
+
+    local success, result = pcall(function()
+        return GetPlayers:InvokeServer()
+    end)
+
+    if not success then
+        statusLabel.Text = "تعذر الاتصال بالخادم."
+        warn("[Lx] GetPlayers error:", result)
+        return
+    end
+
+    if not result or not result.ok then
+        statusLabel.Text =
+            result and result.message or "تعذر تحميل القائمة."
+        currentPlayers = {}
+        selectedInfo = nil
+        updateSelection()
+        renderPlayerList()
+        return
+    end
+
+    currentPlayers = result.players or {}
+
+    if selectedInfo then
+        local found = nil
+
+        for _, info in ipairs(currentPlayers) do
+            if info.userId == selectedInfo.userId then
+                found = info
+                break
+            end
+        end
+
+        selectedInfo = found
+    end
+
+    updateSelection()
+    renderPlayerList()
+
+    statusLabel.Text =
+        "عدد اللاعبين في السيرفر: " .. #currentPlayers
+end
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    renderPlayerList()
+end)
+
+refreshButton.Activated:Connect(refreshPlayers)
+
+kickButton.Activated:Connect(function()
+    if not selectedInfo then
+        return
+    end
+
+    confirmText.Text =
+        "هل تريد طرد اللاعب @" .. selectedInfo.name .. "؟"
+
+    confirmFrame.Visible = true
+end)
+
+cancelButton.Activated:Connect(function()
+    confirmFrame.Visible = false
+end)
+
+confirmButton.Activated:Connect(function()
+    if not selectedInfo then
+        confirmFrame.Visible = false
+        return
+    end
+
+    local targetId = selectedInfo.userId
+    confirmButton.Active = false
+    confirmText.Text = "جاري تنفيذ طلب الطرد..."
+
+    KickRequest:FireServer(targetId, reasonBox.Text)
+
+    confirmFrame.Visible = false
+    statusLabel.Text = "تم إرسال الطلب إلى الخادم..."
+    confirmButton.Active = true
+end)
+
+KickResult.OnClientEvent:Connect(function(result)
+    if typeof(result) ~= "table" then
+        return
+    end
+
+    statusLabel.Text = result.message or "وصلت نتيجة الطلب."
+
+    if result.ok then
+        selectedInfo = nil
+        reasonBox.Text = ""
+        updateSelection()
+
+        task.delay(0.5, refreshPlayers)
+    end
+end)
+
+local collapsed = false
+local fullSize = main.Size
+
+minimizeButton.Activated:Connect(function()
+    collapsed = not collapsed
+    body.Visible = not collapsed
+
+    main.Size = collapsed
+        and UDim2.fromOffset(650, 48)
+        or fullSize
+
+    minimizeButton.Text = collapsed and "+" or "-"
+end)
+
+closeButton.Activated:Connect(function()
+    gui:Destroy()
+end)
+
+-- سحب الواجهة بالماوس أو اللمس
+
+local dragging = false
+local dragInput
+local dragStart
+local startPosition
+
+topbar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = true
+        dragStart = input.Position
+        startPosition = main.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+topbar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        local delta = input.Position - dragStart
+
+        main.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+task.spawn(function()
+    while gui.Parent do
+        task.wait(15)
+        refreshPlayers()
+    end
+end)
+
+refreshPlayers()
+
+print("[Lx REDLINE] Player Kick Manager Client Ready")
