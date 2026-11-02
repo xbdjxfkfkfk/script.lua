@@ -1,7 +1,7 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║           STEALTH HUB v1.0                               ║
-    ║          إخفاء - طيران - سحب - انتقال                    ║
+    ║           STEALTH + SPEED v2.0                           ║
+    ║          إخفاء كامل - سرعة - طيران                       ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
@@ -13,7 +13,7 @@ local PG = LP:WaitForChild("PlayerGui", 12)
 if not PG then return end
 
 -- Cleanup
-for _, name in ipairs({"StealthHub"}) do
+for _, name in ipairs({"StealthSpeed"}) do
     local old = PG:FindFirstChild(name)
     if old then old:Destroy() end
 end
@@ -21,18 +21,14 @@ end
 -- State
 local alive = true
 local conns = {}
-local invisible = false
-local flying = false
-local dragging = false
-local draggedPlayer = nil
 
 -- Config
 local S = {
     Invisible = false,
+    Speed = false,
+    WalkSpeed = 100,
     Fly = false,
     FlySpeed = 50,
-    DragPlayers = false,
-    PlayerESP = false,
 }
 
 -- Helpers
@@ -57,24 +53,24 @@ local function root()
 end
 
 -- GUI
-local gui = inst("ScreenGui", {Name = "StealthHub", ResetOnSpawn = false, DisplayOrder = 90}, PG)
+local gui = inst("ScreenGui", {Name = "StealthSpeed", ResetOnSpawn = false, DisplayOrder = 90}, PG)
 
 local main = inst("Frame", {
-    Size = UDim2.fromOffset(300, 350),
-    Position = UDim2.new(0.5, -150, 0.5, -175),
+    Size = UDim2.fromOffset(280, 300),
+    Position = UDim2.new(0.5, -140, 0.5, -150),
     BackgroundColor3 = Color3.fromRGB(10, 10, 15),
     BorderSizePixel = 0,
     Active = true,
     Draggable = true
 }, gui)
 round(main, 12)
-inst("UIStroke", {Color = Color3.fromRGB(100, 0, 200), Thickness = 2}, main)
+inst("UIStroke", {Color = Color3.fromRGB(200, 0, 200), Thickness = 2}, main)
 
 -- Header
 local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = Color3.fromRGB(15, 15, 20), BorderSizePixel = 0}, main)
 round(head, 12)
 
-inst("TextLabel", {Size = UDim2.new(1, -50, 1, 0), Position = UDim2.fromOffset(12, 0), BackgroundTransparency = 1, Text = "🥷 STEALTH HUB", TextColor3 = Color3.fromRGB(150, 100, 255), Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left}, head)
+inst("TextLabel", {Size = UDim2.new(1, -50, 1, 0), Position = UDim2.fromOffset(12, 0), BackgroundTransparency = 1, Text = "🥷 STEALTH + SPEED", TextColor3 = Color3.fromRGB(255, 100, 255), Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left}, head)
 
 local close = inst("TextButton", {Size = UDim2.fromOffset(26, 26), Position = UDim2.new(1, -32, 0, 7), BackgroundColor3 = Color3.fromRGB(200, 50, 50), Text = "×", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 14}, head)
 round(close, 6)
@@ -106,38 +102,36 @@ local function btn(title, icon, key, color)
 end
 
 -- Invisible Button
-btn("إخفاء", "👻", "Invisible", Color3.fromRGB(100, 0, 150))
+btn("إخفاء كامل", "👻", "Invisible", Color3.fromRGB(100, 0, 150))
+
+-- Speed Button
+btn("سرعة", "⚡", "Speed", Color3.fromRGB(0, 100, 200))
 
 -- Fly Button
-btn("طيران", "✈️", "Fly", Color3.fromRGB(0, 100, 200))
+btn("طيران", "✈️", "Fly", Color3.fromRGB(0, 150, 100))
 
--- Drag Players Button
-btn("سحب لاعبين", "🎯", "DragPlayers", Color3.fromRGB(200, 100, 0))
-
--- Player ESP Button
-btn("رؤية اللاعبين", "👁️", "PlayerESP", Color3.fromRGB(0, 150, 100))
-
--- Fly Speed Slider
+-- Speed Slider
 local speedFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = Color3.fromRGB(20, 20, 28), BorderSizePixel = 0}, content)
 round(speedFrame, 8)
-inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 18), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = "سرعة الطيران", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, speedFrame)
 
-local speedVal = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 18), Position = UDim2.new(0.7, -5, 0, 5), BackgroundTransparency = 1, Text = "50", TextColor3 = Color3.fromRGB(100, 200, 255), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right}, speedFrame)
+inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 18), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = "سرعة المشي", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, speedFrame)
+
+local speedVal = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 18), Position = UDim2.new(0.7, -5, 0, 5), BackgroundTransparency = 1, Text = "100", TextColor3 = Color3.fromRGB(100, 200, 255), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right}, speedFrame)
 
 local speedBg = inst("Frame", {Size = UDim2.new(1, -20, 0, 5), Position = UDim2.fromOffset(10, 32), BackgroundColor3 = Color3.fromRGB(40, 40, 50), BorderSizePixel = 0}, speedFrame)
 round(speedBg, 3)
 
-local speedFill = inst("Frame", {Size = UDim2.new(0.3, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(100, 200, 255), BorderSizePixel = 0}, speedBg)
+local speedFill = inst("Frame", {Size = UDim2.new(0.5, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(100, 200, 255), BorderSizePixel = 0}, speedBg)
 round(speedFill, 3)
 
-local speedHandle = inst("Frame", {Size = UDim2.fromOffset(14, 14), Position = UDim2.new(0.3, -7, 0.5, -7), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, speedBg)
+local speedHandle = inst("Frame", {Size = UDim2.fromOffset(14, 14), Position = UDim2.new(0.5, -7, 0.5, -7), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, speedBg)
 round(speedHandle, 7)
 
 local speedDragging = false
 local function updateSpeed(input)
     local rel = math.clamp((input.Position.X - speedBg.AbsolutePosition.X) / speedBg.AbsoluteSize.X, 0, 1)
-    S.FlySpeed = math.floor(10 + 90 * rel)
-    speedVal.Text = tostring(S.FlySpeed)
+    S.WalkSpeed = math.floor(16 + 184 * rel)
+    speedVal.Text = tostring(S.WalkSpeed)
     speedFill.Size = UDim2.new(rel, 0, 1, 0)
     speedHandle.Position = UDim2.new(rel, -7, 0.5, -7)
 end
@@ -147,79 +141,100 @@ conn(speedBg.InputBegan, function(input) if input.UserInputType == Enum.UserInpu
 conn(UIS.InputEnded, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then speedDragging = false end end)
 conn(UIS.InputChanged, function(input) if speedDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then updateSpeed(input) end end)
 
--- Player List for Drag/Teleport
-local playerListFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 100), BackgroundColor3 = Color3.fromRGB(15, 15, 22), BorderSizePixel = 0}, content)
-round(playerListFrame, 8)
+-- Fly Speed Slider
+local flyFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = Color3.fromRGB(20, 20, 28), BorderSizePixel = 0}, content)
+round(flyFrame, 8)
 
-inst("TextLabel", {Size = UDim2.new(1, -10, 0, 18), Position = UDim2.fromOffset(8, 4), BackgroundTransparency = 1, Text = "اللاعبون:", TextColor3 = Color3.fromRGB(150, 200, 255), Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, playerListFrame)
+inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 18), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = "سرعة الطيران", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, flyFrame)
 
-local playerScroll = inst("ScrollingFrame", {Size = UDim2.new(1, -10, 1, -26), Position = UDim2.fromOffset(5, 22), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, playerListFrame)
-inst("UIListLayout", {Padding = UDim.new(0, 3)}, playerScroll)
+local flyVal = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 18), Position = UDim2.new(0.7, -5, 0, 5), BackgroundTransparency = 1, Text = "50", TextColor3 = Color3.fromRGB(100, 255, 200), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right}, flyFrame)
 
-local function refreshPlayers()
-    for _, v in pairs(playerScroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-    
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LP then
-            local pb = inst("TextButton", {Size = UDim2.new(1, 0, 0, 25), BackgroundColor3 = Color3.fromRGB(25, 25, 35), Text = "", BorderSizePixel = 0}, playerScroll)
-            round(pb, 5)
-            
-            inst("TextLabel", {Size = UDim2.new(0.5, 0, 1, 0), Position = UDim2.fromOffset(8, 0), BackgroundTransparency = 1, Text = p.DisplayName, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.Gotham, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, pb)
-            
-            local dragBtn = inst("TextButton", {Size = UDim2.fromOffset(40, 20), Position = UDim2.new(1, -85, 0.5, -10), BackgroundColor3 = Color3.fromRGB(200, 150, 0), Text = "سحب", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 10}, pb)
-            round(dragBtn, 4)
-            
-            local tpBtn = inst("TextButton", {Size = UDim2.fromOffset(40, 20), Position = UDim2.new(1, -42, 0.5, -10), BackgroundColor3 = Color3.fromRGB(0, 150, 100), Text = "انتقال", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 10}, pb)
-            round(tpBtn, 4)
-            
-            conn(dragBtn.MouseButton1Click, function()
-                draggedPlayer = p
-                S.DragPlayers = true
-            end)
-            
-            conn(tpBtn.MouseButton1Click, function()
-                local r = root()
-                local targetChar = p.Character
-                local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-                if r and targetRoot then
-                    r.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -3)
-                end
-            end)
-        end
-    end
+local flyBg = inst("Frame", {Size = UDim2.new(1, -20, 0, 5), Position = UDim2.fromOffset(10, 32), BackgroundColor3 = Color3.fromRGB(40, 40, 50), BorderSizePixel = 0}, flyFrame)
+round(flyBg, 3)
+
+local flyFill = inst("Frame", {Size = UDim2.new(0.4, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(100, 255, 200), BorderSizePixel = 0}, flyBg)
+round(flyFill, 3)
+
+local flyHandle = inst("Frame", {Size = UDim2.fromOffset(14, 14), Position = UDim2.new(0.4, -7, 0.5, -7), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, flyBg)
+round(flyHandle, 7)
+
+local flyDragging = false
+local function updateFlySpeed(input)
+    local rel = math.clamp((input.Position.X - flyBg.AbsolutePosition.X) / flyBg.AbsoluteSize.X, 0, 1)
+    S.FlySpeed = math.floor(10 + 190 * rel)
+    flyVal.Text = tostring(S.FlySpeed)
+    flyFill.Size = UDim2.new(rel, 0, 1, 0)
+    flyHandle.Position = UDim2.new(rel, -7, 0.5, -7)
 end
 
-refreshPlayers()
-conn(Players.PlayerAdded, refreshPlayers)
-conn(Players.PlayerRemoving, refreshPlayers)
+conn(flyHandle.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then flyDragging = true end end)
+conn(flyBg.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then flyDragging = true updateFlySpeed(input) end end)
+conn(UIS.InputEnded, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then flyDragging = false end end)
+conn(UIS.InputChanged, function(input) if flyDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then updateFlySpeed(input) end end)
 
 --====================================
 -- SYSTEMS
 --====================================
 
--- Invisible System
+-- Invisible System (Full Map)
 local function updateInvisible()
     local char = LP.Character
     if not char then return end
     
     if S.Invisible then
+        -- Hide all parts
         for _, v in pairs(char:GetDescendants()) do
-            if v:IsA("BasePart") or v:IsA("Decal") then
+            if v:IsA("BasePart") then
+                v.LocalTransparencyModifier = 1
+                v.CastShadow = false
+            end
+            if v:IsA("Decal") or v:IsA("Texture") then
                 v.LocalTransparencyModifier = 1
             end
-            if v:IsA("ParticleEmitter") or v:IsA("Trail") then
+            if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") then
+                v.Enabled = false
+            end
+            if v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
                 v.Enabled = false
             end
         end
+        
+        -- Hide name tag
+        local head = char:FindFirstChild("Head")
+        if head then
+            local nameTag = head:FindFirstChild("Nametag")
+            if nameTag then nameTag.Enabled = false end
+        end
     else
+        -- Show all parts
         for _, v in pairs(char:GetDescendants()) do
-            if v:IsA("BasePart") or v:IsA("Decal") then
+            if v:IsA("BasePart") then
+                v.LocalTransparencyModifier = 0
+                v.CastShadow = true
+            end
+            if v:IsA("Decal") or v:IsA("Texture") then
                 v.LocalTransparencyModifier = 0
             end
-            if v:IsA("ParticleEmitter") or v:IsA("Trail") then
+            if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") then
+                v.Enabled = true
+            end
+            if v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
                 v.Enabled = true
             end
         end
+    end
+end
+
+-- Speed System
+local function updateSpeed()
+    local char = LP.Character
+    local h = char and char:FindFirstChildOfClass("Humanoid")
+    if not h then return end
+    
+    if S.Speed then
+        h.WalkSpeed = S.WalkSpeed
+    else
+        h.WalkSpeed = 16
     end
 end
 
@@ -256,66 +271,25 @@ local function updateFly()
     end
 end
 
--- Drag System
-local dragConnection = nil
-
-local function updateDrag()
-    if S.DragPlayers and draggedPlayer then
-        local targetChar = draggedPlayer.Character
-        local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-        local myRoot = root()
-        
-        if targetRoot and myRoot then
-            targetRoot.CFrame = myRoot.CFrame * CFrame.new(0, 0, -5)
-        end
-    end
-end
-
--- Player ESP
-local espHighlights = {}
-
-local function updatePlayerESP()
-    if S.PlayerESP then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LP and p.Character and not espHighlights[p] then
-                local h = Instance.new("Highlight")
-                h.FillColor = Color3.fromRGB(255, 0, 0)
-                h.OutlineColor = Color3.new(1, 1, 1)
-                h.Adornee = p.Character
-                h.Parent = gui
-                espHighlights[p] = h
-            end
-        end
-    else
-        for p, h in pairs(espHighlights) do
-            if h then h:Destroy() end
-            espHighlights[p] = nil
-        end
-    end
-end
-
 -- Main Loop
 conn(RunService.Heartbeat, function()
     if not alive then return end
     updateInvisible()
+    updateSpeed()
     updateFly()
-    updateDrag()
-    updatePlayerESP()
 end)
 
 -- Cleanup
 local function cleanup()
     alive = false
     if flyVel then flyVel:Destroy() end
-    for p, h in pairs(espHighlights) do if h then h:Destroy() end end
     for _, c in pairs(conns) do c:Disconnect() end
     gui:Destroy()
 end
 
 conn(close.MouseButton1Click, cleanup)
 
-print("✅ STEALTH HUB LOADED")
+print("✅ STEALTH + SPEED LOADED")
 print("👻 Invisible: ON/OFF")
+print("⚡ Speed: ON/OFF")
 print("✈️ Fly: ON/OFF")
-print("🎯 Drag: Select player")
-print("👁️ ESP: ON/OFF")
