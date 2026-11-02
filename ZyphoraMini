@@ -1,100 +1,111 @@
--- سكربت Server-side (يحتاج Executor قوي)
-local Players = game:GetService("Players")
-
--- تجميد لاعب حقيقي
-local function freezeReal(p)
-    local char = p.Character
-    if char then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.Anchored = true
-        end
-    end
-end
-
--- فك التجميد
-local function unfreezeReal(p)
-    local char = p.Character
-    if char then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.Anchored = false
-        end
-    end
-end
-
--- GUI بسيط
-local LP = Players.LocalPlayer
-local gui = Instance.new("ScreenGui")
-gui.Name = "RealFreeze"
+-- Roblox Player Panel v2
+-- LocalScript for experiences you own or can edit in Roblox Studio.
+-- Place in StarterPlayer > StarterPlayerScripts.
+-- Server-authoritative actions (kick, bring, freeze, global invisibility) are intentionally not spoofed.
+local Players = game:GetService('Players')
+local UIS = game:GetService('UserInputService')
+local RunService = game:GetService('RunService')
+local player = Players.LocalPlayer
+local gui = Instance.new('ScreenGui')
+gui.Name = 'PlayerPanelV2'
 gui.ResetOnSpawn = false
-gui.Parent = LP:WaitForChild("PlayerGui")
-
-local main = Instance.new("Frame")
-main.Size = UDim2.fromOffset(250, 300)
-main.Position = UDim2.new(0.5, -125, 0.5, -150)
-main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-main.BorderSizePixel = 0
-main.Active = true
-main.Draggable = true
-main.Parent = gui
-
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
-title.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-title.Text = "❄️ REAL FREEZE"
-title.TextColor3 = Color3.new(1, 1, 1)
-title.Font = Enum.Font.GothamBold
-title.TextSize = 14
-title.Parent = main
-
-local list = Instance.new("ScrollingFrame")
-list.Size = UDim2.new(0.9, 0, 0.85, -40)
-list.Position = UDim2.new(0.05, 0, 0, 35)
-list.BackgroundTransparency = 1
-list.ScrollBarThickness = 2
-list.AutomaticCanvasSize = Enum.AutomaticSize.Y
-list.CanvasSize = UDim2.new()
-list.Parent = main
-
-local layout = Instance.new("UIListLayout")
-layout.Padding = UDim.new(0, 3)
-layout.Parent = list
-
-local function refresh()
-    for _, v in pairs(list:GetChildren()) do
-        if v:IsA("TextButton") then v:Destroy() end
-    end
-    
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LP then
-            local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(1, 0, 0, 25)
-            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-            btn.Text = p.DisplayName
-            btn.TextColor3 = Color3.new(1, 1, 1)
-            btn.Font = Enum.Font.Gotham
-            btn.TextSize = 12
-            btn.Parent = list
-            
-            btn.MouseButton1Click:Connect(function()
-                freezeReal(p)
-                btn.Text = "❄️ " .. p.DisplayName .. " (مجمد)"
-                btn.BackgroundColor3 = Color3.fromRGB(60, 80, 100)
-            end)
-            
-            btn.MouseButton2Click:Connect(function()
-                unfreezeReal(p)
-                btn.Text = p.DisplayName
-                btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-            end)
-        end
-    end
+gui.Parent = player:WaitForChild('PlayerGui')
+local function make(class, props, parent)
+ local obj=Instance.new(class)
+ for k,v in pairs(props) do obj[k]=v end
+ obj.Parent=parent
+ return obj
 end
-
-refresh()
-Players.PlayerAdded:Connect(refresh)
-Players.PlayerRemoving:Connect(refresh)
-
-print("✅ REAL FREEZE LOADED")
-print("⚠️ يعمل فقط مع Server-side Executor")
+local frame=make('Frame',{Size=UDim2.fromOffset(450,500),Position=UDim2.new(.5,-225,.5,-250),BackgroundColor3=Color3.fromRGB(22,25,35),Active=true,Draggable=true},gui)
+make('UICorner',{CornerRadius=UDim.new(0,14)},frame)
+local title=make('TextLabel',{Text='PLAYER PANEL  |  Local Controls',Size=UDim2.new(1,-60,0,52),Position=UDim2.fromOffset(14,0),TextColor3=Color3.new(1,1,1),TextSize=19,Font=Enum.Font.GothamBold,BackgroundTransparency=1,TextXAlignment=Enum.TextXAlignment.Left},frame)
+local hide=make('TextButton',{Text='−',Size=UDim2.fromOffset(42,40),Position=UDim2.new(1,-48,0,6),BackgroundColor3=Color3.fromRGB(48,54,72),TextColor3=Color3.new(1,1,1),TextSize=26},frame)
+make('UICorner',{CornerRadius=UDim.new(0,8)},hide)
+local body=make('Frame',{Position=UDim2.fromOffset(12,56),Size=UDim2.new(1,-24,1,-68),BackgroundTransparency=1},frame)
+local search=make('TextBox',{Text='',PlaceholderText='Search players...',Size=UDim2.new(1,0,0,40),BackgroundColor3=Color3.fromRGB(38,42,56),TextColor3=Color3.new(1,1,1),PlaceholderColor3=Color3.fromRGB(170,175,190),TextSize=16,ClearTextOnFocus=false},body)
+make('UICorner',{CornerRadius=UDim.new(0,8)},search)
+local list=make('ScrollingFrame',{Position=UDim2.fromOffset(0,48),Size=UDim2.new(1,0,0,215),BackgroundColor3=Color3.fromRGB(32,36,49),BorderSizePixel=0,ScrollBarThickness=5,CanvasSize=UDim2.fromOffset(0,0)},body)
+make('UICorner',{CornerRadius=UDim.new(0,8)},list)
+local layout=make('UIListLayout',{Padding=UDim.new(0,4)},list)
+local selected=nil
+local function render()
+ for _,child in ipairs(list:GetChildren()) do if child:IsA('TextButton') then child:Destroy() end end
+ local term=string.lower(search.Text)
+ for _,p in ipairs(Players:GetPlayers()) do
+  if string.find(string.lower(p.Name),term,1,true) or string.find(string.lower(p.DisplayName),term,1,true) then
+   local b=make('TextButton',{Text=(p==selected and '✓  ' or '   ')..p.DisplayName..'  (@'..p.Name..')',Size=UDim2.new(1,-8,0,34),BackgroundColor3=Color3.fromRGB(50,56,74),TextColor3=Color3.new(1,1,1),TextSize=14,TextXAlignment=Enum.TextXAlignment.Left},list)
+   b.MouseButton1Click:Connect(function() selected=p;render() end)
+  end
+ end
+ list.CanvasSize=UDim2.fromOffset(0,layout.AbsoluteContentSize.Y+8)
+end
+search:GetPropertyChangedSignal('Text'):Connect(render)
+Players.PlayerAdded:Connect(render)
+Players.PlayerRemoving:Connect(function(p) if selected==p then selected=nil end;task.defer(render) end)
+local status=make('TextLabel',{Text='Select a player. Local actions only.',Position=UDim2.fromOffset(0,273),Size=UDim2.new(1,0,0,32),BackgroundTransparency=1,TextColor3=Color3.fromRGB(190,195,210),TextSize=13},body)
+local function button(text,x,y,w,callback)
+ local b=make('TextButton',{Text=text,Position=UDim2.fromOffset(x,y),Size=UDim2.fromOffset(w,40),BackgroundColor3=Color3.fromRGB(66,83,127),TextColor3=Color3.new(1,1,1),TextSize=14,Font=Enum.Font.GothamMedium},body)
+ make('UICorner',{CornerRadius=UDim.new(0,8)},b)
+ b.MouseButton1Click:Connect(callback)
+ return b
+end
+local speed=16
+local flying=false
+local flyConnection=nil
+local function humanoid()
+ local char=player.Character
+ return char and char:FindFirstChildOfClass('Humanoid')
+end
+button('Speed: 16 / 32',0,313,130,function()
+ speed=(speed==16 and 32 or 16)
+ local h=humanoid()
+ if h then h.WalkSpeed=speed end
+ status.Text='Local speed: '..speed..' (server may override)'
+end)
+button('Teleport to selected',140,313,270,function()
+ local myChar=player.Character
+ local target=selected and selected.Character
+ local myRoot=myChar and myChar:FindFirstChild('HumanoidRootPart')
+ local targetRoot=target and target:FindFirstChild('HumanoidRootPart')
+ if myRoot and targetRoot then myRoot.CFrame=targetRoot.CFrame*CFrame.new(3,0,0);status.Text='Local teleport attempted' else status.Text='Select a spawned player' end
+end)
+button('Fly: OFF / ON',0,363,200,function()
+ flying=not flying
+ if flyConnection then flyConnection:Disconnect();flyConnection=nil end
+ if flying then
+  flyConnection=RunService.RenderStepped:Connect(function(dt)
+   local char=player.Character
+   local root=char and char:FindFirstChild('HumanoidRootPart')
+   local h=humanoid()
+   if not root or not h then return end
+   local camera=workspace.CurrentCamera
+   if not camera then return end
+   local direction=Vector3.zero
+   if UIS:IsKeyDown(Enum.KeyCode.W) then direction+=camera.CFrame.LookVector end
+   if UIS:IsKeyDown(Enum.KeyCode.S) then direction-=camera.CFrame.LookVector end
+   if UIS:IsKeyDown(Enum.KeyCode.D) then direction+=camera.CFrame.RightVector end
+   if UIS:IsKeyDown(Enum.KeyCode.A) then direction-=camera.CFrame.RightVector end
+   if UIS:IsKeyDown(Enum.KeyCode.Space) then direction+=Vector3.yAxis end
+   if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then direction-=Vector3.yAxis end
+   if direction.Magnitude>0 then root.CFrame+=direction.Unit*45*dt end
+  end)
+ end
+ status.Text='Local fly: '..(flying and 'ON' or 'OFF')..' (WASD, Space, Ctrl)'
+end)
+button('Reset movement',210,363,200,function()
+ flying=false
+ if flyConnection then flyConnection:Disconnect();flyConnection=nil end
+ speed=16
+ local h=humanoid()
+ if h then h.WalkSpeed=16 end
+ status.Text='Movement reset'
+end)
+local minimized=false
+hide.MouseButton1Click:Connect(function()
+ minimized=not minimized
+ body.Visible=not minimized
+ frame.Size=minimized and UDim2.fromOffset(450,52) or UDim2.fromOffset(450,500)
+ hide.Text=minimized and '+' or '−'
+end)
+player.CharacterAdded:Connect(function() flying=false;if flyConnection then flyConnection:Disconnect();flyConnection=nil end end)
+render()
