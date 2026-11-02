@@ -1,13 +1,15 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║           STEALTH MASTER v4.0 PRO                        ║
+    ║           STEALTH MASTER v5.0 ULTIMATE                   ║
     ║          إخفاء - سرعة - طيران - سحب - انتقال - ESP       ║
+    ║          تكبير لاعبين - واجهة احترافية قابلة للتكبير     ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui", 12)
 if not PG then return end
@@ -24,6 +26,7 @@ local conns = {}
 local draggedPlayer = nil
 local espHighlights = {}
 local guiVisible = true
+local guiSize = 1 -- 1 = normal, 2 = large
 
 -- Config
 local S = {
@@ -34,6 +37,8 @@ local S = {
     FlySpeed = 50,
     DragPlayers = false,
     PlayerESP = false,
+    PlayerSize = false,
+    SizeMultiplier = 2,
 }
 
 -- Helpers
@@ -60,88 +65,103 @@ end
 -- GUI
 local gui = inst("ScreenGui", {Name = "StealthMaster", ResetOnSpawn = false, DisplayOrder = 90}, PG)
 
--- Main Frame (Resizable Background)
+-- Main Frame (Resizable)
 local main = inst("Frame", {
-    Size = UDim2.fromOffset(350, 450),
-    Position = UDim2.new(0.5, -175, 0.5, -225),
-    BackgroundColor3 = Color3.fromRGB(8, 8, 12),
+    Size = UDim2.fromOffset(350, 480),
+    Position = UDim2.new(0.5, -175, 0.5, -240),
+    BackgroundColor3 = Color3.fromRGB(5, 5, 10),
     BorderSizePixel = 0,
     Active = true,
     Draggable = true
 }, gui)
-round(main, 14)
-inst("UIStroke", {Color = Color3.fromRGB(180, 0, 220), Thickness = 2}, main)
+round(main, 16)
+inst("UIStroke", {Color = Color3.fromRGB(200, 0, 255), Thickness = 2.5}, main)
 
--- Background Gradient
+-- Background Effects
 local bgGradient = inst("UIGradient", {
     Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 5, 25)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 10))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 5, 35)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(10, 5, 20)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 15))
     }),
-    Rotation = 45
+    Rotation = 135
+}, main)
+
+-- Glow Effect
+local glow = inst("ImageLabel", {
+    Size = UDim2.new(1, 60, 1, 60),
+    Position = UDim2.new(0, -30, 0, -30),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://5028857084",
+    ImageColor3 = Color3.fromRGB(150, 0, 200),
+    ImageTransparency = 0.9,
+    ScaleType = Enum.ScaleType.Slice,
+    SliceCenter = Rect.new(24, 24, 276, 276)
 }, main)
 
 -- Header
-local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 45), BackgroundColor3 = Color3.fromRGB(12, 8, 18), BorderSizePixel = 0}, main)
-round(head, 14)
+local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = Color3.fromRGB(15, 8, 25), BorderSizePixel = 0}, main)
+round(head, 16)
 
 local headGradient = inst("UIGradient", {
     Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 0, 150)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 0, 80))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 0, 180)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 0, 100))
     }),
     Rotation = 90
 }, head)
 
-inst("TextLabel", {Size = UDim2.new(1, -100, 1, 0), Position = UDim2.fromOffset(15, 0), BackgroundTransparency = 1, Text = "🥷 STEALTH MASTER", TextColor3 = Color3.fromRGB(200, 100, 255), Font = Enum.Font.GothamBold, TextSize = 18, TextXAlignment = Enum.TextXAlignment.Left}, head)
+inst("TextLabel", {Size = UDim2.new(1, -120, 1, 0), Position = UDim2.fromOffset(15, 0), BackgroundTransparency = 1, Text = "🥷 STEALTH MASTER", TextColor3 = Color3.fromRGB(220, 150, 255), Font = Enum.Font.GothamBold, TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left}, head)
 
 -- Header Buttons
-local hideBtn = inst("TextButton", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, -65, 0, 8), BackgroundColor3 = Color3.fromRGB(50, 50, 60), Text = "👁️", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 14}, head)
+local sizeBtn = inst("TextButton", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, -95, 0, 11), BackgroundColor3 = Color3.fromRGB(80, 40, 120), Text = "⛶", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 14}, head)
+round(sizeBtn, 6)
+
+local hideBtn = inst("TextButton", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, -65, 0, 11), BackgroundColor3 = Color3.fromRGB(50, 50, 60), Text = "👁️", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 14}, head)
 round(hideBtn, 6)
 
-local close = inst("TextButton", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, -35, 0, 8), BackgroundColor3 = Color3.fromRGB(200, 50, 50), Text = "×", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, head)
+local close = inst("TextButton", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, -35, 0, 11), BackgroundColor3 = Color3.fromRGB(200, 50, 50), Text = "×", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, head)
 round(close, 6)
 
 -- Content
-local content = inst("ScrollingFrame", {Size = UDim2.new(1, -16, 1, -55), Position = UDim2.fromOffset(8, 50), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(180, 0, 220), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, main)
-inst("UIListLayout", {Padding = UDim.new(0, 6)}, content)
+local content = inst("ScrollingFrame", {Size = UDim2.new(1, -16, 1, -60), Position = UDim2.fromOffset(8, 55), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = Color3.fromRGB(200, 100, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, main)
+inst("UIListLayout", {Padding = UDim.new(0, 8)}, content)
 inst("UIPadding", {PaddingRight = UDim.new(0, 5)}, content)
 
 -- Button Component
 local function btn(title, icon, key, color)
-    local b = inst("TextButton", {Size = UDim2.new(1, 0, 0, 48), BackgroundColor3 = Color3.fromRGB(18, 15, 25), BorderSizePixel = 0, Text = ""}, content)
-    round(b, 10)
+    local b = inst("TextButton", {Size = UDim2.new(1, 0, 0, 52), BackgroundColor3 = Color3.fromRGB(20, 15, 30), BorderSizePixel = 0, Text = "", AutoButtonColor = false}, content)
+    round(b, 12)
     
-    -- Button gradient
     local btnGradient = inst("UIGradient", {
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 20, 35)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 12, 20))
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 25, 45)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 12, 25))
         }),
         Rotation = 90
     }, b)
     
-    inst("TextLabel", {Size = UDim2.fromOffset(32, 32), Position = UDim2.fromOffset(8, 8), BackgroundTransparency = 1, Text = icon, Font = Enum.Font.Gotham, TextSize = 18, TextColor3 = Color3.new(1,1,1)}, b)
-    inst("TextLabel", {Size = UDim2.new(1, -50, 0, 20), Position = UDim2.fromOffset(48, 6), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, b)
+    inst("TextLabel", {Size = UDim2.fromOffset(36, 36), Position = UDim2.fromOffset(8, 8), BackgroundTransparency = 1, Text = icon, Font = Enum.Font.Gotham, TextSize = 20, TextColor3 = Color3.new(1,1,1)}, b)
+    inst("TextLabel", {Size = UDim2.new(1, -55, 0, 22), Position = UDim2.fromOffset(52, 8), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
-    local state = inst("TextLabel", {Size = UDim2.new(1, -50, 0, 16), Position = UDim2.fromOffset(48, 28), BackgroundTransparency = 1, Text = "OFF", TextColor3 = Color3.fromRGB(150, 150, 150), Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, b)
+    local state = inst("TextLabel", {Size = UDim2.new(1, -55, 0, 18), Position = UDim2.fromOffset(52, 32), BackgroundTransparency = 1, Text = "OFF", TextColor3 = Color3.fromRGB(150, 150, 150), Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
     local on = false
     conn(b.MouseButton1Click, function()
         on = not on
         S[key] = on
         state.Text = on and "ON ✓" or "OFF"
-        state.TextColor3 = on and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(150, 150, 150)
+        state.TextColor3 = on and Color3.fromRGB(100, 255, 150) or Color3.fromRGB(150, 150, 150)
         
         if on then
             btnGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, color or Color3.fromRGB(80, 40, 120)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 20, 60))
+                ColorSequenceKeypoint.new(0, color or Color3.fromRGB(100, 50, 150)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 25, 80))
             })
         else
             btnGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 20, 35)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 12, 20))
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 25, 45)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 12, 25))
             })
         end
     end)
@@ -150,29 +170,30 @@ local function btn(title, icon, key, color)
 end
 
 -- Section Title
-local function section(text)
-    local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1}, content)
-    inst("TextLabel", {Size = UDim2.new(1, -10, 1, 0), Position = UDim2.fromOffset(5, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(180, 100, 255), Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, s)
+local function section(text, icon)
+    local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1}, content)
+    inst("TextLabel", {Size = UDim2.fromOffset(24, 24), Position = UDim2.fromOffset(5, 1), BackgroundTransparency = 1, Text = icon or "✦", Font = Enum.Font.Gotham, TextSize = 14, TextColor3 = Color3.fromRGB(200, 150, 255)}, s)
+    inst("TextLabel", {Size = UDim2.new(1, -35, 1, 0), Position = UDim2.fromOffset(32, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(200, 150, 255), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, s)
     return s
 end
 
 -- Slider Component
-local function slider(title, key, min, max, default)
-    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = Color3.fromRGB(18, 15, 25), BorderSizePixel = 0}, content)
-    round(f, 10)
+local function slider(title, key, min, max, default, color)
+    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundColor3 = Color3.fromRGB(20, 15, 30), BorderSizePixel = 0}, content)
+    round(f, 12)
     
-    inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 18), Position = UDim2.fromOffset(10, 4), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, f)
+    inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 20), Position = UDim2.fromOffset(12, 6), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, f)
     
-    local val = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 18), Position = UDim2.new(0.7, -5, 0, 4), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = Color3.fromRGB(180, 100, 255), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right}, f)
+    local val = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 20), Position = UDim2.new(0.7, -8, 0, 6), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = color or Color3.fromRGB(200, 150, 255), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Right}, f)
     
-    local bg = inst("Frame", {Size = UDim2.new(1, -20, 0, 6), Position = UDim2.fromOffset(10, 32), BackgroundColor3 = Color3.fromRGB(30, 25, 40), BorderSizePixel = 0}, f)
-    round(bg, 3)
+    local bg = inst("Frame", {Size = UDim2.new(1, -24, 0, 8), Position = UDim2.fromOffset(12, 36), BackgroundColor3 = Color3.fromRGB(35, 30, 50), BorderSizePixel = 0}, f)
+    round(bg, 4)
     
-    local fill = inst("Frame", {Size = UDim2.new((default - min) / (max - min), 0, 1, 0), BackgroundColor3 = Color3.fromRGB(180, 100, 255), BorderSizePixel = 0}, bg)
-    round(fill, 3)
+    local fill = inst("Frame", {Size = UDim2.new((default - min) / (max - min), 0, 1, 0), BackgroundColor3 = color or Color3.fromRGB(200, 150, 255), BorderSizePixel = 0}, bg)
+    round(fill, 4)
     
-    local handle = inst("Frame", {Size = UDim2.fromOffset(16, 16), Position = UDim2.new((default - min) / (max - min), -8, 0.5, -8), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, bg)
-    round(handle, 8)
+    local handle = inst("Frame", {Size = UDim2.fromOffset(18, 18), Position = UDim2.new((default - min) / (max - min), -9, 0.5, -9), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, bg)
+    round(handle, 9)
     
     S[key] = default
     local dragging = false
@@ -183,7 +204,7 @@ local function slider(title, key, min, max, default)
         S[key] = v
         val.Text = tostring(v)
         fill.Size = UDim2.new(rel, 0, 1, 0)
-        handle.Position = UDim2.new(rel, -8, 0.5, -8)
+        handle.Position = UDim2.new(rel, -9, 0.5, -9)
     end
     
     conn(handle.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end end)
@@ -198,46 +219,49 @@ end
 -- BUILD UI
 --====================================
 
-section("🔥 القدرات الرئيسية")
+section("🔥 القدرات الرئيسية", "⚡")
 
-btn("إخفاء كامل", "👻", "Invisible", Color3.fromRGB(80, 0, 120))
-btn("سرعة خارقة", "⚡", "Speed", Color3.fromRGB(0, 80, 160))
-btn("طيران حر", "✈️", "Fly", Color3.fromRGB(0, 120, 80))
+btn("إخفاء كامل", "👻", "Invisible", Color3.fromRGB(100, 0, 150))
+btn("سرعة خارقة", "⚡", "Speed", Color3.fromRGB(0, 100, 200))
+btn("طيران حر", "🚀", "Fly", Color3.fromRGB(0, 150, 100))
 
-section("⚙️ الإعدادات")
+section("⚙️ الإعدادات", "🎛️")
 
-slider("سرعة المشي", "WalkSpeed", 16, 500, 100)
-slider("سرعة الطيران", "FlySpeed", 10, 300, 50)
+slider("سرعة المشي", "WalkSpeed", 16, 500, 100, Color3.fromRGB(100, 200, 255))
+slider("سرعة الطيران", "FlySpeed", 10, 300, 50, Color3.fromRGB(100, 255, 200))
 
-section("🎯 التفاعل مع اللاعبين")
+section("🎯 التفاعل مع اللاعبين", "🎮")
 
-btn("سحب لاعب", "🧲", "DragPlayers", Color3.fromRGB(160, 80, 0))
-btn("رؤية اللاعبين", "👁️", "PlayerESP", Color3.fromRGB(0, 120, 80))
+btn("سحب لاعب", "🧲", "DragPlayers", Color3.fromRGB(180, 100, 0))
+btn("رؤية اللاعبين", "👁️", "PlayerESP", Color3.fromRGB(0, 150, 100))
+btn("تكبير اللاعبين", "🔍", "PlayerSize", Color3.fromRGB(150, 50, 200))
+
+slider("مضاعف الحجم", "SizeMultiplier", 1, 10, 2, Color3.fromRGB(255, 150, 100))
 
 -- Player List
-local playerFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 100), BackgroundColor3 = Color3.fromRGB(12, 10, 18), BorderSizePixel = 0}, content)
-round(playerFrame, 10)
+local playerFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 110), BackgroundColor3 = Color3.fromRGB(15, 12, 25), BorderSizePixel = 0}, content)
+round(playerFrame, 12)
 
-inst("TextLabel", {Size = UDim2.new(1, -10, 0, 18), Position = UDim2.fromOffset(8, 4), BackgroundTransparency = 1, Text = "📋 قائمة اللاعبين:", TextColor3 = Color3.fromRGB(150, 200, 255), Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, playerFrame)
+inst("TextLabel", {Size = UDim2.new(1, -10, 0, 20), Position = UDim2.fromOffset(10, 5), BackgroundTransparency = 1, Text = "📋 قائمة اللاعبين", TextColor3 = Color3.fromRGB(150, 200, 255), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, playerFrame)
 
-local playerScroll = inst("ScrollingFrame", {Size = UDim2.new(1, -10, 1, -26), Position = UDim2.fromOffset(5, 22), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(150, 200, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, playerFrame)
-inst("UIListLayout", {Padding = UDim.new(0, 3)}, playerScroll)
+local playerScroll = inst("ScrollingFrame", {Size = UDim2.new(1, -12, 1, -30), Position = UDim2.fromOffset(6, 28), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(150, 200, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, playerFrame)
+inst("UIListLayout", {Padding = UDim.new(0, 4)}, playerScroll)
 
 local function refreshPlayers()
     for _, v in pairs(playerScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
     
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP then
-            local pf = inst("Frame", {Size = UDim2.new(1, 0, 0, 26), BackgroundColor3 = Color3.fromRGB(20, 18, 30), BorderSizePixel = 0}, playerScroll)
-            round(pf, 6)
+            local pf = inst("Frame", {Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = Color3.fromRGB(25, 22, 40), BorderSizePixel = 0}, playerScroll)
+            round(pf, 8)
             
-            inst("TextLabel", {Size = UDim2.new(0.4, 0, 1, 0), Position = UDim2.fromOffset(8, 0), BackgroundTransparency = 1, Text = p.DisplayName, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.Gotham, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, pf)
+            inst("TextLabel", {Size = UDim2.new(0.4, 0, 1, 0), Position = UDim2.fromOffset(10, 0), BackgroundTransparency = 1, Text = p.DisplayName, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, pf)
             
-            local dragBtn = inst("TextButton", {Size = UDim2.fromOffset(40, 20), Position = UDim2.new(1, -85, 0.5, -10), BackgroundColor3 = Color3.fromRGB(180, 120, 0), Text = "🧲 سحب", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 9}, pf)
-            round(dragBtn, 4)
+            local dragBtn = inst("TextButton", {Size = UDim2.fromOffset(45, 22), Position = UDim2.new(1, -95, 0.5, -11), BackgroundColor3 = Color3.fromRGB(200, 130, 0), Text = "🧲 سحب", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 10}, pf)
+            round(dragBtn, 6)
             
-            local tpBtn = inst("TextButton", {Size = UDim2.fromOffset(40, 20), Position = UDim2.new(1, -42, 0.5, -10), BackgroundColor3 = Color3.fromRGB(0, 140, 100), Text = "📍 انتقال", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 9}, pf)
-            round(tpBtn, 4)
+            local tpBtn = inst("TextButton", {Size = UDim2.fromOffset(45, 22), Position = UDim2.new(1, -48, 0.5, -11), BackgroundColor3 = Color3.fromRGB(0, 150, 110), Text = "📍 انتقال", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 10}, pf)
+            round(tpBtn, 6)
             
             conn(dragBtn.MouseButton1Click, function()
                 draggedPlayer = p
@@ -261,14 +285,27 @@ conn(Players.PlayerAdded, refreshPlayers)
 conn(Players.PlayerRemoving, refreshPlayers)
 
 --====================================
--- HIDE/SHOW GUI
+-- GUI CONTROLS
 --====================================
 
+-- Hide/Show
 conn(hideBtn.MouseButton1Click, function()
     guiVisible = not guiVisible
     content.Visible = guiVisible
-    main.Size = guiVisible and UDim2.fromOffset(350, 450) or UDim2.fromOffset(350, 45)
+    main.Size = guiVisible and (guiSize == 1 and UDim2.fromOffset(350, 480) or UDim2.fromOffset(450, 600)) or UDim2.fromOffset(350, 50)
     hideBtn.Text = guiVisible and "👁️" or "🚫"
+end)
+
+-- Resize
+conn(sizeBtn.MouseButton1Click, function()
+    guiSize = guiSize == 1 and 2 or 1
+    if guiVisible then
+        if guiSize == 1 then
+            main:TweenSize(UDim2.fromOffset(350, 480), "Out", "Quad", 0.3, true)
+        else
+            main:TweenSize(UDim2.fromOffset(450, 600), "Out", "Quad", 0.3, true)
+        end
+    end
 end)
 
 --====================================
@@ -311,9 +348,7 @@ local function stopFly()
     if flyVel then pcall(function() flyVel:Destroy() end) end
     if flyAttachment then pcall(function() flyAttachment:Destroy() end) end
     if flyOrientation then pcall(function() flyOrientation:Destroy() end) end
-    flyVel = nil
-    flyAttachment = nil
-    flyOrientation = nil
+    flyVel = nil flyAttachment = nil flyOrientation = nil
 end
 
 local function updateFly()
@@ -324,11 +359,9 @@ local function updateFly()
     if S.Fly then
         if not flyVel or not flyVel.Parent then
             stopFly()
-            
             flyAttachment = Instance.new("Attachment")
             flyAttachment.Name = "StealthFly"
             flyAttachment.Parent = r
-            
             flyVel = Instance.new("LinearVelocity")
             flyVel.Name = "StealthFly"
             flyVel.Attachment0 = flyAttachment
@@ -337,7 +370,6 @@ local function updateFly()
             flyVel.MaxForce = math.huge
             flyVel.VectorVelocity = Vector3.zero
             flyVel.Parent = r
-            
             flyOrientation = Instance.new("AlignOrientation")
             flyOrientation.Name = "StealthFly"
             flyOrientation.Attachment0 = flyAttachment
@@ -349,14 +381,11 @@ local function updateFly()
         
         local cam = workspace.CurrentCamera
         if not cam then return end
-        
         local look = cam.CFrame.LookVector
         local forward = Vector3.new(look.X, 0, look.Z)
         if forward.Magnitude < 0.01 then forward = Vector3.new(0, 0, -1) end
         forward = forward.Unit
-        
         local side = Vector3.new(-forward.Z, 0, forward.X)
-        
         local input = Vector3.zero
         if UIS:IsKeyDown(Enum.KeyCode.W) then input += forward end
         if UIS:IsKeyDown(Enum.KeyCode.S) then input -= forward end
@@ -364,7 +393,6 @@ local function updateFly()
         if UIS:IsKeyDown(Enum.KeyCode.D) then input += side end
         if UIS:IsKeyDown(Enum.KeyCode.E) or UIS:IsKeyDown(Enum.KeyCode.Space) then input += Vector3.yAxis end
         if UIS:IsKeyDown(Enum.KeyCode.Q) or UIS:IsKeyDown(Enum.KeyCode.LeftControl) then input -= Vector3.yAxis end
-        
         flyVel.VectorVelocity = input.Magnitude > 0 and input.Unit * S.FlySpeed or Vector3.zero
         flyOrientation.CFrame = CFrame.lookAt(Vector3.zero, forward)
     else
@@ -406,6 +434,34 @@ local function updateESP()
     end
 end
 
+-- Player Size
+local originalSizes = {}
+
+local function updatePlayerSize()
+    if S.PlayerSize then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LP and p.Character then
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                if hrp and not originalSizes[p] then
+                    originalSizes[p] = hrp.Size
+                end
+                if hrp then
+                    hrp.Size = Vector3.new(2, 2, 1) * S.SizeMultiplier
+                end
+            end
+        end
+    else
+        for p, size in pairs(originalSizes) do
+            local char = p.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.Size = size
+            end
+        end
+        table.clear(originalSizes)
+    end
+end
+
 -- Main Loop
 conn(RunService.Heartbeat, function()
     if not alive then return end
@@ -414,6 +470,7 @@ conn(RunService.Heartbeat, function()
     updateFly()
     updateDrag()
     updateESP()
+    updatePlayerSize()
 end)
 
 -- Cleanup
@@ -427,7 +484,7 @@ end
 
 conn(close.MouseButton1Click, cleanup)
 
-print("✅ STEALTH MASTER v4.0 LOADED")
-print("👻 Invisible | ⚡ Speed | ✈️ Fly")
+print("✅ STEALTH MASTER v5.0 ULTIMATE LOADED")
+print("👻 Invisible | ⚡ Speed | 🚀 Fly")
 print("🧲 Drag | 📍 Teleport | 👁️ ESP")
-print("👁️ Hide GUI Button: Hide/Show")
+print("🔍 Player Size | ⛶ Resize GUI | 👁️ Hide GUI")
