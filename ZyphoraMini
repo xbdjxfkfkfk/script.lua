@@ -1,7 +1,7 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║           STEALTH MASTER v7.0 ULTIMATE PRO+              ║
-    ║          كل المميزات + طرد لاعبين من الماب               ║
+    ║           STEALTH MASTER v8.0 ULTIMATE PRO MAX             ║
+    ║          كل المميزات + طرد حقيقي من الماب                  ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui", 12)
 if not PG then return end
@@ -38,8 +39,10 @@ local S = {
     PlayerESP = false,
     PlayerSize = false,
     SizeMultiplier = 2,
-    KickPlayer = false,
 }
+
+-- Kick Remote
+local kickEvent = ReplicatedStorage:WaitForChild("KickPlayer", 5)
 
 -- Helpers
 local function conn(signal, fn)
@@ -67,101 +70,101 @@ local gui = inst("ScreenGui", {Name = "StealthMaster", ResetOnSpawn = false, Dis
 
 -- Main Frame
 local main = inst("Frame", {
-    Size = UDim2.fromOffset(420, 580),
-    Position = UDim2.new(0.5, -210, 0.5, -290),
+    Size = UDim2.fromOffset(450, 620),
+    Position = UDim2.new(0.5, -225, 0.5, -310),
     BackgroundColor3 = Color3.fromRGB(5, 5, 10),
     BorderSizePixel = 0,
     Active = true,
     Draggable = true
 }, gui)
-round(main, 16)
-inst("UIStroke", {Color = Color3.fromRGB(220, 0, 255), Thickness = 2.5}, main)
+round(main, 18)
+inst("UIStroke", {Color = Color3.fromRGB(240, 0, 255), Thickness = 3}, main)
 
 -- Background
 local bgGradient = inst("UIGradient", {
     Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 5, 45)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(14, 5, 28)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(6, 5, 16))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(32, 5, 50)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(16, 5, 32)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 5, 18))
     }),
     Rotation = 135
 }, main)
 
 -- Glow
 local glow = inst("ImageLabel", {
-    Size = UDim2.new(1, 90, 1, 90),
-    Position = UDim2.new(0, -45, 0, -45),
+    Size = UDim2.new(1, 100, 1, 100),
+    Position = UDim2.new(0, -50, 0, -50),
     BackgroundTransparency = 1,
     Image = "rbxassetid://5028857084",
-    ImageColor3 = Color3.fromRGB(200, 0, 240),
-    ImageTransparency = 0.82,
+    ImageColor3 = Color3.fromRGB(220, 0, 255),
+    ImageTransparency = 0.8,
     ScaleType = Enum.ScaleType.Slice,
     SliceCenter = Rect.new(24, 24, 276, 276)
 }, main)
 
 -- Header
-local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 58), BackgroundColor3 = Color3.fromRGB(20, 12, 35), BorderSizePixel = 0}, main)
-round(head, 16)
+local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 62), BackgroundColor3 = Color3.fromRGB(22, 12, 38), BorderSizePixel = 0}, main)
+round(head, 18)
 
 local headGradient = inst("UIGradient", {
     Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(160, 0, 220)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 0, 140))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 0, 240)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(90, 0, 160))
     }),
     Rotation = 90
 }, head)
 
-inst("TextLabel", {Size = UDim2.new(1, -140, 1, 0), Position = UDim2.fromOffset(20, 0), BackgroundTransparency = 1, Text = "🥷 STEALTH MASTER", TextColor3 = Color3.fromRGB(240, 170, 255), Font = Enum.Font.GothamBold, TextSize = 24, TextXAlignment = Enum.TextXAlignment.Left}, head)
+inst("TextLabel", {Size = UDim2.new(1, -150, 1, 0), Position = UDim2.fromOffset(22, 0), BackgroundTransparency = 1, Text = "🥷 STEALTH MASTER", TextColor3 = Color3.fromRGB(250, 180, 255), Font = Enum.Font.GothamBold, TextSize = 26, TextXAlignment = Enum.TextXAlignment.Left}, head)
 
 -- Header Buttons
-local sizeBtn = inst("TextButton", {Size = UDim2.fromOffset(34, 34), Position = UDim2.new(1, -112, 0, 12), BackgroundColor3 = Color3.fromRGB(120, 60, 180), Text = "⛶", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 18}, head)
-round(sizeBtn, 8)
+local sizeBtn = inst("TextButton", {Size = UDim2.fromOffset(36, 36), Position = UDim2.new(1, -120, 0, 13), BackgroundColor3 = Color3.fromRGB(140, 70, 200), Text = "⛶", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 20}, head)
+round(sizeBtn, 9)
 
-local hideBtn = inst("TextButton", {Size = UDim2.fromOffset(34, 34), Position = UDim2.new(1, -74, 0, 12), BackgroundColor3 = Color3.fromRGB(70, 70, 80), Text = "👁️", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 18}, head)
-round(hideBtn, 8)
+local hideBtn = inst("TextButton", {Size = UDim2.fromOffset(36, 36), Position = UDim2.new(1, -80, 0, 13), BackgroundColor3 = Color3.fromRGB(80, 80, 90), Text = "👁️", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 20}, head)
+round(hideBtn, 9)
 
-local close = inst("TextButton", {Size = UDim2.fromOffset(34, 34), Position = UDim2.new(1, -40, 0, 12), BackgroundColor3 = Color3.fromRGB(240, 70, 70), Text = "×", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 20}, head)
-round(close, 8)
+local close = inst("TextButton", {Size = UDim2.fromOffset(36, 36), Position = UDim2.new(1, -42, 0, 13), BackgroundColor3 = Color3.fromRGB(250, 80, 80), Text = "×", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 22}, head)
+round(close, 9)
 
 -- Content
-local content = inst("ScrollingFrame", {Size = UDim2.new(1, -16, 1, -68), Position = UDim2.fromOffset(8, 64), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Color3.fromRGB(220, 120, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, main)
-inst("UIListLayout", {Padding = UDim.new(0, 10)}, content)
+local content = inst("ScrollingFrame", {Size = UDim2.new(1, -16, 1, -72), Position = UDim2.fromOffset(8, 68), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6, ScrollBarImageColor3 = Color3.fromRGB(240, 140, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, main)
+inst("UIListLayout", {Padding = UDim.new(0, 12)}, content)
 inst("UIPadding", {PaddingRight = UDim.new(0, 5)}, content)
 
 -- Button Component
 local function btn(title, icon, key, color)
-    local b = inst("TextButton", {Size = UDim2.new(1, 0, 0, 62), BackgroundColor3 = Color3.fromRGB(28, 22, 42), BorderSizePixel = 0, Text = "", AutoButtonColor = false}, content)
-    round(b, 14)
+    local b = inst("TextButton", {Size = UDim2.new(1, 0, 0, 68), BackgroundColor3 = Color3.fromRGB(32, 25, 48), BorderSizePixel = 0, Text = "", AutoButtonColor = false}, content)
+    round(b, 16)
     
     local btnGradient = inst("UIGradient", {
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(42, 32, 62)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(22, 18, 36))
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(48, 38, 70)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(26, 20, 42))
         }),
         Rotation = 90
     }, b)
     
-    inst("TextLabel", {Size = UDim2.fromOffset(46, 46), Position = UDim2.fromOffset(10, 8), BackgroundTransparency = 1, Text = icon, Font = Enum.Font.Gotham, TextSize = 26, TextColor3 = Color3.new(1,1,1)}, b)
-    inst("TextLabel", {Size = UDim2.new(1, -70, 0, 28), Position = UDim2.fromOffset(66, 10), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left}, b)
+    inst("TextLabel", {Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(12, 8), BackgroundTransparency = 1, Text = icon, Font = Enum.Font.Gotham, TextSize = 30, TextColor3 = Color3.new(1,1,1)}, b)
+    inst("TextLabel", {Size = UDim2.new(1, -75, 0, 32), Position = UDim2.fromOffset(72, 12), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 19, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
-    local state = inst("TextLabel", {Size = UDim2.new(1, -70, 0, 22), Position = UDim2.fromOffset(66, 38), BackgroundTransparency = 1, Text = "OFF", TextColor3 = Color3.fromRGB(170, 170, 170), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, b)
+    local state = inst("TextLabel", {Size = UDim2.new(1, -75, 0, 24), Position = UDim2.fromOffset(72, 44), BackgroundTransparency = 1, Text = "OFF", TextColor3 = Color3.fromRGB(180, 180, 180), Font = Enum.Font.GothamBold, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
     local on = false
     conn(b.MouseButton1Click, function()
         on = not on
         S[key] = on
         state.Text = on and "ON ✓" or "OFF"
-        state.TextColor3 = on and Color3.fromRGB(130, 255, 170) or Color3.fromRGB(170, 170, 170)
+        state.TextColor3 = on and Color3.fromRGB(140, 255, 180) or Color3.fromRGB(180, 180, 180)
         
         if on then
             btnGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, color or Color3.fromRGB(140, 70, 200)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(70, 35, 115))
+                ColorSequenceKeypoint.new(0, color or Color3.fromRGB(160, 80, 220)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 40, 130))
             })
         else
             btnGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(42, 32, 62)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(22, 18, 36))
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(48, 38, 70)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(26, 20, 42))
             })
         end
     end)
@@ -171,29 +174,29 @@ end
 
 -- Section
 local function section(text, icon)
-    local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 32), BackgroundTransparency = 1}, content)
-    inst("TextLabel", {Size = UDim2.fromOffset(30, 30), Position = UDim2.fromOffset(5, 1), BackgroundTransparency = 1, Text = icon or "✦", Font = Enum.Font.Gotham, TextSize = 20, TextColor3 = Color3.fromRGB(240, 170, 255)}, s)
-    inst("TextLabel", {Size = UDim2.new(1, -42, 1, 0), Position = UDim2.fromOffset(40, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(240, 170, 255), Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left}, s)
+    local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1}, content)
+    inst("TextLabel", {Size = UDim2.fromOffset(34, 34), Position = UDim2.fromOffset(5, 1), BackgroundTransparency = 1, Text = icon or "✦", Font = Enum.Font.Gotham, TextSize = 22, TextColor3 = Color3.fromRGB(250, 180, 255)}, s)
+    inst("TextLabel", {Size = UDim2.new(1, -48, 1, 0), Position = UDim2.fromOffset(44, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(250, 180, 255), Font = Enum.Font.GothamBold, TextSize = 18, TextXAlignment = Enum.TextXAlignment.Left}, s)
     return s
 end
 
 -- Slider
 local function slider(title, key, min, max, default, color)
-    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 68), BackgroundColor3 = Color3.fromRGB(28, 22, 42), BorderSizePixel = 0}, content)
-    round(f, 14)
+    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 75), BackgroundColor3 = Color3.fromRGB(32, 25, 48), BorderSizePixel = 0}, content)
+    round(f, 16)
     
-    inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 26), Position = UDim2.fromOffset(16, 8), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left}, f)
+    inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 28), Position = UDim2.fromOffset(18, 10), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left}, f)
     
-    local val = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 26), Position = UDim2.new(0.7, -12, 0, 8), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = color or Color3.fromRGB(240, 170, 255), Font = Enum.Font.GothamBold, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Right}, f)
+    local val = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 28), Position = UDim2.new(0.7, -14, 0, 10), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = color or Color3.fromRGB(250, 180, 255), Font = Enum.Font.GothamBold, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Right}, f)
     
-    local bg = inst("Frame", {Size = UDim2.new(1, -32, 0, 12), Position = UDim2.fromOffset(16, 46), BackgroundColor3 = Color3.fromRGB(45, 40, 68), BorderSizePixel = 0}, f)
-    round(bg, 6)
+    local bg = inst("Frame", {Size = UDim2.new(1, -36, 0, 14), Position = UDim2.fromOffset(18, 52), BackgroundColor3 = Color3.fromRGB(52, 45, 78), BorderSizePixel = 0}, f)
+    round(bg, 7)
     
-    local fill = inst("Frame", {Size = UDim2.new((default - min) / (max - min), 0, 1, 0), BackgroundColor3 = color or Color3.fromRGB(240, 170, 255), BorderSizePixel = 0}, bg)
-    round(fill, 6)
+    local fill = inst("Frame", {Size = UDim2.new((default - min) / (max - min), 0, 1, 0), BackgroundColor3 = color or Color3.fromRGB(250, 180, 255), BorderSizePixel = 0}, bg)
+    round(fill, 7)
     
-    local handle = inst("Frame", {Size = UDim2.fromOffset(24, 24), Position = UDim2.new((default - min) / (max - min), -12, 0.5, -12), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, bg)
-    round(handle, 12)
+    local handle = inst("Frame", {Size = UDim2.fromOffset(26, 26), Position = UDim2.new((default - min) / (max - min), -13, 0.5, -13), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, bg)
+    round(handle, 13)
     
     S[key] = default
     local dragging = false
@@ -204,7 +207,7 @@ local function slider(title, key, min, max, default, color)
         S[key] = v
         val.Text = tostring(v)
         fill.Size = UDim2.new(rel, 0, 1, 0)
-        handle.Position = UDim2.new(rel, -12, 0.5, -12)
+        handle.Position = UDim2.new(rel, -13, 0.5, -13)
     end
     
     conn(handle.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end end)
@@ -221,54 +224,52 @@ end
 
 section("🔥 القدرات الرئيسية", "⚡")
 
-btn("إخفاء كامل", "👻", "Invisible", Color3.fromRGB(140, 0, 200))
-btn("سرعة خارقة", "⚡", "Speed", Color3.fromRGB(0, 140, 260))
-btn("طيران حر", "🚀", "Fly", Color3.fromRGB(0, 200, 140))
+btn("إخفاء كامل", "👻", "Invisible", Color3.fromRGB(160, 0, 220))
+btn("سرعة خارقة", "⚡", "Speed", Color3.fromRGB(0, 160, 280))
+btn("طيران حر", "🚀", "Fly", Color3.fromRGB(0, 220, 160))
 
 section("⚙️ الإعدادات", "🎛️")
 
-slider("سرعة المشي", "WalkSpeed", 16, 500, 100, Color3.fromRGB(140, 210, 255))
-slider("سرعة الطيران", "FlySpeed", 10, 300, 50, Color3.fromRGB(140, 255, 210))
+slider("سرعة المشي", "WalkSpeed", 16, 500, 100, Color3.fromRGB(160, 220, 255))
+slider("سرعة الطيران", "FlySpeed", 10, 300, 50, Color3.fromRGB(160, 255, 220))
 
 section("🎯 التفاعل مع اللاعبين", "🎮")
 
-btn("سحب لاعب", "🧲", "DragPlayers", Color3.fromRGB(220, 140, 0))
-btn("رؤية اللاعبين", "👁️", "PlayerESP", Color3.fromRGB(0, 200, 140))
-btn("تكبير اللاعبين", "🔍", "PlayerSize", Color3.fromRGB(200, 70, 260))
+btn("سحب لاعب", "🧲", "DragPlayers", Color3.fromRGB(240, 160, 0))
+btn("رؤية اللاعبين", "👁️", "PlayerESP", Color3.fromRGB(0, 220, 160))
+btn("تكبير اللاعبين", "🔍", "PlayerSize", Color3.fromRGB(220, 80, 280))
 
-slider("مضاعف الحجم", "SizeMultiplier", 1, 10, 2, Color3.fromRGB(255, 170, 110))
+slider("مضاعف الحجم", "SizeMultiplier", 1, 10, 2, Color3.fromRGB(255, 180, 120))
 
 section("🚪 إدارة اللاعبين", "⚠️")
 
-btn("وضع الطرد", "🚫", "KickPlayer", Color3.fromRGB(240, 60, 60))
-
 -- Player List (كبيرة جداً)
-local playerFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 220), BackgroundColor3 = Color3.fromRGB(20, 16, 35), BorderSizePixel = 0}, content)
-round(playerFrame, 14)
+local playerFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 240), BackgroundColor3 = Color3.fromRGB(22, 18, 40), BorderSizePixel = 0}, content)
+round(playerFrame, 16)
 
-inst("TextLabel", {Size = UDim2.new(1, -16, 0, 28), Position = UDim2.fromOffset(14, 10), BackgroundTransparency = 1, Text = "📋 قائمة اللاعبين", TextColor3 = Color3.fromRGB(170, 220, 255), Font = Enum.Font.GothamBold, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left}, playerFrame)
+inst("TextLabel", {Size = UDim2.new(1, -18, 0, 32), Position = UDim2.fromOffset(16, 12), BackgroundTransparency = 1, Text = "📋 قائمة اللاعبين", TextColor3 = Color3.fromRGB(180, 230, 255), Font = Enum.Font.GothamBold, TextSize = 19, TextXAlignment = Enum.TextXAlignment.Left}, playerFrame)
 
-local playerScroll = inst("ScrollingFrame", {Size = UDim2.new(1, -16, 1, -44), Position = UDim2.fromOffset(8, 40), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = Color3.fromRGB(170, 220, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, playerFrame)
-inst("UIListLayout", {Padding = UDim.new(0, 6)}, playerScroll)
+local playerScroll = inst("ScrollingFrame", {Size = UDim2.new(1, -18, 1, -50), Position = UDim2.fromOffset(9, 46), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6, ScrollBarImageColor3 = Color3.fromRGB(180, 230, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, playerFrame)
+inst("UIListLayout", {Padding = UDim.new(0, 8)}, playerScroll)
 
 local function refreshPlayers()
     for _, v in pairs(playerScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
     
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP then
-            local pf = inst("Frame", {Size = UDim2.new(1, 0, 0, 45), BackgroundColor3 = Color3.fromRGB(38, 32, 60), BorderSizePixel = 0}, playerScroll)
-            round(pf, 10)
+            local pf = inst("Frame", {Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = Color3.fromRGB(42, 36, 65), BorderSizePixel = 0}, playerScroll)
+            round(pf, 12)
             
-            inst("TextLabel", {Size = UDim2.new(0.35, 0, 1, 0), Position = UDim2.fromOffset(14, 0), BackgroundTransparency = 1, Text = p.DisplayName, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left}, pf)
+            inst("TextLabel", {Size = UDim2.new(0.35, 0, 1, 0), Position = UDim2.fromOffset(16, 0), BackgroundTransparency = 1, Text = p.DisplayName, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 19, TextXAlignment = Enum.TextXAlignment.Left}, pf)
             
-            local dragBtn = inst("TextButton", {Size = UDim2.fromOffset(60, 32), Position = UDim2.new(1, -195, 0.5, -16), BackgroundColor3 = Color3.fromRGB(240, 160, 0), Text = "🧲 سحب", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13}, pf)
-            round(dragBtn, 8)
+            local dragBtn = inst("TextButton", {Size = UDim2.fromOffset(65, 36), Position = UDim2.new(1, -215, 0.5, -18), BackgroundColor3 = Color3.fromRGB(255, 180, 0), Text = "🧲 سحب", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 14}, pf)
+            round(dragBtn, 9)
             
-            local tpBtn = inst("TextButton", {Size = UDim2.fromOffset(60, 32), Position = UDim2.new(1, -130, 0.5, -16), BackgroundColor3 = Color3.fromRGB(0, 190, 150), Text = "📍 انتقال", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13}, pf)
-            round(tpBtn, 8)
+            local tpBtn = inst("TextButton", {Size = UDim2.fromOffset(65, 36), Position = UDim2.new(1, -145, 0.5, -18), BackgroundColor3 = Color3.fromRGB(0, 210, 170), Text = "📍 انتقال", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 14}, pf)
+            round(tpBtn, 9)
             
-            local kickBtn = inst("TextButton", {Size = UDim2.fromOffset(60, 32), Position = UDim2.new(1, -65, 0.5, -16), BackgroundColor3 = Color3.fromRGB(240, 70, 70), Text = "🚫 طرد", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13}, pf)
-            round(kickBtn, 8)
+            local kickBtn = inst("TextButton", {Size = UDim2.fromOffset(65, 36), Position = UDim2.new(1, -75, 0.5, -18), BackgroundColor3 = Color3.fromRGB(255, 80, 80), Text = "🚫 طرد", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 14}, pf)
+            round(kickBtn, 9)
             
             conn(dragBtn.MouseButton1Click, function()
                 draggedPlayer = p
@@ -285,20 +286,17 @@ local function refreshPlayers()
             end)
             
             conn(kickBtn.MouseButton1Click, function()
-                if S.KickPlayer then
-                    -- محاولة طرد اللاعب (تحتاج صلاحيات خادم)
+                if kickEvent then
+                    kickEvent:FireServer(p)
+                    print("🚫 تم إرسال طلب طرد: " .. p.Name)
+                else
+                    -- إذا ما فيه ServerScript، نقتل الشخصية
                     local targetChar = p.Character
                     local targetHumanoid = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
                     if targetHumanoid then
                         targetHumanoid.Health = 0
                     end
-                    
-                    -- إرسال رسالة للخادم (إذا كان لديك RemoteEvent)
-                    -- game.ReplicatedStorage.KickPlayer:FireServer(p)
-                    
-                    print("🚫 تم طرد: " .. p.Name)
-                else
-                    print("⚠️ فعّل وضع الطرد أولاً")
+                    print("⚠️ طرد محلي (بدون ServerScript): " .. p.Name)
                 end
             end)
         end
@@ -317,7 +315,7 @@ conn(Players.PlayerRemoving, refreshPlayers)
 conn(hideBtn.MouseButton1Click, function()
     guiVisible = not guiVisible
     content.Visible = guiVisible
-    main.Size = guiVisible and (guiSize == 1 and UDim2.fromOffset(420, 580) or UDim2.fromOffset(520, 680)) or UDim2.fromOffset(420, 58)
+    main.Size = guiVisible and (guiSize == 1 and UDim2.fromOffset(450, 620) or UDim2.fromOffset(550, 720)) or UDim2.fromOffset(450, 62)
     hideBtn.Text = guiVisible and "👁️" or "🚫"
 end)
 
@@ -326,9 +324,9 @@ conn(sizeBtn.MouseButton1Click, function()
     guiSize = guiSize == 1 and 2 or 1
     if guiVisible then
         if guiSize == 1 then
-            main:TweenSize(UDim2.fromOffset(420, 580), "Out", "Quad", 0.3, true)
+            main:TweenSize(UDim2.fromOffset(450, 620), "Out", "Quad", 0.3, true)
         else
-            main:TweenSize(UDim2.fromOffset(520, 680), "Out", "Quad", 0.3, true)
+            main:TweenSize(UDim2.fromOffset(550, 720), "Out", "Quad", 0.3, true)
         end
     end
 end)
@@ -509,7 +507,7 @@ end
 
 conn(close.MouseButton1Click, cleanup)
 
-print("✅ STEALTH MASTER v7.0 ULTIMATE PRO+ LOADED")
+print("✅ STEALTH MASTER v8.0 ULTIMATE PRO MAX LOADED")
 print("👻 Invisible | ⚡ Speed | 🚀 Fly")
 print("🧲 Drag | 📍 Teleport | 👁️ ESP | 🔍 Size")
-print("🚫 Kick Player | ⛶ Resize GUI | 👁️ Hide GUI")
+print("🚫 Kick (Real with ServerScript) | ⛶ Resize | 👁️ Hide")
