@@ -552,3 +552,50 @@ print("✅ STEALTH MASTER v10.0 ULTIMATE LOADED")
 print("👻 Invisible | ⚡ Speed | 🚀 Fly")
 print("🧲 Drag | 📍 Teleport | 👁️ ESP | 🔍 Size")
 print("❄️ Freeze Player | 🔥 Unfreeze All")
+-- ServerScript: FreezeSystem
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- إنشاء RemoteEvent
+local freezeEvent = Instance.new("RemoteEvent")
+freezeEvent.Name = "FreezePlayer"
+freezeEvent.Parent = ReplicatedStorage
+
+local unfreezeEvent = Instance.new("RemoteEvent")
+unfreezeEvent.Name = "UnfreezePlayer"
+unfreezeEvent.Parent = ReplicatedStorage
+
+-- تجميد لاعب
+freezeEvent.OnServerEvent:Connect(function(adminPlayer, targetPlayer)
+    -- تحقق من الصلاحيات
+    if adminPlayer.UserId == game.CreatorId or adminPlayer:GetRankInGroup(game.CreatorId) >= 255 then
+        if targetPlayer and targetPlayer.Parent == Players then
+            local char = targetPlayer.Character
+            if char then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.Anchored = true
+                end
+            end
+            print("❄️ تم تجميد: " .. targetPlayer.Name)
+        end
+    end
+end)
+
+-- فك التجميد
+unfreezeEvent.OnServerEvent:Connect(function(adminPlayer, targetPlayer)
+    if adminPlayer.UserId == game.CreatorId or adminPlayer:GetRankInGroup(game.CreatorId) >= 255 then
+        if targetPlayer and targetPlayer.Parent == Players then
+            local char = targetPlayer.Character
+            if char then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.Anchored = false
+                end
+            end
+            print("🔥 تم فك تجميد: " .. targetPlayer.Name)
+        end
+    end
+end)
+
+print("✅ Freeze System Loaded")
