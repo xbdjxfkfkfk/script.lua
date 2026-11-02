@@ -511,3 +511,27 @@ print("✅ STEALTH MASTER v8.0 ULTIMATE PRO MAX LOADED")
 print("👻 Invisible | ⚡ Speed | 🚀 Fly")
 print("🧲 Drag | 📍 Teleport | 👁️ ESP | 🔍 Size")
 print("🚫 Kick (Real with ServerScript) | ⛶ Resize | 👁️ Hide")
+-- ServerScript: KickSystem
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- إنشاء RemoteEvent
+local kickEvent = Instance.new("RemoteEvent")
+kickEvent.Name = "KickPlayer"
+kickEvent.Parent = ReplicatedStorage
+
+-- استقبال طلبات الطرد
+kickEvent.OnServerEvent:Connect(function(adminPlayer, targetPlayer)
+    -- تحقق من الصلاحيات (عدّل حسب احتياجك)
+    -- مثال: فقط صاحب اللعبة أو أدمن
+    if adminPlayer.UserId == game.CreatorId or adminPlayer:GetRankInGroup(game.CreatorId) >= 255 then
+        if targetPlayer and targetPlayer.Parent == Players then
+            targetPlayer:Kick("تم طردك من الماب بواسطة: " .. adminPlayer.Name)
+            print("🚫 تم طرد: " .. targetPlayer.Name .. " بواسطة: " .. adminPlayer.Name)
+        end
+    else
+        print("⚠️ " .. adminPlayer.Name .. " حاول الطرد بدون صلاحيات")
+    end
+end)
+
+print("✅ Kick System Loaded")
