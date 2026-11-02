@@ -1,1465 +1,1541 @@
--- Safe entrypoint: a failure in any feature must not leave the user with an invisible menu.
-local function LxStartup()
--- Lx REDLINE PRO v77 | ULTIMATE PROFESSIONAL EDITION | server-authorized gameplay + functional local effects.
--- Install in StarterPlayer/StarterPlayerScripts. Never put Discord secrets in this file.
--- Server-side capabilities require the companion SERVER.lua + Discord gateway.
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local CollectionService = game:GetService("CollectionService")
-local Lighting = game:GetService("Lighting")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
-local localPlayer = Players.LocalPlayer
-if not localPlayer then warn("[Lx] Must run as a client LocalScript") return end
-local playerGui = localPlayer:WaitForChild("PlayerGui", 15)
-if not playerGui then warn("[Lx] PlayerGui was not found") return end
-
-local NAME = "Lx_REDLINE_PRO_v77_REBUILT"
-if type(_G.LxREDLINECleanup_v77) == "function" then pcall(_G.LxREDLINECleanup_v77) end
--- Clean up legacy v77 installs, if their cleanup hook is present.
-if type(_G.XHubCleanup) == "function" then pcall(_G.XHubCleanup) end
-for _, oldName in ipairs({"Lx_NexusV77", "Lx_NexusFOV_V77", "Lx_NexusV76"}) do
-    local old = playerGui:FindFirstChild(oldName)
-    if old then old:Destroy() end
+-- Startup guard: report Lua execution errors in a visible on-screen panel.
+local function launchRedline()
+-- Lx REDLINE PRO v77 | smooth vehicle controls and Discord entry | radar identification and marker recovery: relaxed identification and delayed model updates
+-- Loaded client objects only; server-streamed distant objects cannot be detected.
+-- Lx NEXUS PRO v47 | single-file Luau client utility
+-- Features are best-effort and limited to replicated objects and client authority.
+local Players=game:GetService('Players')
+local RunService=game:GetService('RunService')
+local UIS=game:GetService('UserInputService')
+local WS=game:GetService('Workspace')
+local Lighting=game:GetService('Lighting')
+local CollectionService=game:GetService('CollectionService')
+local LP=Players.LocalPlayer
+if not LP then warn('Lx NEXUS: no LocalPlayer');return end
+local PG=LP:WaitForChild('PlayerGui',12)
+if not PG then warn('Lx NEXUS: PlayerGui unavailable');return end
+local env=_G
+if type(getgenv)=='function' then local ok,e=pcall(getgenv);if ok and type(e)=='table' then env=e end end
+if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup) end
+for _,name in ipairs({'Lx_NexusV77','Lx_NexusV76','Lx_NexusV75','Lx_NexusV74','Lx_NexusV73','Lx_NexusV72','Lx_NexusV71','Lx_NexusV70','Lx_NexusV69','Lx_NexusV68','Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','X_ZyphoraHubV33','X_ZyphoraHubV32','X_ZyphoraHubV31'}) do
+ local old=PG:FindFirstChild(name)
+ if old then old:Destroy() end
 end
-local oldStartup = playerGui:FindFirstChild("Lx_REDLINE_v77_STARTUP_ERROR")
-if oldStartup then oldStartup:Destroy() end
-local previous = playerGui:FindFirstChild(NAME)
-if previous then previous:Destroy() end
-local alive = true
-local connections = {}
-local objects = {}
-local errors = {}
-local toggles = {}
-local activePage = nil
-local isAuthed = false
-local previewing = true
-local flyMode = nil
-local dragging = false
-local inputHeld = {}
-local touchHeld = {}
-local homePoint = nil
-local radarModels = {}
-local radarMarkers = {}
-local resourceMarkers = {}
-local visualBackup = nil
-local radarEnabled = false
-local resourceEnabled = false
-local aimEnabled = false
-local aimRadius = 30
-local speedWanted = 75
-local carFlySpeed = 70
-local playerFlySpeed = 55
-local walkSpeed = 24
-local oldWalkSpeed = nil
-local speedOn = false
-local fogOff = false
-local fullbright = false
-local monitorEnabled = false
-local lastPosition = nil
-local lastLargeMove = "ما فيه أحداث"
-local allResources = {}
-local remoteFunction = nil
-local remoteEvent = nil
-local statusReference = nil
-local debugReportLabel = nil
-local radarPageCount = nil
-local diagLastSample = nil
-local setAuthorized
-local performanceLow = false
-local fpsEstimate = 60
-
-local COLORS = {
-    black = Color3.fromRGB(10, 10, 13),
-    dark = Color3.fromRGB(22, 22, 27),
-    panel = Color3.fromRGB(31, 32, 39),
-    accent = Color3.fromRGB(229, 32, 46),
-    white = Color3.fromRGB(250, 250, 251),
-    muted = Color3.fromRGB(174, 176, 187),
-    green = Color3.fromRGB(85, 215, 133),
-    amber = Color3.fromRGB(255, 190, 84),
-}
-local function connect(signal, callback)
-    local connection = signal:Connect(callback)
-    table.insert(connections, connection)
-    return connection
+for _,version in ipairs({55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77}) do
+ pcall(function() RunService:UnbindFromRenderStep('Lx_NexusAimV'..version) end)
 end
-local function create(className, properties, parent)
-    local element = Instance.new(className)
-    for property, value in pairs(properties or {}) do element[property] = value end
-    if parent then element.Parent = parent end
-    return element
+local alive=true;local conns={};local markers={};local lightSaved={};local atmoSaved={};local originalSpeed=nil;local speedHum=nil
+local S={Radar=false,RadarRange=3000,Aim=false,AimRange=3000,AimSmooth=.14,FOV=25,Speed=false,Walk=32,CarSpeed=false,CarTarget=200,CarDirection=1,CarFly=false,FlySpeed=100,PlayerFly=false,PlayerFlySpeed=50,Fog=false,Fullbright=false,Merchant=false,ResourceESP=false,RareAlert=false,ResourceAlert=false,Filter='الكل'}
+local function conn(signal,fn) local c=signal:Connect(fn);conns[#conns+1]=c;return c end
+local function inst(typ,props,parent) local x=Instance.new(typ);for k,v in pairs(props or {}) do x[k]=v end;x.Parent=parent;return x end
+local function round(x,r) inst('UICorner',{CornerRadius=UDim.new(0,r or 9)},x) end
+local function root() return LP.Character and LP.Character:FindFirstChild('HumanoidRootPart') end
+local function hum() return LP.Character and LP.Character:FindFirstChildOfClass('Humanoid') end
+local status
+local function msg(t) if alive and status then status.Text=tostring(t) end end
+local C={bg=Color3.fromRGB(10,10,12),card=Color3.fromRGB(28,29,32),muted=Color3.fromRGB(184,186,190),white=Color3.fromRGB(255,255,255),purple=Color3.fromRGB(239,28,37),green=Color3.fromRGB(80,215,135)}
+for _,oldName in ipairs({'Lx_NexusV55','Lx_NexusV54','Lx_NexusV53','Lx_NexusV52','Lx_NexusV51','Lx_NexusV50','Lx_NexusV49','Lx_NexusV48','Lx_NexusV47','Lx_NexusV46','Lx_NexusV45','Lx_NexusV44','Lx_NexusV35','Lx_NexusFOV_V35','Lx_NexusV36','Lx_NexusV37','Lx_NexusV39','Lx_NexusV44','Lx_NexusFOV_V36','Lx_NexusFOV_V39','X_ZyphoraFOV_V34'}) do local old=PG:FindFirstChild(oldName);if old then old:Destroy() end end
+local oldCurrent=PG:FindFirstChild('Lx_NexusV76') or PG:FindFirstChild('Lx_NexusV75') or PG:FindFirstChild('Lx_NexusV74') or PG:FindFirstChild('Lx_NexusV73') or PG:FindFirstChild('Lx_NexusV71') or PG:FindFirstChild('Lx_NexusV68') or PG:FindFirstChild('Lx_NexusV67') or PG:FindFirstChild('Lx_NexusV66') or PG:FindFirstChild('Lx_NexusV65') or PG:FindFirstChild('Lx_NexusV64') or PG:FindFirstChild('Lx_NexusV63') or PG:FindFirstChild('Lx_NexusV62') or PG:FindFirstChild('Lx_NexusV61') or PG:FindFirstChild('Lx_NexusV60') or PG:FindFirstChild('Lx_NexusV56') or PG:FindFirstChild('Lx_NexusV57') or PG:FindFirstChild('Lx_NexusV58') or PG:FindFirstChild('Lx_NexusV59')
+if oldCurrent then oldCurrent:Destroy() end
+local gui=inst('ScreenGui',{Name='Lx_NexusV77',ResetOnSpawn=false,DisplayOrder=90,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},PG)
+local main=inst('Frame',{Size=UDim2.fromOffset(650,500),Position=UDim2.new(.5,-325,.5,-250),BackgroundColor3=C.bg,BorderSizePixel=0,Active=true},gui);round(main,16)
+main.Visible=true -- always visible before feature initialization
+inst('UIStroke',{Color=Color3.fromRGB(205,36,42),Thickness=1.4,Transparency=.12},main)
+local scale=inst('UIScale',{Scale=1},main)
+local function fitScreen()
+ local cam=WS.CurrentCamera
+ if cam then local v=cam.ViewportSize;scale.Scale=math.min(1,math.max(.55,math.min((v.X-24)/650,(v.Y-24)/500))) end
 end
-local function corner(parent, radius)
-    return create("UICorner", {CornerRadius = UDim.new(0, radius or 10)}, parent)
+fitScreen()
+local head=inst('Frame',{Size=UDim2.new(1,0,0,66),BackgroundColor3=Color3.fromRGB(22,22,24),BorderSizePixel=0,Active=true},main);round(head,16)
+inst('Frame',{Size=UDim2.new(1,-30,0,2),Position=UDim2.new(0,15,1,-2),BackgroundColor3=C.purple,BorderSizePixel=0},head)
+local brand=inst('Frame',{Size=UDim2.fromOffset(44,44),Position=UDim2.fromOffset(12,11),BackgroundColor3=Color3.fromRGB(255,255,255),BorderSizePixel=0},head);round(brand,12)
+inst('UIStroke',{Color=Color3.fromRGB(240,42,50),Thickness=1},brand)
+inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text='Lx',Font=Enum.Font.GothamBlack,TextSize=22,TextColor3=C.purple},brand)
+inst('TextLabel',{Size=UDim2.fromOffset(270,17),Position=UDim2.fromOffset(70,39),BackgroundTransparency=1,Text='REDLINE  •  PREMIUM CONTROL SYSTEM',TextColor3=C.muted,Font=Enum.Font.GothamMedium,TextSize=9,TextXAlignment=Enum.TextXAlignment.Left},head)
+inst('TextLabel',{Size=UDim2.fromOffset(330,30),Position=UDim2.fromOffset(70,9),BackgroundTransparency=1,Text='Lx  REDLINE PRO',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=19,TextXAlignment=Enum.TextXAlignment.Left},head)
+local function smallBtn(text,x) local b=inst('TextButton',{Size=UDim2.fromOffset(31,29),Position=UDim2.new(1,x,0,19),Text=text,Font=Enum.Font.GothamBold,TextSize=16,TextColor3=C.white,BackgroundColor3=C.bg},head);round(b,7);return b end
+local mini=smallBtn('−',-78);local close=smallBtn('×',-39)
+local side=inst('ScrollingFrame',{Size=UDim2.new(0,188,1,-111),Position=UDim2.fromOffset(12,76),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},main)
+inst('UIListLayout',{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},side)
+local area=inst('Frame',{Size=UDim2.new(1,-222,1,-114),Position=UDim2.fromOffset(210,76),BackgroundTransparency=1,ClipsDescendants=true},main)
+status=inst('TextLabel',{Size=UDim2.new(1,-24,0,25),Position=UDim2.new(0,12,1,-31),BackgroundTransparency=1,Text='Lx REDLINE | الوظائف تعتمد على بيانات الماب وصلاحيات العميل',TextColor3=C.muted,TextSize=11,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},main)
+local tabs={};local pageButtons={}
+local function tab(name)
+ local b=inst('TextButton',{Size=UDim2.new(1,-6,0,44),Text=name,TextSize=12,Font=Enum.Font.GothamBold,TextColor3=C.white,BackgroundColor3=C.card},side);round(b,11)
+ inst('UIStroke',{Color=Color3.fromRGB(110,44,49),Thickness=1,Transparency=.45},b)
+ local p=inst('ScrollingFrame',{Size=UDim2.fromScale(1,1),Visible=false,BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=4,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},area)
+ inst('UIListLayout',{Padding=UDim.new(0,9),SortOrder=Enum.SortOrder.LayoutOrder},p)
+ inst('UIPadding',{PaddingTop=UDim.new(0,3),PaddingBottom=UDim.new(0,12),PaddingRight=UDim.new(0,8)},p)
+ tabs[#tabs+1]=p;pageButtons[#pageButtons+1]=b
+ conn(b.MouseButton1Click,function() for i,t in ipairs(tabs) do t.Visible=t==p;pageButtons[i].BackgroundColor3=t==p and C.purple or C.card end end)
+ if #tabs==1 then p.Visible=true;b.BackgroundColor3=C.purple end
+ return p
 end
-local function stroke(parent, color)
-    return create("UIStroke", {Color = color or COLORS.accent, Thickness = 1, Transparency = 0.40}, parent)
+local function label(p,title,desc)
+ local h=desc and 54 or 27
+ local f=inst('Frame',{Size=UDim2.new(1,-2,0,h),BackgroundColor3=C.card,BorderSizePixel=0},p);round(f,11);inst('UIStroke',{Color=Color3.fromRGB(85,46,49),Thickness=1,Transparency=.5},f)
+ inst('TextLabel',{Size=UDim2.new(1,-20,0,25),Position=UDim2.fromOffset(10,3),BackgroundTransparency=1,Text=title,Font=Enum.Font.GothamBold,TextSize=12,TextColor3=C.white,TextXAlignment=Enum.TextXAlignment.Left},f)
+ if desc then inst('TextLabel',{Size=UDim2.new(1,-20,0,22),Position=UDim2.fromOffset(10,27),BackgroundTransparency=1,Text=desc,Font=Enum.Font.Gotham,TextSize=10,TextColor3=C.muted,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left},f) end
+ return f
 end
-local function log(message, failure)
-    local messageText = tostring(message)
-    if failure then
-        table.insert(errors, 1, messageText)
-        while #errors > 25 do table.remove(errors) end
-        warn("[Lx] " .. messageText)
-    end
-    if alive and statusReference and statusReference.Parent then
-        statusReference.Text = messageText:sub(1, 180)
-    end
-    if alive and debugReportLabel and debugReportLabel.Parent then
-        debugReportLabel.Text = table.concat(errors, "\n\n"):sub(1, 7000)
-    end
+local function action(p,title,fn)
+ local b=inst('TextButton',{Size=UDim2.new(1,-2,0,41),Text=title,TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,BackgroundColor3=C.card},p);round(b,11)
+ inst('UIStroke',{Color=Color3.fromRGB(110,44,49),Thickness=1,Transparency=.5},b)
+ conn(b.MouseButton1Click,function() local ok,e=pcall(fn);if not ok then warn('Lx NEXUS:',e);msg('خطأ: '..tostring(e):sub(1,65)) end end);return b
 end
-local function human()
-    local ch = localPlayer.Character
-    return ch and ch:FindFirstChildOfClass("Humanoid") or nil
-end
-local function playerRoot()
-    local ch = localPlayer.Character
-    return ch and ch:FindFirstChild("HumanoidRootPart") or nil
-end
-local function basePart(model)
-    if not model then return nil end
-    if model:IsA("BasePart") then return model end
-    if model:IsA("Model") then return model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true) end
-    return nil
-end
-local function safeNumber(number)
-    return type(number) == "number" and number == number and number > -math.huge and number < math.huge
-end
-local function convertNumber(raw)
-    local result = tostring(raw):gsub("٫", "."):gsub("٬", ""):gsub("،", ".")
-    local numerals = {"٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"}
-    local persian = {"۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"}
-    for i = 1, 10 do
-        result = result:gsub(numerals[i], tostring(i - 1))
-        result = result:gsub(persian[i], tostring(i - 1))
-    end
-    local value = tonumber(result)
-    if not safeNumber(value) then return nil end
-    return value
-end
-local function invoke(action, payload)
-    if not remoteFunction then return false, "لا يوجد سكربت سيرفر Lx في ReplicatedStorage" end
-    local ok, success, result = xpcall(function()
-        return remoteFunction:InvokeServer(action, payload)
-    end, function(e) return debug.traceback(tostring(e), 2) end)
-    if not ok then return false, "خطأ الاتصال بالسيرفر: " .. tostring(success) end
-    return success == true, result
+local togglePaints={}
+local function toggle(p,title,key,fn)
+ local b=inst('TextButton',{Size=UDim2.new(1,-2,0,41),Text='',TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,BackgroundColor3=C.card},p)
+ round(b,11)
+ inst('UIStroke',{Color=Color3.fromRGB(110,44,49),Thickness=1,Transparency=.5},b)
+ local function paint()
+  local enabled=S[key]==true
+  b.Text=title..(enabled and '  |  ON ✓' or '  |  OFF ✕')
+  b.BackgroundColor3=enabled and Color3.fromRGB(105,30,35) or C.card
+ end
+ paint()
+ togglePaints[key]=paint
+ conn(b.MouseButton1Click,function()
+  local previous=S[key]==true
+  local desired=not previous
+  S[key]=desired
+  local ok,err=true,nil
+  if fn then ok,err=pcall(fn,desired) end
+  if not ok then
+   S[key]=previous
+   warn('[Lx NEXUS] toggle failed:',err)
+   msg('تعذر تغيير الخيار: '..tostring(err):sub(1,55))
+  else
+   msg(title..(desired and ' : تم التشغيل ON' or ' : تم الإيقاف OFF'))
+  end
+  paint()
+ end)
+ return b
 end
 
--- Build a visible shell BEFORE any remote request, game scan, or feature init.
-local gui = create("ScreenGui", {
-    Name = NAME, ResetOnSpawn = false, DisplayOrder = 1000, Enabled = true,
-    IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-}, playerGui)
--- Register recovery before building the rest of the UI. A later startup failure
--- must not leak old connections or hide the next menu instance.
-local function earlyCleanup()
-    if not alive then return end
-    alive = false
-    for _, c in ipairs(connections) do pcall(function() c:Disconnect() end) end
-    if gui and gui.Parent then pcall(function() gui:Destroy() end) end
-    if _G.LxREDLINECleanup_v77 == earlyCleanup then _G.LxREDLINECleanup_v77 = nil end
+local function number(p,title,key,min,max,step)
+ -- Separate title and entry row: old one-line control covered the input on some viewport scales.
+ local f=inst('Frame',{Size=UDim2.new(1,-2,0,72),BackgroundColor3=C.card,BorderSizePixel=0},p)
+ round(f,10)
+ inst('TextLabel',{Size=UDim2.new(1,-16,0,22),Position=UDim2.fromOffset(8,4),BackgroundTransparency=1,
+  Text=title,TextColor3=C.white,TextSize=12,Font=Enum.Font.GothamBold,
+  TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},f)
+ local minus=inst('TextButton',{Size=UDim2.fromOffset(36,31),Position=UDim2.fromOffset(8,31),
+  Text='−',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=18,BackgroundColor3=C.bg,Active=true,ZIndex=3},f)
+ round(minus,6)
+ local plus=inst('TextButton',{Size=UDim2.fromOffset(36,31),Position=UDim2.new(1,-44,0,31),
+  Text='+',TextColor3=C.white,Font=Enum.Font.GothamBold,TextSize=18,BackgroundColor3=C.bg,Active=true,ZIndex=3},f)
+ round(plus,6)
+ local value=inst('TextBox',{Size=UDim2.new(1,-108,0,31),Position=UDim2.fromOffset(54,31),
+  BackgroundColor3=C.bg,Text=tostring(S[key]),ClearTextOnFocus=false,MultiLine=false,
+  TextEditable=true,Active=true,ZIndex=4,TextColor3=C.white,TextSize=14,
+  Font=Enum.Font.GothamBold,PlaceholderText='اكتب الرقم',PlaceholderColor3=C.muted},f)
+ round(value,6)
+ inst('UIStroke',{Color=C.purple,Thickness=1.2,Transparency=.2},value)
+ local function commit(raw)
+  local cleaned=tostring(raw):gsub('٫','.'):gsub('٬',''):gsub('،','.')
+  local numerals={'٠','١','٢','٣','٤','٥','٦','٧','٨','٩'}
+  for i,digit in ipairs(numerals) do cleaned=cleaned:gsub(digit,tostring(i-1)) end
+  local persian={'۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'}
+  for i,digit in ipairs(persian) do cleaned=cleaned:gsub(digit,tostring(i-1)) end
+  cleaned=cleaned:gsub('^%s+',''):gsub('%s+$','')
+  local n=tonumber(cleaned)
+  if not n or n~=n or n==math.huge or n==-math.huge then
+   msg('أدخل رقمًا صحيحًا: '..title)
+  else
+   S[key]=math.clamp(math.floor(n*100+.5)/100,min,max)
+  end
+  value.Text=tostring(S[key])
+ end
+ conn(minus.MouseButton1Click,function()commit(S[key]-step)end)
+ conn(plus.MouseButton1Click,function()commit(S[key]+step)end)
+ conn(value.Focused,function() value.Text=tostring(S[key]);value.CursorPosition=#value.Text+1 end)
+ conn(value.FocusLost,function()commit(value.Text)end)
+ return f
 end
-_G.LxREDLINECleanup_v77 = earlyCleanup
-local launcher = create("TextButton", {
-    Name = "AlwaysVisibleLx", Size = UDim2.fromOffset(55, 54),
-    Position = UDim2.fromOffset(12, 70), BackgroundColor3 = COLORS.accent,
-    BorderSizePixel = 0, Text = "Lx", TextColor3 = COLORS.white,
-    TextSize = 21, Font = Enum.Font.GothamBlack, ZIndex = 15,
-}, gui)
-corner(launcher, 14)
-stroke(launcher, COLORS.white)
-local main = create("Frame", {
-    Name = "MainPanel", AnchorPoint = Vector2.new(0.5, 0.5),
-    Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(750, 510),
-    BackgroundColor3 = COLORS.black, BorderSizePixel = 0, Active = true, Visible = true,
-}, gui)
-corner(main, 15)
-stroke(main)
-local screenScale = create("UIScale", {Scale = 1}, main)
-local minimized = false
-local sidebar, sidebarLayout, content, welcome, titleText
-local tabButtons = {}
-local function sizeToViewport()
-    local camera = Workspace.CurrentCamera
-    if not camera then return end
-    local v = camera.ViewportSize
-    local mobile = v.X < 700
-    -- Reflow the layout instead of scaling 12px text down to 5px on phones.
-    screenScale.Scale = 1
-    if mobile then
-        local w = math.max(260, v.X - 16)
-        local h = math.max(245, v.Y - 40)
-        main.Size = UDim2.fromOffset(w, minimized and 64 or h)
-        if titleText then titleText.Size = UDim2.new(1, -155, 0, 28); titleText.TextSize = 15 end
-        if sidebar and content and sidebarLayout then
-            sidebar.Position = UDim2.fromOffset(9, 72)
-            sidebar.Size = UDim2.new(1, -18, 0, 48)
-            sidebar.AutomaticCanvasSize = Enum.AutomaticSize.X
-            sidebarLayout.FillDirection = Enum.FillDirection.Horizontal
-            for _, b in ipairs(tabButtons) do b.Size = UDim2.fromOffset(112, 42) end
-            content.Position = UDim2.fromOffset(9, 127)
-            content.Size = UDim2.new(1, -18, 1, -158)
-        end
-        if welcome then
-            welcome.Position = UDim2.fromOffset(9, 127)
-            welcome.Size = UDim2.new(1, -18, 1, -158)
-        end
-    else
-        local scale = math.min(1, (v.X - 22) / 750, (v.Y - 22) / 510)
-        screenScale.Scale = math.max(0.4, scale)
-        main.Size = UDim2.fromOffset(750, minimized and 66 or 510)
-        if titleText then titleText.Size = UDim2.fromOffset(530, 28); titleText.TextSize = 21 end
-        if sidebar and content and sidebarLayout then
-            sidebar.Position = UDim2.fromOffset(12, 74)
-            sidebar.Size = UDim2.new(0, 170, 1, -110)
-            sidebar.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            sidebarLayout.FillDirection = Enum.FillDirection.Vertical
-            for _, b in ipairs(tabButtons) do b.Size = UDim2.new(1, -5, 0, 41) end
-            content.Position = UDim2.fromOffset(194, 74)
-            content.Size = UDim2.new(1, -206, 1, -110)
-        end
-        if welcome then
-            welcome.Position = UDim2.fromOffset(194, 74)
-            welcome.Size = UDim2.new(1, -206, 1, -110)
-        end
-    end
+-- Split the heavy features from the GUI/bootstrap to prevent Luau register/local limits.
+-- The menu renders first; feature initialization happens on the next scheduler cycle.
+status.Text='Lx v77 | الواجهة جاهزة؛ جار تحميل الميزات...'
+-- Register a provisional cleanup BEFORE feature initialization. If any feature
+-- throws, restarting the script still disconnects its partial connections.
+local function provisionalCleanup()
+ if not alive then return end
+ alive=false
+ for _,c in ipairs(conns) do pcall(function()c:Disconnect()end) end
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV77')end)
+ local orphan=PG:FindFirstChild('Lx_NexusFOV_V77')
+ if orphan then pcall(function()orphan:Destroy()end) end
+ if gui and gui.Parent then pcall(function()gui:Destroy()end) end
+ if env.XHubCleanup==provisionalCleanup then env.XHubCleanup=nil end
 end
-sizeToViewport()
-local titlebar = create("Frame", {Size = UDim2.new(1, 0, 0, 64), BackgroundColor3 = COLORS.dark,
-    BorderSizePixel = 0, Active = true}, main)
-corner(titlebar, 14)
-titleText = create("TextLabel", {Position = UDim2.fromOffset(18, 8), Size = UDim2.fromOffset(540, 28),
-    BackgroundTransparency = 1, Text = "Lx REDLINE PRO | v77 ULTIMATE", TextColor3 = COLORS.white,
-    TextSize = 21, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left}, titlebar)
-create("TextLabel", {Position = UDim2.fromOffset(19, 36), Size = UDim2.fromOffset(550, 16),
-    BackgroundTransparency = 1, Text = "STUDIO EDITION  •  BLACK / RED / WHITE", TextColor3 = COLORS.muted,
-    TextSize = 10, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left}, titlebar)
-local function headButton(txt, x)
-    local b = create("TextButton", {Size = UDim2.fromOffset(34, 34), Position = UDim2.new(1, x, 0, 15),
-        BackgroundColor3 = COLORS.panel, TextColor3 = COLORS.white, Text = txt,
-        Font = Enum.Font.GothamBold, TextSize = 19}, titlebar)
-    corner(b, 8)
-    return b
-end
-local minimizeButton = headButton("−", -83)
-local closeButton = headButton("×", -43)
-sidebar = create("ScrollingFrame", {Position = UDim2.fromOffset(12, 74), Size = UDim2.new(0, 170, 1, -110),
-    BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3,
-    AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.fromOffset(0, 0)}, main)
-sidebarLayout = create("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, sidebar)
-content = create("Frame", {Position = UDim2.fromOffset(194, 74), Size = UDim2.new(1, -206, 1, -110),
-    BackgroundTransparency = 1, ClipsDescendants = true}, main)
-local statusText = create("TextLabel", {Position = UDim2.new(0, 16, 1, -31), Size = UDim2.new(1, -30, 0, 26),
-    BackgroundTransparency = 1, Text = "الأدوات المحلية جاهزة • التحكم بالسيارة يحتاج سيرفر",
-    TextColor3 = COLORS.muted, Font = Enum.Font.Gotham, TextSize = 12,
-    TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd}, main)
-statusReference = statusText
-local pages = {}
-local function makePage(label)
-    local index = #pages + 1
-    local b = create("TextButton", {Size = UDim2.new(1, -5, 0, 41), BackgroundColor3 = COLORS.panel,
-        TextColor3 = COLORS.white, TextSize = 12, Font = Enum.Font.GothamBold, Text = label,
-        LayoutOrder = index}, sidebar)
-    corner(b, 9)
-    local page = create("ScrollingFrame", {Size = UDim2.fromScale(1, 1), Visible = index == 1,
-        BackgroundTransparency = 1, BorderSizePixel = 0,
-        ScrollBarThickness = 4, AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        CanvasSize = UDim2.fromOffset(0, 0)}, content)
-    create("UIPadding", {PaddingRight = UDim.new(0, 8), PaddingBottom = UDim.new(0, 10)}, page)
-    create("UIListLayout", {Padding = UDim.new(0, 9), SortOrder = Enum.SortOrder.LayoutOrder}, page)
-    pages[index] = page
-    tabButtons[index] = b
-    local function activate()
-        for i, p in ipairs(pages) do
-            p.Visible = (p == page)
-            tabButtons[i].BackgroundColor3 = p == page and COLORS.accent or COLORS.panel
-        end
-        activePage = page
-    end
-    connect(b.MouseButton1Click, function()
-        if not isAuthed and not RunService:IsStudio() then
-            welcome.Visible = true
-            log("تحقق من العضوية أولًا لفتح الصفحات")
-            return
-        end
-        activate()
-        if not isAuthed then
-            previewing = true
-            welcome.Visible = false
-            log("وضع فحص Studio: أدوات العرض متاحة؛ وظائف السيرفر ما زالت تحتاج صلاحيات")
-        end
-    end)
-    if index == 1 then activate() end
-    return page
-end
-local function info(page, title, description)
-    local h = description and 65 or 35
-    local f = create("Frame", {Size = UDim2.new(1, -3, 0, h), BackgroundColor3 = COLORS.panel,
-        BorderSizePixel = 0}, page)
-    corner(f, 10)
-    create("TextLabel", {Position = UDim2.fromOffset(10, 5), Size = UDim2.new(1, -20, 0, 25),
-        BackgroundTransparency = 1, Text = title, TextColor3 = COLORS.white,
-        Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
-        TextWrapped = true}, f)
-    if description then
-        create("TextLabel", {Position = UDim2.fromOffset(10, 29), Size = UDim2.new(1, -20, 0, 31),
-            BackgroundTransparency = 1, Text = description, TextColor3 = COLORS.muted,
-            Font = Enum.Font.Gotham, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
-            TextWrapped = true}, f)
-    end
-    return f
-end
-local function button(page, title, callback, allowWithoutAuth)
-    local b = create("TextButton", {Size = UDim2.new(1, -3, 0, 40), BackgroundColor3 = COLORS.panel,
-        TextColor3 = COLORS.white, TextSize = 12, Font = Enum.Font.GothamBold, Text = title}, page)
-    corner(b, 9)
-    connect(b.MouseButton1Click, function()
-        -- This GUI callback is always reachable. Client-only effects run locally.
-        -- Server commands invoke the authoritative server, which performs its own
-        -- Discord/permission checks. Never treat a button click as authorization.
-        task.spawn(function()
-            local ok, err = xpcall(function() callback(b) end,
-                function(e) return debug.traceback(tostring(e), 2) end)
-            if not ok then log("[" .. title .. "] " .. tostring(err), true) end
-        end)
-    end)
-    return b
-end
-local function toggle(page, title, callback)
-    local active = false
-    local busy = false
-    local b
-    b = button(page, title .. "  |  OFF", function()
-        if busy then return end
-        busy = true
-        b.Text = title .. "  |  جاري التنفيذ..."
-        local newValue = not active
-        local callOk, ok, reason = xpcall(function() return callback(newValue) end,
-            function(e) return debug.traceback(tostring(e), 2) end)
-        busy = false
-        if not callOk or ok ~= true then
-            local why = (not callOk) and tostring(ok) or tostring(reason or "رفض السيرفر / تعذر التطبيق")
-            b.Text = title .. (active and "  |  ON ✓" or "  |  OFF ×")
-            b.BackgroundColor3 = active and Color3.fromRGB(100, 28, 35) or COLORS.panel
-            log("تعذر تشغيل " .. title .. ": " .. why, true)
-            return
-        end
-        active = newValue
-        b.Text = title .. (active and "  |  ON ✓" or "  |  OFF ×")
-        b.BackgroundColor3 = active and Color3.fromRGB(100, 28, 35) or COLORS.panel
-        log(title .. (active and " : ON" or " : OFF"))
-    end)
-    local control = {}
-    function control:set(value)
-        active = value == true
-        b.Text = title .. (active and "  |  ON ✓" or "  |  OFF ×")
-        b.BackgroundColor3 = active and Color3.fromRGB(100, 28, 35) or COLORS.panel
-    end
-    function control:get() return active end
-    toggles[#toggles + 1] = control
-    return control
-end
-local function numberInput(page, title, initial, minValue, maxValue, increment, setter)
-    local current = initial
-    local f = create("Frame", {Size = UDim2.new(1, -3, 0, 73), BackgroundColor3 = COLORS.panel}, page)
-    corner(f, 10)
-    create("TextLabel", {Position = UDim2.fromOffset(9, 3), Size = UDim2.new(1, -18, 0, 25),
-        BackgroundTransparency = 1, Text = title, TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.GothamBold,
-        TextColor3 = COLORS.white}, f)
-    local field = create("TextBox", {Position = UDim2.fromOffset(51, 32), Size = UDim2.new(1, -103, 0, 33),
-        ClearTextOnFocus = false, TextEditable = true, Text = tostring(initial),
-        TextColor3 = COLORS.white, BackgroundColor3 = COLORS.black,
-        Font = Enum.Font.GothamBold, TextSize = 15, ZIndex = 3}, f)
-    corner(field, 6)
-    stroke(field)
-    local minus = create("TextButton", {Position = UDim2.fromOffset(8, 32), Size = UDim2.fromOffset(34, 33),
-        Text = "−", TextSize = 20, TextColor3 = COLORS.white,
-        BackgroundColor3 = COLORS.dark}, f)
-    corner(minus, 6)
-    local plus = create("TextButton", {Position = UDim2.new(1, -43, 0, 32), Size = UDim2.fromOffset(34, 33),
-        Text = "+", TextSize = 20, TextColor3 = COLORS.white,
-        BackgroundColor3 = COLORS.dark}, f)
-    corner(plus, 6)
-    local function commit(raw)
-        local parsed = convertNumber(raw)
-        if not parsed then log("اكتب رقمًا صحيحًا: " .. title) field.Text = tostring(current) return end
-        local proposed = math.clamp(parsed, minValue, maxValue)
-        local ok, reason = setter(proposed)
-        if ok == true then current = proposed else log(reason or "فشل تحديث الرقم", true) end
-        field.Text = tostring(current)
-    end
-    connect(field.FocusLost, function() commit(field.Text) end)
-    connect(minus.MouseButton1Click, function() commit(current - increment) end)
-    connect(plus.MouseButton1Click, function() commit(current + increment) end)
-    return field
-end
-
--- Secure membership screen. Roblox cannot safely embed a Discord client secret.
-welcome = create("Frame", {Name = "DiscordGate", Position = UDim2.fromOffset(194, 74),
-    Size = UDim2.new(1, -206, 1, -110), BackgroundColor3 = COLORS.black, ZIndex = 9, Visible = false}, main)
-corner(welcome, 12)
-local welcomeStatus = create("TextLabel", {Position = UDim2.fromOffset(20, 12), Size = UDim2.new(1, -40, 0, 70),
-    BackgroundTransparency = 1, Text = "مرحبًا بك في Lx REDLINE PRO\nتحقق من عضويتك عبر Discord لفتح القوائم",
-    TextColor3 = COLORS.white, TextSize = 18, Font = Enum.Font.GothamBold,
-    TextWrapped = true, ZIndex = 10}, welcome)
-local instructions = create("TextLabel", {Position = UDim2.fromOffset(25, 97), Size = UDim2.new(1, -50, 0, 64),
-    BackgroundTransparency = 1, Text = "الربط يتم عبر القنوات الرسمية الخاصة بصاحب التجربة.\nلا تُعرض روابط خارجية داخل Roblox. يمكنك تحديث حالة عضويتك هنا.",
-    TextColor3 = COLORS.muted, TextSize = 13, Font = Enum.Font.Gotham,
-    TextWrapped = true, ZIndex = 10}, welcome)
-local urlField = create("TextBox", {Position = UDim2.fromOffset(24, 173), Size = UDim2.new(1, -48, 0, 45),
-    BackgroundColor3 = COLORS.panel, Text = "", PlaceholderText = "رمز الربط (ليس رابطًا خارجيًا)",
-    TextColor3 = COLORS.white, TextSize = 13, TextEditable = false, ClearTextOnFocus = false,
-    TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.Code, ZIndex = 10}, welcome)
-corner(urlField, 7)
-local gateButtons = create("Frame", {Position = UDim2.fromOffset(24, 232), Size = UDim2.new(1, -48, 0, 48),
-    BackgroundTransparency = 1, ZIndex = 10}, welcome)
-create("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal,
-    Padding = UDim.new(0, 10)}, gateButtons)
-local function gateButton(title)
-    local b = create("TextButton", {Size = UDim2.new(0.5, -5, 1, 0), BackgroundColor3 = COLORS.accent,
-        Text = title, TextColor3 = COLORS.white, TextSize = 12,
-        Font = Enum.Font.GothamBold, ZIndex = 11}, gateButtons)
-    corner(b, 10)
-    return b
-end
-local generateButton = gateButton("إنشاء رمز الربط")
-local checkButton = gateButton("تحديث حالة العضوية")
-local previewButton = create("TextButton", {
-    Name = "PreviewMenu", Position = UDim2.fromOffset(24, 300),
-    Size = UDim2.new(1, -48, 0, 45), Text = "فتح الأدوات المحلية وفحص السيرفر",
-    TextColor3 = COLORS.white, BackgroundColor3 = COLORS.panel,
-    Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 11
-}, welcome)
-corner(previewButton, 9)
-previewButton.Visible = RunService:IsStudio()
-connect(previewButton.MouseButton1Click, function()
-    if not RunService:IsStudio() then return end
-    previewing = true
-    welcome.Visible = false
-    sidebar.Visible = true
-    content.Visible = true
-    log("الأدوات المحلية تعمل • قيادة وطيران وانتقال السيارة تحتاج إعداد السيرفر والتحقق")
+env.XHubCleanup=provisionalCleanup
+-- Emergency close works even if feature initialization throws an error.
+conn(close.MouseButton1Click,function()
+ if type(env.XHubCleanup)=='function' then pcall(env.XHubCleanup)
+ else gui:Destroy() end
 end)
-local membershipButton = create("TextButton", {
-    Name = "MembershipButton", Position = UDim2.new(1, -169, 0, 15),
-    Size = UDim2.fromOffset(78, 34), Text = "العضوية",
-    TextColor3 = COLORS.white, BackgroundColor3 = COLORS.panel,
-    Font = Enum.Font.GothamBold, TextSize = 12, ZIndex = 15,
-}, titlebar)
-corner(membershipButton, 8)
-connect(membershipButton.MouseButton1Click, function()
-    previewing = false
-    welcome.Visible = not isAuthed and not minimized
-    sidebar.Visible = isAuthed and not minimized
-    content.Visible = isAuthed and not minimized
-    if isAuthed then log("عضوية Discord مؤكدة") end
-end)
-
--- Sidebar pages. Components are real, and unavailable server-dependent calls fail visibly.
-local dashboardPage = makePage("الرئيسية")
-local radarPage = makePage("رادار الضبان")
-local animalsPage = makePage("كشف الضبان")
-local resourcesPage = makePage("التاجر والنوادر")
-local carPage = makePage("سرعة السيارة")
-local carFlightPage = makePage("طيران السيارة")
-local flightPage = makePage("طيران اللاعب")
-local playerSpeedPage = makePage("سرعة اللاعب")
-local fogPage = makePage("إزالة الضباب")
-local fullbrightPage = makePage("إضاءة كاملة")
-local aimingPage = makePage("التصويب")
-local movePage = makePage("الانتقال")
-local watchPage = makePage("مراقبة الماب")
-local settingsPage = makePage("الإعدادات")
-local protectionPage = makePage("تشخيص الحماية")
-local performancePage = makePage("الأداء")
-local discordPage = makePage("ديسكورد")
-local debugPage = makePage("سجل الأخطاء")
-sizeToViewport() -- the responsive relayout now sees all tabs and the gate
-sidebar.Visible = false
-content.Visible = false
-welcome.Visible = true
-
-local function getDriverSeat()
-    local h = human()
-    local seat = h and h.SeatPart
-    if seat and seat:IsA("VehicleSeat") then return seat end
-    return nil
+local function showFeatureError(detail)
+ status.Text='Lx v77 | خطأ في تحميل الميزات (موضح في النافذة)'
+ local errorFrame=inst('Frame',{Name='FeatureError',Size=UDim2.new(1,-24,0,137),Position=UDim2.new(0,12,1,-170),BackgroundColor3=Color3.fromRGB(57,21,25),BorderSizePixel=0,ZIndex=100},main)
+ round(errorFrame,10)
+ local errorLabel=inst('TextLabel',{Size=UDim2.new(1,-20,1,-54),Position=UDim2.fromOffset(10,8),BackgroundTransparency=1,Text='STARTUP ERROR | '..tostring(detail):sub(1,250),Font=Enum.Font.Code,TextSize=12,TextColor3=C.white,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=101},errorFrame)
+ local copyButton=inst('TextButton',{Size=UDim2.new(1,-20,0,32),Position=UDim2.new(0,10,1,-38),BackgroundColor3=C.purple,Text='نسخ الخطأ للتشخيص',TextColor3=C.white,TextSize=13,Font=Enum.Font.GothamBold,ZIndex=101},errorFrame)
+ round(copyButton,6)
+ conn(copyButton.MouseButton1Click,function()
+  if type(setclipboard)=='function' then local ok=pcall(setclipboard,tostring(detail));copyButton.Text=ok and 'تم نسخ الخطأ' or 'النسخ غير متاح'
+  else copyButton.Text='النسخ غير متاح؛ صوّر الخطأ' end
+ end)
 end
-local function getModelMetadata(model, keys)
-    for _, key in ipairs(keys) do
-        local v = model:GetAttribute(key)
-        if v ~= nil then return v end
-        local sub = model:FindFirstChild(key, true)
-        if sub and sub:IsA("ValueBase") then return sub.Value end
-    end
-    return nil
+local function initializeFeatures()
+local function read(model,names)
+ for _,n in ipairs(names) do local v=model:GetAttribute(n);if v~=nil then return v end;local child=model:FindFirstChild(n,true);if child and child:IsA('ValueBase') then return child.Value end end
 end
-local function isLiveLizard(model)
-    if not model or not (model:IsA("Model") or model:IsA("MeshPart")) or not model:IsDescendantOf(Workspace) then return false end
-    local tagged = CollectionService:HasTag(model, "LxLizard") or CollectionService:HasTag(model, "Lizard")
-        or CollectionService:HasTag(model, "Dhab")
-    if not tagged then return false end
-    if model:GetAttribute("LxIsDecoration") == true or model:GetAttribute("IsCaged") == true then return false end
-    if not basePart(model) then return false end
-    if model:FindFirstChildWhichIsA("VehicleSeat", true) then return false end
-    local parent = model
-    while parent and parent ~= Workspace do
-        if parent:IsA("Model") then
-            if Players:GetPlayerFromCharacter(parent) or CollectionService:HasTag(parent, "LxVehicle")
-                or parent:GetAttribute("LxIsDecoration") == true then return false end
-        end
-        parent = parent.Parent
-    end
-    local h = model:FindFirstChildOfClass("Humanoid")
-    if h and h.Health <= 0 then return false end
-    if model:GetAttribute("Dead") == true or model:GetAttribute("Collected") == true then return false end
-    -- Explicit tags are required. This prevents classifying cars/decor by their names alone.
-    return true
+-- Verified animal classification. Never infer an animal solely from a part name.
+-- Vehicles may contain child models named after animals (decals, cargo, tools).
+local vehicleNames={'car','truck','vehicle','pickup','trailer','chassis','wheel','tire','seat','سيار','مركب','شاص','كفر','عجل','قلص','مقطور'}
+local animalNames={'dhab','dhub','lizard','reptile','ضب','ضبان','dhabb','uromastyx','uromastyx','spinytailed','spiny-tailed'}
+local function matchesAny(value,words)
+ local name=tostring(value):lower()
+ for _,word in ipairs(words) do if name:find(word,1,true) then return true end end
+ return false
 end
-local function registerLizard(model)
-    if isLiveLizard(model) then radarModels[model] = true end
+local function playerAncestor(obj)
+ local cursor=obj
+ while cursor and cursor~=WS do
+  if cursor:IsA('Model') and Players:GetPlayerFromCharacter(cursor) then return true end
+  cursor=cursor.Parent
+ end
+ return false
 end
-for _, tag in ipairs({"LxLizard", "Lizard", "Dhab"}) do
-    for _, model in ipairs(CollectionService:GetTagged(tag)) do registerLizard(model) end
-    connect(CollectionService:GetInstanceAddedSignal(tag), registerLizard)
-    connect(CollectionService:GetInstanceRemovedSignal(tag), function(model)
-        if not isLiveLizard(model) then radarModels[model] = nil end
-    end)
+-- A model can be a decorative submodel of a car even if its own name
+-- does not contain vehicle keywords. Inspect all containing model hierarchies.
+-- Cache seat-bearing models for the current radar refresh to avoid lag.
+local seatCache=setmetatable({}, {__mode='k'})
+local function hasDrivingSeat(container)
+ local known=seatCache[container]
+ if known~=nil then return known end
+ -- Do not scan a whole map/animal-spawn container for a seat in another car.
+ -- Only models with direct evidence of being a vehicle are checked deeply.
+ local vehicleLike=matchesAny(container.Name,vehicleNames)
+  or container:FindFirstChild('Chassis')~=nil
+  or container:FindFirstChild('Wheels')~=nil
+  or container:FindFirstChild('VehicleSeat')~=nil
+  or container:FindFirstChild('DriveSeat')~=nil
+ local found=false
+ if vehicleLike then
+  found=container:FindFirstChildWhichIsA('VehicleSeat',true)~=nil
+   or container:FindFirstChildWhichIsA('Seat',true)~=nil
+ end
+ seatCache[container]=found
+ return found
 end
-connect(Workspace.DescendantAdded, function(obj)
-    if (obj:IsA("Model") or obj:IsA("MeshPart")) and (CollectionService:HasTag(obj, "LxLizard") or
-        CollectionService:HasTag(obj, "Lizard") or CollectionService:HasTag(obj, "Dhab")) then
-        registerLizard(obj)
-    end
-end)
-local function makeMarker(part, label, color)
-    local marker = create("BillboardGui", {Name = "LxTrackedObject", Adornee = part,
-        Size = UDim2.fromOffset(220, 68), StudsOffsetWorldSpace = Vector3.new(0, 3, 0),
-        AlwaysOnTop = true, MaxDistance = 3000}, gui)
-    create("TextLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
-        Text = label, Font = Enum.Font.GothamBold, TextSize = 12, TextWrapped = true,
-        TextColor3 = color or COLORS.white, TextStrokeTransparency = 0.25}, marker)
-    return marker
+local function blockedAncestor(obj)
+ local cursor=obj
+ while cursor and cursor~=WS do
+  if cursor:IsA('VehicleSeat') or cursor:IsA('Seat') then return true end
+  if cursor:IsA('Model') then
+   if Players:GetPlayerFromCharacter(cursor) then return true end
+   if matchesAny(cursor.Name,vehicleNames) or hasDrivingSeat(cursor) then return true end
+  end
+  cursor=cursor.Parent
+ end
+ return false
 end
-local function dropMarker(map, key)
-    if map[key] then map[key]:Destroy() map[key] = nil end
+local function lizard(model)
+ if not model or not model:IsA('Model') or not model.Parent then return false end
+ if blockedAncestor(model) then return false end
+ -- A car/showroom containing a lizard child must never become one huge ESP target.
+ local ownParts=0
+ local ownRoot=nil
+ for _,child in ipairs(model:GetChildren()) do
+  if child:IsA('BasePart') then ownParts+=1;ownRoot=ownRoot or child end
+ end
+ local tagged=CollectionService:HasTag(model,'Lizard') or CollectionService:HasTag(model,'Dhab')
+  or CollectionService:HasTag(model,'ضب') or CollectionService:HasTag(model,'Lizards')
+  or CollectionService:HasTag(model,'AnimalLizard')
+ local species=read(model,{'Species','AnimalType','CreatureType','PetType','MobType','نوع'})
+ local typed=species~=nil and matchesAny(species,animalNames)
+ local named=matchesAny(model.Name,animalNames)
+ if not (tagged or typed or named) then return false end
+ -- Display, truck and animal-spawn folders can have species-like names.
+ -- A creature candidate needs an actual physical body, not just a nested decoration.
+ local physical=ownParts>0 or model.PrimaryPart~=nil
+ if not physical and not (tagged or typed) then return false end
+ if model:FindFirstChildWhichIsA('VehicleSeat',true) or model:FindFirstChildWhichIsA('Seat',true) then return false end
+ -- The topmost confirmed animal owns the label: avoid duplicate labels for nested rigs.
+ local cursor=model.Parent
+ while cursor and cursor~=WS do
+  if cursor:IsA('Model') and (CollectionService:HasTag(cursor,'Lizard')
+    or CollectionService:HasTag(cursor,'Dhab') or CollectionService:HasTag(cursor,'ضب')) then return false end
+  cursor=cursor.Parent
+ end
+ if tagged or typed then return model:FindFirstChildWhichIsA('BasePart',true)~=nil end
+ -- The previous version required a Head/Humanoid. Many real lizards are single MeshParts.
+ -- Keep a conservative bounding-box limit to avoid tagging cars or whole showcases.
+ local ok,_,size=pcall(function()return model:GetBoundingBox()end)
+ if not ok or not size then return false end
+ if math.max(size.X,size.Y,size.Z)>18 then return false end
+ return ownParts>0 or model.PrimaryPart~=nil
 end
-local function clearMarkers(map)
-    for key, marker in pairs(map) do marker:Destroy() map[key] = nil end
+local function part(model) return model.PrimaryPart or model:FindFirstChildWhichIsA('BasePart',true) end
+local function living(model)
+ local h=model:FindFirstChildOfClass('Humanoid')
+ if h and h.Health<=0 then return false end
+ local dead=read(model,{'Dead','IsDead','Killed','Defeated','Collected'})
+ if dead==true or dead==1 or dead=='true' then return false end
+ local health=read(model,{'Health','HP','CurrentHealth'})
+ if tonumber(health) and tonumber(health)<=0 then return false end
+ return model.Parent~=nil
 end
-local function rarityText(model)
-    local raw = getModelMetadata(model, {"Rarity", "Tier", "ندرة"})
-    if raw == nil then return "غير متاح" end
-    local value = tostring(raw)
-    local known = {t1 = "عادي", t2 = "مميز", t3 = "نادر", t4 = "فاخر", t5 = "أسطوري", t6 = "خرافي",
-        common = "عادي", uncommon = "مميز", rare = "نادر", epic = "فاخر", legendary = "أسطوري", mythic = "خرافي"}
-    return known[value:lower()] or value
+local rarities={['t1']='عادي',['t2']='مميز',['t3']='نادر',['t4']='فاخر',['t5']='أسطوري',['t6']='خرافي',common='عادي',uncommon='مميز',rare='نادر',epic='فاخر',legendary='أسطوري',mythic='خرافي'}
+local rarityColors={['عادي']=Color3.fromRGB(230,230,230),['مميز']=Color3.fromRGB(65,220,110),['نادر']=Color3.fromRGB(75,155,255),['فاخر']=Color3.fromRGB(170,90,240),['أسطوري']=Color3.fromRGB(255,192,60),['خرافي']=Color3.fromRGB(245,65,80)}
+local function rarity(m)
+ local raw=tostring(read(m,{'Rarity','Tier','Grade','Rank','RarityName','ندرة'}) or ''):lower():gsub('^%s+',''):gsub('%s+$','')
+ return rarities[raw] or (rarityColors[raw] and raw) or 'غير محدد'
 end
-local function metadataDisplay(model, attributeKeys)
-    local value = getModelMetadata(model, attributeKeys)
-    if value == nil then return "غير متاح" end
-    if type(value) == "number" then return string.format("%.2f", value) end
-    return tostring(value)
+local function speciesName(model)
+ local raw=read(model,{'Species','AnimalType','CreatureType','PetType','MobType','نوع'})
+ if raw~=nil and tostring(raw)~='' then return tostring(raw) end
+ return model.Name
 end
-info(animalsPage, "كاشف الضبان الحقيقي", "يكتشف فقط نماذج الضبان المعلّمة LxLizard أو Lizard أو Dhab؛ لا يعتمد على اسم سيارة أو قفص.")
-local radarMirrorToggle
-local fillAnimals
-local animalToggle = toggle(animalsPage, "رادار الضبان", function(on)
-    radarEnabled = on
-    if not on then clearMarkers(radarMarkers) end
-    if radarMirrorToggle then radarMirrorToggle:set(on) end
-    return true
-end)
-info(radarPage, "الرادار", "فحص الضبان المعلّمة داخل الجزء الذي حمّله Roblox؛ لا يكشف كائنات لم تصل للعميل.")
-radarMirrorToggle = toggle(radarPage, "تشغيل الرادار", function(on)
-    radarEnabled = on
-    if not on then clearMarkers(radarMarkers) end
-    animalToggle:set(on)
-    return true
-end)
-local radarCounter = info(radarPage, "عدد الضبان: 0", "المدى يعتمد على النسخ الموجود لدى العميل")
-radarPageCount = radarCounter:FindFirstChildOfClass("TextLabel")
-button(radarPage, "تحديث رادار الضبان", function() fillAnimals() end)
-local animalSummary = info(animalsPage, "المكتشف: 0", "القائمة تتحدث تلقائيًا كل ثانيتين")
-local animalSummaryText = animalSummary:FindFirstChildOfClass("TextLabel")
-local animalRows = create("Frame", {Size = UDim2.new(1, -3, 0, 0),
-    AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1}, animalsPage)
-create("UIListLayout", {Padding = UDim.new(0, 6)}, animalRows)
-fillAnimals = function()
-    local r = playerRoot()
-    local results = {}
-    for model in pairs(radarModels) do
-        if isLiveLizard(model) then
-            local part = basePart(model)
-            if part then
-                local distance = r and (part.Position - r.Position).Magnitude or math.huge
-                table.insert(results, {model = model, part = part, distance = distance})
-            end
-        else
-            radarModels[model] = nil
-            dropMarker(radarMarkers, model)
-        end
-    end
-    table.sort(results, function(a, b) return a.distance < b.distance end)
-    animalSummaryText.Text = "ضبان حقيقية مكتشفة: " .. tostring(#results)
-    if radarPageCount then radarPageCount.Text = "الضبان المحمّلة: " .. tostring(#results) end
-    for _, child in ipairs(animalRows:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
-    for i, item in ipairs(results) do
-        if i > 35 then break end
-        local model = item.model
-        local rarity = rarityText(model)
-        local species = metadataDisplay(model, {"Species", "CreatureType", "نوع"})
-        if species == "غير متاح" then species = model.Name end
-        local size = metadataDisplay(model, {"AnimalSize", "DhabSize", "SizeStat", "الحجم"})
-        local weight = metadataDisplay(model, {"WeightKG", "AnimalWeight", "DhabWeight", "الوزن"})
-        local desc = string.format("%s | %s\nندرة: %s | حجم: %s | وزن: %s | بعد: %.0f",
-            model.Name, species, rarity, size, weight, item.distance)
-        local frame = info(animalRows, desc)
-        frame.Size = UDim2.new(1, -3, 0, 47)
-        local txt = frame:FindFirstChildOfClass("TextLabel")
-        txt.Size = UDim2.new(1, -20, 1, -7)
-    end
-    if radarEnabled then
-        local active = {}
-        for i, item in ipairs(results) do
-            if i > 40 then break end
-            if item.distance <= 3000 then
-                active[item.model] = true
-                if not radarMarkers[item.model] then radarMarkers[item.model] = makeMarker(item.part, "", COLORS.amber) end
-                local marker = radarMarkers[item.model]
-                marker.Adornee = item.part
-                marker:FindFirstChildOfClass("TextLabel").Text = item.model.Name .. " | " ..
-                    rarityText(item.model) .. "\n" ..
-                    string.format("%.0f studs", item.distance)
-            end
-        end
-        for model in pairs(radarMarkers) do if not active[model] then dropMarker(radarMarkers, model) end end
-    end
+local function animalSize(model)
+ -- Only report game-provided size stats, never derive an invented value.
+ local v=read(model,{'Size','Scale','SizeValue','AnimalSize','DhabSize','CreatureSize','SizeStat','الحجم','حجم'})
+ if v==nil then return 'غير متاح' end
+ local n=tonumber(v)
+ if n then
+  if n~=n or n==math.huge or n==-math.huge then return 'غير متاح' end
+  return string.format('%.2f',n):gsub('%.?0+$','')
+ end
+ if typeof(v)=='Vector3' then return string.format('%.1f × %.1f × %.1f',v.X,v.Y,v.Z) end
+ return tostring(v)
 end
-button(animalsPage, "تحديث قائمة الضبان الآن", fillAnimals)
-
-info(resourcesPage, "التاجر والنوادر", "يقرأ عناصر الماب المعلمة LxMerchant وLxRareResource؛ لا يمكن للعميل اختلاق عمليات بيع أو مكافآت.")
-local resourceAlert = false
-local lizardAlert = false
-local banner = create("TextLabel", {Name = "LxNewDiscovery", AnchorPoint = Vector2.new(0.5, 0),
-    Position = UDim2.new(0.5, 0, 0, 8), Size = UDim2.fromOffset(400, 55),
-    BackgroundColor3 = COLORS.accent, TextColor3 = COLORS.white,
-    Font = Enum.Font.GothamBold, TextSize = 14, TextWrapped = true,
-    Visible = false, ZIndex = 25}, gui)
-corner(banner, 9)
-local alertTicket = 0
-local function alertNew(text)
-    if not alive then return end
-    alertTicket = alertTicket + 1
-    local ticket = alertTicket
-    banner.Text = text
-    banner.Visible = true
-    task.delay(4, function() if alive and alertTicket == ticket then banner.Visible = false end end)
+-- Read explicit weight metadata only. Roblox physical AssemblyMass is not animal weight.
+-- Games can store weight on the animal or in a Stats/Metadata container.
+local function animalWeight(model)
+ local names={'Weight','WeightKG','WeightKg','Weight_kg','WeightInKg','AnimalWeight',
+  'CreatureWeight','DhabWeight','LizardWeight','BodyWeight','KG','Kg','kg',
+  'الوزن','وزن','الوزن_كجم','الوزن_بالكيلو'}
+ local v=read(model,names)
+ if v==nil then
+  for _,folderName in ipairs({'Stats','Statistics','Data','Metadata','Attributes','Info','Properties','معلومات','بيانات'}) do
+   local folder=model:FindFirstChild(folderName,true)
+   if folder then
+    v=read(folder,names)
+    if v~=nil then break end
+   end
+  end
+ end
+ if v==nil then return 'غير متاح' end
+ local n=tonumber(v)
+ if n then
+  if n~=n or n==math.huge or n==-math.huge or n<0 then return 'غير متاح' end
+  return (string.format('%.2f',n):gsub('%.?0+$',''))..' كجم'
+ end
+ if typeof(v)=='string' and #v>0 then return v end
+ return 'غير متاح'
 end
-connect(CollectionService:GetInstanceAddedSignal("LxRareResource"), function(obj)
-    if resourceAlert and obj:IsDescendantOf(Workspace) then alertNew("ظهر مورد نادر: " .. obj.Name) end
-end)
-for _, tag in ipairs({"LxLizard", "Lizard", "Dhab"}) do
-    connect(CollectionService:GetInstanceAddedSignal(tag), function(obj)
-        if lizardAlert and isLiveLizard(obj) then alertNew("ظهر ضب: " .. obj.Name .. " | " .. rarityText(obj)) end
-    end)
+local function nice(v,unit)
+ if v==nil then return nil end
+ local n=tonumber(v);if n then return string.format('%.1f',n)..(unit or '') end
+ return tostring(v)
 end
-local resourceToggle = toggle(resourcesPage, "إظهار النوادر ESP", function(on)
-    resourceEnabled = on
-    if not on then clearMarkers(resourceMarkers) end
-    return true
-end)
-toggle(resourcesPage, "تنبيه ظهور النوادر", function(on) resourceAlert = on return true end)
-toggle(resourcesPage, "تنبيه ظهور الضبان", function(on) lizardAlert = on return true end)
-local resourcesStatus = info(resourcesPage, "الموارد: غير مفحوصة", "الأماكن غير المحمّلة لا تظهر في البحث")
-local resourcesStatusText = resourcesStatus:FindFirstChildOfClass("TextLabel")
-local function nearestTagged(tag)
-    local r = playerRoot()
-    if not r then return nil end
-    local nearest, distance = nil, math.huge
-    for _, obj in ipairs(CollectionService:GetTagged(tag)) do
-        local p = basePart(obj)
-        if p and p:IsDescendantOf(Workspace) then
-            local d = (p.Position - r.Position).Magnitude
-            if d < distance then nearest, distance = obj, d end
-        end
-    end
-    return nearest, distance
+-- Event-maintained animal index: avoids traversing every workspace descendant every second.
+local indexed=setmetatable({}, {__mode='k'})
+local scanQueue={}
+local lastQueueCompact=0
+local queued=setmetatable({}, {__mode='k'})
+local scanCursor=1
+local function enqueueAnimal(m)
+ if m and m:IsA('Model') and not queued[m] then queued[m]=true;scanQueue[#scanQueue+1]=m end
 end
-local function refreshResources()
-    local count = 0
-    local r = playerRoot()
-    local seen = {}
-    for _, obj in ipairs(CollectionService:GetTagged("LxRareResource")) do
-        local part = basePart(obj)
-        if part and r and part:IsDescendantOf(Workspace) then
-            local distance = (part.Position - r.Position).Magnitude
-            count = count + 1
-            if resourceEnabled and distance < 2500 and count <= 45 then
-                seen[obj] = true
-                if not resourceMarkers[obj] then resourceMarkers[obj] = makeMarker(part, "", COLORS.amber) end
-                resourceMarkers[obj].Adornee = part
-                resourceMarkers[obj]:FindFirstChildOfClass("TextLabel").Text = obj.Name .. "\n" .. math.floor(distance) .. " studs"
-            end
-        end
-    end
-    for obj in pairs(resourceMarkers) do if not seen[obj] then dropMarker(resourceMarkers, obj) end end
-    local merchant, distance = nearestTagged("LxMerchant")
-    local merchantText = merchant and (merchant.Name .. " | " .. math.floor(distance) .. " studs") or "غير موجود في البيانات المحمّلة"
-    resourcesStatusText.Text = "نوادر: " .. count .. " | التاجر: " .. merchantText
+local cache={}
+local function trackAnimal(m)
+ if m:IsA('Model') and lizard(m) and living(m) then indexed[m]=true end
 end
-button(resourcesPage, "تحديث النوادر والتاجر", refreshResources)
-button(resourcesPage, "انتقال إلى أقرب تاجر", function()
-    local ok, response = invoke("Teleport", {kind = "Merchant"})
-    log(ok and "تم طلب الانتقال للتاجر" or response, not ok)
+task.spawn(function()
+ -- Incremental breadth-first traversal avoids a single expensive GetDescendants allocation.
+ local pending={WS};local index=1
+ while alive and index<=#pending do
+  local obj=pending[index];index+=1
+  if obj:IsA('Model') then
+   enqueueAnimal(obj)
+   local ok,why=pcall(trackAnimal,obj)
+   if not ok then warn('[Lx lizard indexing]',tostring(why):sub(1,100)) end
+  end
+  local children=obj:GetChildren()
+  for _,child in ipairs(children) do pending[#pending+1]=child end
+  if index%35==0 then task.wait(0.04) end
+ end
 end)
-button(resourcesPage, "انتقال إلى أقرب مورد نادر", function()
-    local ok, response = invoke("Teleport", {kind = "Resource"})
-    log(ok and "تم طلب الانتقال للمورد" or response, not ok)
+conn(WS.DescendantAdded,function(obj)
+ if obj:IsA('Model') then enqueueAnimal(obj);task.defer(function() if alive and obj.Parent then trackAnimal(obj) end end) elseif obj:IsA('BasePart') or obj:IsA('ValueBase') then local parentModel=obj:FindFirstAncestorOfClass('Model');if parentModel then enqueueAnimal(parentModel);task.defer(function()if alive and parentModel.Parent then trackAnimal(parentModel) end end)end end
 end)
-info(resourcesPage, "البيع والمكافآت", "يتم البيع والاستلام عبر نظام اللعبة الأصلي فقط؛ لا يوجد زر بيع وهمي.")
-
-info(carPage, "سرعة السيارة والتسارع", "يُطبق السيرفر القوة على السيارات الموسومة LxVehicle، ويفصلها عن قوى طيران السيارة.")
-local carSpeedControl = toggle(carPage, "مساعد التسارع الأرضي", function(on)
-    if flyMode == "Car" and on then return false, "أوقف طيران السيارة أولًا" end
-    return invoke("CarBoost", {enabled = on})
+conn(WS.DescendantRemoving,function(obj)
+ if indexed[obj] then indexed[obj]=nil end
 end)
-numberInput(carPage, "السرعة المطلوبة (studs/s)", speedWanted, 15, 220, 10, function(value)
-    local ok, response = invoke("CarTarget", {value = value})
-    if ok then speedWanted = value end
-    return ok, response
+conn(CollectionService:GetInstanceAddedSignal('Lizard'),trackAnimal)
+conn(CollectionService:GetInstanceAddedSignal('Dhab'),trackAnimal)
+conn(CollectionService:GetInstanceAddedSignal('ضب'),trackAnimal)
+conn(CollectionService:GetInstanceAddedSignal('Lizards'),trackAnimal)
+conn(CollectionService:GetInstanceAddedSignal('AnimalLizard'),trackAnimal)
+local function refreshCache()
+ -- Reconsider a bounded number of previously loaded models. Some maps set
+ -- their species/name attributes after the instance first appears.
+ -- Compact removed models periodically; otherwise the queue grows forever.
+ if #scanQueue>1500 and os.clock()-lastQueueCompact>15 then
+  lastQueueCompact=os.clock()
+  local fresh={}
+  for _,model in ipairs(scanQueue) do
+   if model and model:IsDescendantOf(WS) then fresh[#fresh+1]=model
+   else queued[model]=nil end
+  end
+  scanQueue=fresh
+  scanCursor=math.min(scanCursor,#scanQueue+1)
+ end
+ for _=1,math.min(36,#scanQueue) do
+  if scanCursor>#scanQueue then scanCursor=1 end
+  local m=scanQueue[scanCursor]
+  scanCursor+=1
+  if m and m.Parent then trackAnimal(m) end
+ end
+ table.clear(cache)
+ for m in pairs(indexed) do
+  if m.Parent and living(m) and lizard(m) then
+   local p=part(m)
+   if p and p.Parent then cache[#cache+1]={model=m,part=p} end
+  else indexed[m]=nil end
+ end
+end
+local function nearest(filter)
+ local r=root();if not r then return nil end
+ local best,dist=nil,math.huge
+ for _,e in ipairs(cache) do
+  if e.model.Parent and e.part.Parent and living(e.model) and lizard(e.model) then
+   local d=(e.part.Position-r.Position).Magnitude
+   if d<dist and d<=S.RadarRange and (not filter or filter=='الكل' or rarity(e.model)==filter) then best=e;dist=d end
+  end
+ end
+ return best,dist
+end
+local function clearMarkers() for _,g in pairs(markers) do pcall(function()g:Destroy()end) end;table.clear(markers) end
+local function makeMarker(e)
+ local m=e.model;if markers[m] or not living(m) or not lizard(m) then return end
+ local bb=inst('BillboardGui',{Name='LxAnimalRadar',Adornee=e.part,Size=UDim2.fromOffset(190,50),StudsOffsetWorldSpace=Vector3.new(0,2.7,0),AlwaysOnTop=true,MaxDistance=S.RadarRange},gui)
+ local text=inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextColor3=rarityColors[rarity(m)] or C.white,TextStrokeTransparency=.4,TextSize=12,Font=Enum.Font.GothamBold,TextWrapped=true},bb)
+ markers[m]=bb
+end
+-- Manual fallback: select a loaded lizard by clicking its visible body.
+-- This is explicit user confirmation, never an invented species guess.
+local manualTargets=setmetatable({}, {__mode='k'})
+local manualSelecting=false
+local mouse=LP:GetMouse()
+local function manualLizard(m)
+ return m and manualTargets[m] and m.Parent and not blockedAncestor(m)
+end
+local oldLizard=lizard
+lizard=function(m) return manualLizard(m) or oldLizard(m) end
+conn(mouse.Button1Down,function()
+ if not manualSelecting then return end
+ local hit=mouse.Target
+ if not hit then msg('لم يتم تحديد مجسم؛ اضغط على جسم الضب') return end
+ local selected=hit:FindFirstAncestorOfClass('Model')
+ if not selected or blockedAncestor(selected) or selected:FindFirstChildWhichIsA('VehicleSeat',true) then
+  msg('هذا ليس مجسم ضب صالحًا أو هو داخل سيارة')
+  return
+ end
+ manualTargets[selected]=true
+ indexed[selected]=true
+ enqueueAnimal(selected)
+ manualSelecting=false
+ refreshCache()
+ msg('تم تحديد الضب: '..selected.Name..' | فعّل الكاشف')
 end)
-info(carFlightPage, "طيران السيارة", "اجلس في مقعد VehicleSeat داخل سيارة LxVehicle. عند OFF تُحذف قوى الطيران من السيرفر فورًا.")
-local carFlyControl = toggle(carFlightPage, "طيران السيارة", function(on)
-    if on and flyMode == "Player" then return false, "أوقف طيران اللاعب أولًا" end
-    local ok, message = invoke("CarFly", {enabled = on})
-    if ok then
-        flyMode = on and "Car" or nil
-        if on then carSpeedControl:set(false) end
-    end
-    return ok, message
-end)
-numberInput(carFlightPage, "سرعة طيران السيارة", carFlySpeed, 15, 160, 10, function(value)
-    local ok, response = invoke("CarFlySpeed", {value = value})
-    if ok then carFlySpeed = value end
-    return ok, response
-end)
-local carDirection = 1
-button(carPage, "تغيير اتجاه الدفع الأمامي / الخلفي", function()
-    local nextDirection = -carDirection
-    local ok, response = invoke("CarDirection", {value = nextDirection})
-    if ok then carDirection = nextDirection end
-    log(ok and ("اتجاه الدفع: " .. (carDirection == 1 and "أمام" or "عكسي")) or response, not ok)
-end)
-local carDiag = info(carPage, "السرعة الفعلية: غير متاحة", "القيادة W/S والتوجيه A/D من نظام VehicleSeat")
-local carDiagText = carDiag:FindFirstChildOfClass("TextLabel")
-info(carFlightPage, "بعد OFF", "تعود الفيزياء الطبيعية. تستطيع فتح صفحة سرعة السيارة وتشغيل التسارع من جديد.")
-
-info(flightPage, "طيران اللاعب", "الطيران ينفذ بالسيرفر داخل لعبتك. أزرار WASD للحركة وE/Space للأعلى وQ/Ctrl للأسفل.")
-local playerFlyControl = toggle(flightPage, "طيران اللاعب", function(on)
-    if on and flyMode == "Car" then return false, "أوقف طيران السيارة أولًا" end
-    local ok, message = invoke("PlayerFly", {enabled = on})
-    if ok then flyMode = on and "Player" or nil end
-    return ok, message
-end)
-numberInput(flightPage, "سرعة طيران اللاعب", playerFlySpeed, 10, 140, 10, function(value)
-    local ok, response = invoke("PlayerFlySpeed", {value = value})
-    if ok then playerFlySpeed = value end
-    return ok, response
-end)
-
--- Touch buttons are actual hold controls, not simulated click-only switches.
-local touchFrame = create("Frame", {Name = "FlightTouch", AnchorPoint = Vector2.new(1, 1),
-    Position = UDim2.new(1, -14, 1, -16), Size = UDim2.fromOffset(211, 138),
-    BackgroundColor3 = COLORS.dark, BackgroundTransparency = 0.14,
-    Visible = false, ZIndex = 20}, gui)
-corner(touchFrame, 10)
-local touchLayout = {{"W", 70, 7}, {"A", 9, 52}, {"S", 70, 52}, {"D", 131, 52}, {"E", 9, 96}, {"Q", 131, 96}}
-for _, def in ipairs(touchLayout) do
-    local key = def[1]
-    local b = create("TextButton", {Size = UDim2.fromOffset(61, 35),
-        Position = UDim2.fromOffset(def[2], def[3]), Text = key,
-        TextColor3 = COLORS.white, BackgroundColor3 = COLORS.accent,
-        TextSize = 15, Font = Enum.Font.GothamBold, ZIndex = 21}, touchFrame)
-    corner(b, 7)
-    connect(b.InputBegan, function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            touchHeld[key] = true
-        end
-    end)
-    connect(b.InputEnded, function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            touchHeld[key] = nil
-        end
-    end)
+local radar=tab('كشف العناصر')
+toggle(radar,'كشف الضبان ومعلوماتها','Radar',function(on) if not on then clearMarkers() else refreshCache() end end)
+action(radar,'تحديد ضب أمامك (اضغط على جسمه)',function() manualSelecting=true;msg('اضغط على جسم الضب الموجود أمامك لتحديد مجسمه الحقيقي') end)
+action(radar,'إعادة فحص الضبان الآن',function() refreshCache();msg('أعيد فحص '..#scanQueue..' مجسم مسجل') end)
+number(radar,'مدى الرادار (وحدة)','RadarRange',100,3000,100)
+local filterValues={'الكل','عادي','مميز','نادر','فاخر','أسطوري','خرافي'}
+local fi=1
+local filterBtn
+filterBtn=action(radar,'فلتر الندرة: الكل',function() fi=fi%#filterValues+1;S.Filter=filterValues[fi];filterBtn.Text='فلتر الندرة: '..S.Filter end)
+local closestLabel=label(radar,'أقرب ضب: لا يوجد','يتم التحديث عند تفعيل الرادار')
+local radarDiag=label(radar,'تشخيص الكاشف: جار الفحص','يفحص المجسمات المحمّلة على جهازك فقط')
+local nearestText=closestLabel:FindFirstChildOfClass('TextLabel')
+-- Persistent live list of all loaded, living lizards in range.
+local listTitle=label(radar,'قائمة الضبان | الحجم والمسافة','الأقرب أولاً • بيانات الحجم والوزن من الماب فقط')
+local animalList=inst('Frame',{Size=UDim2.new(1,-2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},radar)
+inst('UIListLayout',{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},animalList)
+local function rebuildAnimalList()
+ for _,x in ipairs(animalList:GetChildren()) do if x:IsA('Frame') then x:Destroy() end end
+ if not S.Radar then
+  label(animalList,'الرادار متوقف','فعّل كشف الضبان لعرض الأحجام والمسافات')
+  return
+ end
+ local r=root()
+ if not r then label(animalList,'الشخصية غير جاهزة');return end
+ local entries={}
+ for _,e in ipairs(cache) do
+  if e.model.Parent and e.part.Parent and living(e.model) and lizard(e.model) then
+   local d=(e.part.Position-r.Position).Magnitude
+   if d<=S.RadarRange and (S.Filter=='الكل' or rarity(e.model)==S.Filter) then
+    entries[#entries+1]={model=e.model,distance=d}
+   end
+  end
+ end
+ table.sort(entries,function(a,b)return a.distance<b.distance end)
+ if #entries==0 then label(animalList,'لا توجد ضبان مطابقة','قد تكون خارج المدى أو لم تُحمّلها اللعبة');return end
+ for i=1,math.min(#entries,25) do
+  local e=entries[i]
+  local rarityName=rarity(e.model)
+  local card=inst('Frame',{Size=UDim2.new(1,-2,0,69),BackgroundColor3=C.card,BorderSizePixel=0,LayoutOrder=i},animalList)
+  round(card,10)
+  inst('UIStroke',{Color=rarityColors[rarityName] or C.purple,Thickness=1,Transparency=.25},card)
+  inst('TextLabel',{Size=UDim2.new(1,-16,0,23),Position=UDim2.fromOffset(8,4),BackgroundTransparency=1,Text=speciesName(e.model)..' | '..rarityName,TextColor3=rarityColors[rarityName] or C.white,TextSize=12,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd},card)
+  inst('TextLabel',{Size=UDim2.new(1,-16,0,33),Position=UDim2.fromOffset(8,28),BackgroundTransparency=1,Text='الحجم: '..animalSize(e.model)..'  |  الوزن: '..animalWeight(e.model)..'  |  المسافة: '..math.floor(e.distance+.5)..' وحدة',TextColor3=C.white,TextSize=11,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,TextWrapped=true},card)
+ end
 end
 
-info(aimingPage, "مساعدة التصويب على الضبان", "يدوّر الكاميرا محليًا نحو أقرب ضب حقيقي عند الضغط على زر الماوس الأيمن.")
-local aimToggle = toggle(aimingPage, "مساعد التصويب", function(on)
-    aimEnabled = on
-    return true
+local findMerchant,clearResourceMarkers,validResource,resourcePart,nearestNamed,goToPointWithCar,rareBanner
+local saleWords
+local merchant=tab('كشف التاجر')
+toggle(merchant,'كشف التجار','Merchant')
+local merchantInfo=label(merchant,'أقرب تاجر: غير مكتشف','المسافة والاتجاه حسب النماذج المحمّلة')
+local merchantText=merchantInfo:FindFirstChildOfClass('TextLabel')
+local selectedMerchant=nil
+findMerchant=function()
+ local r=root();if not r then return nil end
+ local best,d=nil,math.huge
+ for _,obj in ipairs(WS:GetDescendants()) do
+  if obj:IsA('Model') and not playerAncestor(obj) then
+   local n=obj.Name:lower()
+   if n:find('merchant',1,true) or n:find('trader',1,true) or n:find('تاجر',1,true) or n:find('الخلا',1,true) or n:find('dealer',1,true) then
+    local p=part(obj);if p then local dis=(p.Position-r.Position).Magnitude;if dis<d then best=p;d=dis end end
+   end
+  end
+ end
+ return best,d
+end
+action(merchant,'تحديد اتجاه أقرب تاجر',function() local p,d=findMerchant();if not p then msg('التاجر غير محمّل أو غير معروف');return end;selectedMerchant=p;local cam=WS.CurrentCamera;if cam then cam.CFrame=CFrame.lookAt(cam.CFrame.Position,p.Position) end;msg('اتجاه التاجر | '..math.floor(d)..' وحدة') end)
+local loot=tab('النوادر والبيع')
+toggle(loot,'ESP النوادر: الياقوت والتبر وغيرها','ResourceESP',function(on)if not on then clearResourceMarkers() end end)
+toggle(loot,'تنبيه ظهور ضب نادر على الشاشة','RareAlert',function(on)if not on and rareBanner then rareBanner.Visible=false end end)
+toggle(loot,'تنبيه ظهور ياقوت أو تبر أو مورد نادر','ResourceAlert')
+label(loot,'كشف النوادر','يكشف العناصر المحمّلة ذات الأسماء المعروفة فقط؛ لا يختلق أماكن أو أسماء')
+action(loot,'الذهاب لأقرب مورد نادر (مع السيارة)',function()
+ local r=root();if not r then return end
+ local best,d=nil,math.huge
+ for _,obj in ipairs(WS:GetDescendants()) do
+  if validResource(obj) then local p=resourcePart(obj);if p then local dis=(p.Position-r.Position).Magnitude;if dis<d then best=p;d=dis end end end
+ end
+ goToPointWithCar(best)
 end)
-numberInput(aimingPage, "نطاق FOV بالبكسل", aimRadius, 20, 35, 5, function(value)
-    aimRadius = value
-    return true
+action(loot,'الذهاب إلى نقطة البيع',function()
+ local p=nearestNamed(saleWords)
+ if p then goToPointWithCar(p) else msg('نقطة البيع غير معروفة أو غير محمّلة') end
 end)
-local fovRing = create("Frame", {Name = "FovRing", AnchorPoint = Vector2.new(0.5, 0.5),
-    BackgroundTransparency = 1, Size = UDim2.fromOffset(aimRadius * 2, aimRadius * 2), Visible = false}, gui)
-create("UICorner", {CornerRadius = UDim.new(1, 0)}, fovRing)
-create("UIStroke", {Color = COLORS.accent, Thickness = 1.2, Transparency = 0.15}, fovRing)
-local aimTouchHeld = false
-local aimTouchButton = create("TextButton", {Name = "MobileAim", Position = UDim2.new(0, 14, 1, -135),
-    Size = UDim2.fromOffset(66, 58), BackgroundColor3 = COLORS.accent,
-    Text = "AIM", Font = Enum.Font.GothamBold, TextColor3 = COLORS.white,
-    TextSize = 16, Visible = false, ZIndex = 20}, gui)
-corner(aimTouchButton, 12)
-connect(aimTouchButton.InputBegan, function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        aimTouchHeld = true
-    end
+action(loot,'الذهاب إلى تاجر الخلا',function()
+ local p=findMerchant()
+ if p then goToPointWithCar(p) else msg('التاجر غير مكتشف') end
 end)
-connect(aimTouchButton.InputEnded, function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        aimTouchHeld = false
-    end
-end)
+label(loot,'الخبرة والبيع','الانتقال لا يبيع الضب ولا يمنح XP؛ يجب إتمام البيع داخل نظام الماب')
 
-info(movePage, "انتقال آمن داخل لعبتك", "الانتقال يجري عبر السيرفر ويقبل وجهات موسومة فقط. لا يعمل في مابات لا تملك صلاحية تعديلها.")
-button(movePage, "حفظ موقع البيت", function()
-    local ok, response = invoke("SaveHome", {})
-    log(ok and "تم حفظ بيتك" or response, not ok)
+local aim=tab('التصويب')
+toggle(aim,'التصويب المساعد على الضبان فقط','Aim')
+number(aim,'أقصى مسافة للتصويب','AimRange',100,3000,100)
+number(aim,'نعومة التصويب','AimSmooth',.02,1,.02)
+number(aim,'حجم دائرة FOV','FOV',10,150,5)
+label(aim,'التصويب: ON / OFF من الزر أعلاه','لا يوجد اختصار M؛ التصويب يستهدف الرأس فقط عندما تكون بياناته متاحة')
+local stopCarFly,clearVehicleBoost,updateCarFly
+local flyState='الطيران متوقف'
+local vehicle=tab('السيارات')
+toggle(vehicle,'مساعد سرعة السيارة','CarSpeed',function(on)
+ if not on and clearVehicleBoost then
+  clearVehicleBoost()
+ elseif on and S.CarFly then
+  msg('السرعة الأرضية ستعمل بعد إيقاف الطيران')
+ end
 end)
-for _, def in ipairs({
-    {"البيت / الديرة", "Home"}, {"أقرب ضب", "Lizard"}, {"أقرب سيارة", "Vehicle"},
-    {"أقرب تاجر", "Merchant"}, {"أقرب مورد نادر", "Resource"},
-    {"نفرة الفيروز", "Turquoise"}, {"مكان الذهب", "Gold"},
-    {"مكان الألماس", "Diamond"}, {"العالم الثاني", "World2"},
-}) do
-    button(movePage, "انتقال: " .. def[1], function()
-        local ok, response = invoke("Teleport", {kind = def[2]})
-        log(ok and ("طلبت الانتقال: " .. def[1]) or response, not ok)
-    end)
+number(vehicle,'السرعة المستهدفة (وحدة/ثانية)','CarTarget',20,400,20)
+toggle(vehicle,'طيران السيارة أثناء القيادة','CarFly',function(on)
+ if not on then
+  if stopCarFly then stopCarFly(true) end
+  flyState='الطيران متوقف | أُزيلت قيود الرفع؛ يمكنك القيادة الآن'
+ else
+  if S.PlayerFly then error('أوقف طيران اللاعب قبل قيادة السيارة') end
+  if clearVehicleBoost then clearVehicleBoost() end
+  if updateCarFly then updateCarFly() end
+ end
+end)
+number(vehicle,'سرعة طيران السيارة','FlySpeed',20,300,10)
+label(vehicle,'التحكم في الطيران','OFF يزيل قوة الرفع فورًا وتعود الجاذبية. فعّل مساعد السرعة الأرضي للقيادة. W للأمام • S للخلف • A و D للجانبين • E صعود • Q نزول. اتجاه الطيران حسب الكاميرا. عند إيقاف الطيران تعود الفيزياء الطبيعية.')
+local directionButton=action(vehicle,'اتجاه الدفع: أمام السيارة',function()
+ S.CarDirection=-S.CarDirection
+ directionButton.Text=S.CarDirection==1 and 'اتجاه الدفع: أمام السيارة' or 'اتجاه الدفع: عكس اتجاه المقعد'
+ msg('تم تغيير اتجاه دفع السيارة؛ جرّب القيادة للأمام')
+end)
+label(vehicle,'معلومة مهمة','اضغط W أثناء القيادة. إن كان اتجاه الدفع عكسيًا بدّله من الزر. السيرفر قد يمنع تغيير السرعة.')
+local vehicleDiagnostic=label(vehicle,'التشخيص: لم يبدأ','مقعد السائق والسرعة الفعلية؛ قد يمنع السيرفر التعديل')
+local vehicleDiagnosticText=vehicleDiagnostic:FindFirstChildOfClass('TextLabel')
+local carList=inst('Frame',{Size=UDim2.new(1,-2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},vehicle)
+inst('UIListLayout',{Padding=UDim.new(0,6)},carList)
+local function moveTo(pos)
+ local r=root();if not r then msg('انتظر ظهور الشخصية');return end
+ r.CFrame=CFrame.new(pos+Vector3.new(0,4,0))
+ task.delay(.8,function() if not alive or not r.Parent then return end;if (r.Position-pos).Magnitude>25 then msg('السيرفر أعاد موقعك؛ الانتقال غير مسموح') else msg('الانتقال ثابت محلياً') end end)
 end
-button(movePage, "إلغاء الانتقال المعلّق", function()
-    local ok, response = invoke("CancelTeleport", {})
-    log(ok and "تم إلغاء الانتقال المعلّق" or response, not ok)
+-- Rare resources, sale-point navigation, and rare-spawn notifications.
+-- Detection uses only objects replicated by the current game; names are heuristics.
+local resourceWords={'ياقوت','ruby','تبر','gold nugget','goldnugget','gold ore','gem','جوهرة','emerald','زمرد','diamond','ألماس','الماس','sapphire','ياقوت أزرق','rare ore','خام نادر','gold nugget','قطعة ذهب','حجر كريم','precious gem'}
+saleWords={'بيع','sell','sale','buyer','المشتري','نقطة البيع','sellpoint','sell zone','sellzone','sell npc','selling','vendor'}
+local function nameMatches(obj,words)
+ local n=string.lower(obj.Name)
+ for _,w in ipairs(words) do if string.find(n,w,1,true) then return true end end
+ return false
+end
+resourcePart=function(obj)
+ if obj:IsA('BasePart') then return obj end
+ if obj:IsA('Model') then return part(obj) end
+ return nil
+end
+validResource=function(obj)
+ if not (obj:IsA('Model') or obj:IsA('BasePart')) or not obj:IsDescendantOf(WS) then return false end
+ if playerAncestor(obj) or blockedAncestor(obj) or lizard(obj) then return false end
+ if not nameMatches(obj,resourceWords) then return false end
+ -- Prefer a single model over every individual part inside it.
+ local par=obj.Parent
+ while par and par~=WS do
+  if (par:IsA('Model') or par:IsA('BasePart')) and nameMatches(par,resourceWords) then return false end
+  par=par.Parent
+ end
+ return resourcePart(obj)~=nil
+end
+nearestNamed=function(words)
+ local r=root();if not r then return nil,nil end
+ local best,d=nil,math.huge
+ for _,obj in ipairs(WS:GetDescendants()) do
+  if (obj:IsA('Model') or obj:IsA('BasePart')) and nameMatches(obj,words) and not playerAncestor(obj) and not blockedAncestor(obj) then
+   local p=resourcePart(obj)
+   if p and (p.Position-r.Position).Magnitude<d then best=p;d=(p.Position-r.Position).Magnitude end
+  end
+ end
+ return best,d
+end
+local function occupiedVehicle()
+ local h=hum();local seat=h and h.SeatPart
+ if not seat or not seat:IsA('BasePart') then return nil,nil end
+ local model=seat:FindFirstAncestorOfClass('Model')
+ if not model or not model:IsDescendantOf(WS) then return nil,nil end
+ return model,seat
+end
+goToPointWithCar=function(target)
+ if not target then msg('الهدف غير موجود ضمن العناصر المحمّلة؛ قد يكون خارج StreamingEnabled');return end
+ local car,seat=occupiedVehicle()
+ if not car then moveTo(target.Position);msg('انتقال اللاعب فقط: أنت لست في سيارة');return end
+ local offset=Vector3.new(0,7,0)
+ local before=car:GetPivot()
+ local ok,err=pcall(function()car:PivotTo(CFrame.new(target.Position+offset)*before.Rotation)end)
+ if not ok then msg('تعذر نقل السيارة: '..tostring(err):sub(1,48));return end
+ task.delay(.8,function()
+  if not alive or not car.Parent or not target.Parent then return end
+  if (car:GetPivot().Position-target.Position).Magnitude>30 then msg('السيرفر رفض نقل السيارة أو أعاد موقعها')
+  else msg('تم نقل السيارة محلياً؛ تحقق من ثبات الموقع') end
+ end)
+end
+local resourceMarkers={}
+local resourceIndex={}
+local resourceKnown={}
+local resourceReady=false
+local resourceScanCursor=1
+local resourceScanQueue={}
+local resourceAlertCooldown=0
+local merchantMarker=nil
+local knownRare={}
+local rareInitialized=false
+rareBanner=inst('Frame',{Size=UDim2.fromOffset(340,65),Position=UDim2.new(.5,-170,0,20),BackgroundColor3=Color3.fromRGB(36,22,55),Visible=false,BorderSizePixel=0},gui)
+round(rareBanner,12)
+inst('UIStroke',{Color=C.purple,Thickness=1.5},rareBanner)
+local rareBannerText=inst('TextLabel',{Size=UDim2.new(1,-16,1,-8),Position=UDim2.fromOffset(8,4),BackgroundTransparency=1,TextColor3=C.white,TextSize=14,Font=Enum.Font.GothamBold,TextWrapped=true},rareBanner)
+local bannerUntil=0
+local resourceAlertText=inst('TextLabel',{Size=UDim2.fromOffset(360,58),Position=UDim2.new(.5,-180,0,93),BackgroundColor3=Color3.fromRGB(42,30,22),BorderSizePixel=0,Visible=false,TextColor3=Color3.fromRGB(255,220,144),Font=Enum.Font.GothamBold,TextSize=14,TextWrapped=true},gui)
+round(resourceAlertText,11)
+local resourceBannerUntil=0
+local function billboardFor(target,text,color)
+ local b=inst('BillboardGui',{Adornee=target,Size=UDim2.fromOffset(210,46),StudsOffsetWorldSpace=Vector3.new(0,3,0),AlwaysOnTop=true,MaxDistance=3000},gui)
+ local t=inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text=text,TextColor3=color,TextStrokeTransparency=.18,Font=Enum.Font.GothamBold,TextSize=13,TextWrapped=true},b)
+ return b,t
+end
+clearResourceMarkers=function()
+ for _,b in pairs(resourceMarkers) do b:Destroy() end
+ table.clear(resourceMarkers)
+end
+-- Index potential resource objects once, then update incrementally.
+-- Avoid scanning the entire Workspace every UI refresh.
+task.spawn(function()
+ local pending={WS};local index=1
+ while alive and index<=#pending do
+  local obj=pending[index];index+=1
+  if (obj:IsA('Model') or obj:IsA('BasePart')) and nameMatches(obj,resourceWords) then
+   resourceScanQueue[#resourceScanQueue+1]=obj
+  end
+  for _,child in ipairs(obj:GetChildren()) do pending[#pending+1]=child end
+  if index%35==0 then task.wait(0.04) end
+ end
 end)
-local playersList = create("Frame", {Size = UDim2.new(1, -3, 0, 0),
-    AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1}, movePage)
-create("UIListLayout", {Padding = UDim.new(0, 5)}, playersList)
-local function refreshPlayerList()
-    for _, obj in ipairs(playersList:GetChildren()) do if obj:IsA("TextButton") then obj:Destroy() end end
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= localPlayer then
-            button(playersList, "الانتقال إلى اللاعب: " .. player.DisplayName, function()
-                local ok, response = invoke("Teleport", {kind = "Player", userId = player.UserId})
-                log(ok and "الانتقال إلى اللاعب قيد التنفيذ" or response, not ok)
-            end)
-        end
+conn(WS.DescendantAdded,function(obj)
+ if (obj:IsA('Model') or obj:IsA('BasePart')) and nameMatches(obj,resourceWords) then
+  resourceScanQueue[#resourceScanQueue+1]=obj
+ end
+end)
+local function updateResourceIndex()
+ for _=1,math.min(100,#resourceScanQueue) do
+  if resourceScanCursor>#resourceScanQueue then break end
+  local obj=resourceScanQueue[resourceScanCursor]
+  resourceScanCursor+=1
+  if obj and obj.Parent and validResource(obj) then resourceIndex[obj]=true end
+ end
+ if resourceScanCursor>#resourceScanQueue then
+  resourceScanQueue={};resourceScanCursor=1
+  if not resourceReady then
+   for obj in pairs(resourceIndex) do resourceKnown[obj]=true end
+  end
+  resourceReady=true
+ end
+end
+local function refreshExtrasESP()
+ updateResourceIndex()
+ local r=root()
+ local now=os.clock()
+ if resourceAlertText.Visible and now>=resourceBannerUntil then resourceAlertText.Visible=false end
+ local count=0
+ for obj in pairs(resourceIndex) do
+  local valid=validResource(obj)
+  local p=valid and resourcePart(obj) or nil
+  local d=(r and p) and (p.Position-r.Position).Magnitude or math.huge
+  if not valid or not p then
+   resourceIndex[obj]=nil
+   resourceKnown[obj]=nil
+  else
+   if resourceReady and not resourceKnown[obj] and S.ResourceAlert and d<=3000 and now>=resourceAlertCooldown then
+    resourceAlertText.Text='◆ ظهر مورد نادر: '..obj.Name..'\nالمسافة '..math.floor(d)..' وحدة'
+    resourceAlertText.Visible=true
+    resourceBannerUntil=now+5
+    resourceAlertCooldown=now+2
+   end
+   resourceKnown[obj]=true
+   if S.ResourceESP and d<=3000 and count<50 then
+    count+=1
+    if not resourceMarkers[obj] then resourceMarkers[obj]=billboardFor(p,'',Color3.fromRGB(255,209,95)) end
+    local b=resourceMarkers[obj];b.Adornee=p
+    local t=b:FindFirstChildOfClass('TextLabel')
+    if t then t.Text='◆ '..obj.Name..'\n'..math.floor(d)..' وحدة' end
+   elseif resourceMarkers[obj] then
+    resourceMarkers[obj]:Destroy();resourceMarkers[obj]=nil
+   end
+  end
+ end
+ for obj,b in pairs(resourceMarkers) do
+  if not S.ResourceESP or not resourceIndex[obj] then b:Destroy();resourceMarkers[obj]=nil end
+ end
+ local trader,d=findMerchant()
+ if S.Merchant and trader and r then
+  if not merchantMarker then merchantMarker=billboardFor(trader,'',Color3.fromRGB(110,245,174)) end
+  merchantMarker.Adornee=trader
+  local t=merchantMarker:FindFirstChildOfClass('TextLabel');if t then t.Text='تاجر الخلا\n'..math.floor(d)..' وحدة' end
+ elseif merchantMarker then merchantMarker:Destroy();merchantMarker=nil end
+end
+local function checkRareSpawn()
+ local now=os.clock()
+ if rareBanner.Visible and now>=bannerUntil then rareBanner.Visible=false end
+ local seen={}
+ local r=root()
+ for _,e in ipairs(cache) do
+  if e.model.Parent and living(e.model) and lizard(e.model) then
+   local rank=rarity(e.model)
+   if rank=='نادر' or rank=='فاخر' or rank=='أسطوري' or rank=='خرافي' then
+    seen[e.model]=true
+    if rareInitialized and not knownRare[e.model] and S.RareAlert and r then
+     local d=math.floor((e.part.Position-r.Position).Magnitude)
+     rareBannerText.Text='ضب '..rank..' ظهر!\n'..e.model.Name..' • '..d..' وحدة'
+     rareBanner.Visible=true;bannerUntil=now+5
     end
+   end
+  end
+ end
+ knownRare=seen
+ rareInitialized=true
 end
-button(movePage, "تحديث قائمة اللاعبين", refreshPlayerList)
-connect(Players.PlayerAdded, refreshPlayerList)
-connect(Players.PlayerRemoving, function() task.defer(refreshPlayerList) end)
-refreshPlayerList()
-info(movePage, "الوجهات", "علّم أجزاء الماب LxDestination وأضف Attribute باسم LxDestinationId وقيمته Turquoise أو Gold أو Diamond أو World2.")
 
-local lightingKeys = {"Brightness", "Ambient", "OutdoorAmbient", "GlobalShadows", "ExposureCompensation", "FogEnd", "FogStart"}
-local function captureLighting()
-    if visualBackup then return end
-    visualBackup = {fields = {}, atmospheres = {}}
-    for _, key in ipairs(lightingKeys) do visualBackup.fields[key] = Lighting[key] end
-    for _, v in ipairs(Lighting:GetChildren()) do
-        if v:IsA("Atmosphere") then
-            visualBackup.atmospheres[v] = {Density = v.Density, Haze = v.Haze, Glare = v.Glare}
-        end
-    end
+-- A vehicle must have an actual driving seat, not just a vehicle-like name.
+-- Avoid listing nested submodels of the same vehicle multiple times.
+local function hasVehicle(model)
+ if not model or not model:IsA('Model') or not model:IsDescendantOf(WS) then return false end
+ if playerAncestor(model) then return false end
+ local seat=model:FindFirstChildWhichIsA('VehicleSeat',true)
+ if not seat then return false end
+ local ancestor=model.Parent
+ while ancestor and ancestor~=WS do
+  if ancestor:IsA('Model') and ancestor:FindFirstChildWhichIsA('VehicleSeat',true) then return false end
+  ancestor=ancestor.Parent
+ end
+ return true
 end
-local function updateLighting()
-    if not (fogOff or fullbright) then
-        if visualBackup then
-            for k, v in pairs(visualBackup.fields) do pcall(function() Lighting[k] = v end) end
-            for a, props in pairs(visualBackup.atmospheres) do
-                if a.Parent then for k, v in pairs(props) do pcall(function() a[k] = v end) end end
-            end
-        end
-        visualBackup = nil
-        return
-    end
-    captureLighting()
-    if fogOff then
-        Lighting.FogEnd = 100000
-        for _, a in ipairs(Lighting:GetChildren()) do
-            if a:IsA("Atmosphere") then
-                if not visualBackup.atmospheres[a] then
-                    visualBackup.atmospheres[a] = {Density = a.Density, Haze = a.Haze, Glare = a.Glare}
-                end
-                a.Density = 0
-                a.Haze = 0
-                a.Glare = 0
-            end
-        end
-    else
-        Lighting.FogEnd = visualBackup.fields.FogEnd
-        for a, vals in pairs(visualBackup.atmospheres) do
-            if a.Parent then a.Density = vals.Density a.Haze = vals.Haze a.Glare = vals.Glare end
-        end
-    end
-    if fullbright then
-        Lighting.Brightness = 2.5
-        Lighting.GlobalShadows = false
-        Lighting.Ambient = Color3.fromRGB(185, 185, 185)
-        Lighting.OutdoorAmbient = Color3.fromRGB(185, 185, 185)
-    else
-        for _, k in ipairs({"Brightness", "GlobalShadows", "Ambient", "OutdoorAmbient"}) do
-            Lighting[k] = visualBackup.fields[k]
-        end
-    end
+local function refreshCars()
+ for _,x in ipairs(carList:GetChildren()) do if x:IsA('TextButton') then x:Destroy() end end
+ local count=0
+ for _,m in ipairs(WS:GetDescendants()) do if m:IsA('Model') and hasVehicle(m) then
+  count+=1;local p=part(m);if p then action(carList,'🚗 '..m.Name,function() if p.Parent then moveTo(p.Position) else msg('السيارة لم تعد موجودة') end end) end
+  if count>=35 then break end
+ end end
+ msg('السيارات المكتشفة بمقعد قيادة: '..count)
 end
--- Native, self-contained illustrative preview (no external image IDs or broken thumbnails).
-local function illustration(page, mode)
-    local box = create("Frame", {Name="VisualExample_"..mode, Size=UDim2.new(1,-3,0,150),
-        BackgroundColor3=COLORS.panel, BorderSizePixel=0}, page)
-    corner(box,10)
-    create("TextLabel", {Size=UDim2.new(1,-16,0,23),Position=UDim2.fromOffset(8,4),
-        BackgroundTransparency=1,Text=mode=="Fog" and "معاينة توضيحية: الضباب قبل / بعد" or "معاينة توضيحية: إضاءة قبل / بعد",
-        TextColor3=COLORS.white,TextSize=12,Font=Enum.Font.GothamBold,
-        TextXAlignment=Enum.TextXAlignment.Left}, box)
-    for i=1,2 do
-        local clear=i==2
-        local tile=create("Frame", {Size=UDim2.new(.5,-13,0,105),
-            Position=UDim2.new((i-1)*.5, i==1 and 8 or 5,0,32),
-            BackgroundColor3=mode=="Fog" and Color3.fromRGB(85,116,130)
-                or (clear and Color3.fromRGB(96,165,210) or Color3.fromRGB(38,47,68)),
-            BorderSizePixel=0,ClipsDescendants=true},box)
-        corner(tile,8)
-        create("Frame",{Position=UDim2.new(.75,0,.13,0),Size=UDim2.fromOffset(25,25),
-            BackgroundColor3=clear and Color3.fromRGB(255,232,140) or Color3.fromRGB(155,166,173),
-            BorderSizePixel=0},tile)
-        local hill=create("Frame",{Position=UDim2.new(0,0,.57,0),Size=UDim2.new(1,0,.43,0),
-            BackgroundColor3=clear and Color3.fromRGB(34,101,76) or Color3.fromRGB(43,66,65),
-            BorderSizePixel=0},tile)
-        local opacity=mode=="Fog" and (clear and .96 or .24) or (clear and 1 or .88)
-        create("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.fromRGB(204,214,219),
-            BackgroundTransparency=opacity,BorderSizePixel=0},tile)
-        create("TextLabel",{Position=UDim2.new(0,7,1,-26),Size=UDim2.new(1,-14,0,22),
-            BackgroundColor3=Color3.fromRGB(10,10,14),BackgroundTransparency=.16,
-            Text=clear and "بعد ON" or "قبل OFF",TextColor3=COLORS.white,
-            Font=Enum.Font.GothamBold,TextSize=12},tile)
-    end
-    return box
+action(vehicle,'تحديث قائمة السيارات',refreshCars)
+local movement=tab('سرعة اللاعب')
+toggle(movement,'تشغيل سرعة اللاعب','Speed',function(on) if not on and speedHum and speedHum.Parent and originalSpeed then
+  speedHum.WalkSpeed=originalSpeed
+  speedHum=nil
+  originalSpeed=nil
+ end end)
+number(movement,'سرعة المشي','Walk',8,100,4)
+local tele=tab('الانتقال')
+action(tele,'الانتقال إلى أقرب ضب حي',function()refreshCache();local e=nearest('الكل');if e then moveTo(e.part.Position) else msg('لا يوجد ضب قريب ومحمّل') end end)
+action(tele,'الانتقال إلى أقرب سيارة',function()
+ local r=root();if not r then return end;local best,d=nil,math.huge
+ for _,m in ipairs(WS:GetDescendants()) do if m:IsA('Model') and hasVehicle(m) then local p=part(m);if p then local v=(p.Position-r.Position).Magnitude;if v<d then best=p;d=v end end end end
+ if best then moveTo(best.Position) else msg('لا توجد سيارة محمّلة') end
+end)
+local savedHome=nil
+local function findHome()
+ for _,m in ipairs(WS:GetDescendants()) do
+  if (m:IsA('BasePart') or m:IsA('Model')) then local n=m.Name:lower()
+   if n=='home' or n=='base' or n=='ديرة' or n=='spawnlocation' then
+    local p=m:IsA('BasePart') and m or part(m);if p then return p.Position end
+   end
+  end
+ end
 end
-connect(Lighting.ChildAdded, function(obj)
-    if fogOff and obj:IsA("Atmosphere") then
-        task.defer(function()
-            if alive and fogOff and obj.Parent then pcall(updateLighting) end
-        end)
-    end
+action(tele,'حفظ موقعي الحالي كديرة',function()local r=root();if r then savedHome=r.Position;msg('تم حفظ موقع الديرة في هذه الجلسة') end end)
+action(tele,'العودة للديرة',function()local pos=savedHome or findHome();if pos then moveTo(pos) else msg('حدد موقع الديرة أولاً من داخلها') end end)
+label(tele,'الانتقال إلى لاعب: اختر اسمه')
+local playerList=inst('Frame',{Size=UDim2.new(1,-2,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},tele)
+inst('UIListLayout',{Padding=UDim.new(0,6)},playerList)
+local function refreshPlayers()
+ for _,x in ipairs(playerList:GetChildren()) do if x:IsA('TextButton') then x:Destroy() end end
+ for _,p in ipairs(Players:GetPlayers()) do if p~=LP then action(playerList,'👤 '..p.DisplayName..' (@'..p.Name..')',function()local r=p.Character and p.Character:FindFirstChild('HumanoidRootPart');if r then moveTo(r.Position) else msg('اللاعب غير محمّل') end end) end end
+end
+action(tele,'تحديث اللاعبين',refreshPlayers);refreshPlayers()
+conn(Players.PlayerAdded,refreshPlayers);conn(Players.PlayerRemoving,function()task.defer(refreshPlayers)end)
+local appearance=tab('المظهر')
+local fogEffects={}
+local lightingCaptured=false
+local function saveLighting()
+ if lightingCaptured then return end
+ lightingCaptured=true
+ for _,k in ipairs({'Brightness','Ambient','OutdoorAmbient','GlobalShadows','ExposureCompensation','FogEnd','FogStart'}) do lightSaved[k]=Lighting[k] end
+ for _,x in ipairs(Lighting:GetChildren()) do if x:IsA('Atmosphere') then atmoSaved[x]={Density=x.Density,Haze=x.Haze,Glare=x.Glare} end end
+end
+local function setIfDifferent(obj,key,value)
+ if obj[key]~=value then obj[key]=value end
+end
+local function applyVisuals()
+ if not (S.Fog or S.Fullbright) then
+  for k,v in pairs(lightSaved) do pcall(function()Lighting[k]=v end) end
+  for x,vals in pairs(atmoSaved) do if x.Parent then for k,v in pairs(vals) do pcall(function()x[k]=v end) end end end
+  table.clear(lightSaved);table.clear(atmoSaved);lightingCaptured=false;return
+ end
+ saveLighting()
+ if S.Fog then setIfDifferent(Lighting,'FogEnd',100000);setIfDifferent(Lighting,'FogStart',0);for _,x in ipairs(Lighting:GetChildren()) do if x:IsA('Atmosphere') then if not atmoSaved[x] then atmoSaved[x]={Density=x.Density,Haze=x.Haze,Glare=x.Glare} end;setIfDifferent(x,'Density',0);setIfDifferent(x,'Haze',0);setIfDifferent(x,'Glare',0) end end
+ else Lighting.FogEnd=lightSaved.FogEnd or Lighting.FogEnd;Lighting.FogStart=lightSaved.FogStart or Lighting.FogStart;for x,vals in pairs(atmoSaved) do if x.Parent then for k,v in pairs(vals) do x[k]=v end end end end
+ if S.Fullbright then setIfDifferent(Lighting,'Brightness',2.5);setIfDifferent(Lighting,'Ambient',Color3.fromRGB(175,175,175));setIfDifferent(Lighting,'OutdoorAmbient',Color3.fromRGB(175,175,175));setIfDifferent(Lighting,'GlobalShadows',false);setIfDifferent(Lighting,'ExposureCompensation',0)
+ else for _,k in ipairs({'Brightness','Ambient','OutdoorAmbient','GlobalShadows','ExposureCompensation'}) do if lightSaved[k]~=nil then Lighting[k]=lightSaved[k] end end end
+end
+toggle(appearance,'إزالة الضباب','Fog',function() applyVisuals() end)
+toggle(appearance,'إضاءة كاملة بدون فلاش أبيض','Fullbright',function() applyVisuals() end)
+label(appearance,'ملاحظة','بعض المابات تعيد تطبيق إعدادات الإضاءة باستمرار؛ لا يمكن ضمان ثباتها')
+-- Flight state must be visible to the later update() / cleanup() definitions.
+-- v74 mistakenly declared this INSIDE the do scope below, causing
+-- `attempt to index nil with 'stop'` when initializeFeatures reached its end.
+local characterFly
+-- Movement protection diagnostics. This DOES NOT bypass server-side protections.
+do -- keep diagnostic-only locals scoped, reducing live locals in the feature loader
+local protection=tab('كسر حماية الماب')
+label(protection,'فحص قيود الماب وحركة الطيران','مراقبة الطيران وتصحيح الموقع. لا يوجد هنا تجاوز لحماية السيرفر أو منع مضمون للإرجاع')
+-- These are intentionally honest client-side controls, not a universal server bypass.
+characterFly={root=nil,humanoid=nil,attachment=nil,velocity=nil,orientation=nil,oldAutoRotate=nil,oldPlatformStand=nil,problem='متوقف'}
+toggle(protection,'طيران اللاعب | ON / OFF','PlayerFly',function(on)
+ if on then
+  local h=hum()
+  if not h or h.Health<=0 then error('الشخصية غير جاهزة للطيران') end
+  if h.SeatPart or S.CarFly then error('أوقف طيران السيارة وانزل منها قبل تشغيل طيران اللاعب') end
+  characterFly.problem='جار تشغيل الطيران المحلي'
+ else
+  if characterFly.stop then characterFly.stop() end
+  characterFly.problem='تم إيقاف الطيران واستعادة الجاذبية'
+ end
 end)
-info(fogPage, "إزالة الضباب", "OFF يعيد مسافة الضباب وخصائص Atmosphere الأصلية. التغيير محلي بصريًا.")
-illustration(fogPage,"Fog")
-toggle(fogPage, "إزالة الضباب", function(on)
-    fogOff = on
-    updateLighting()
-    return true
+number(protection,'سرعة طيران اللاعب','PlayerFlySpeed',15,120,5)
+label(protection,'مفاتيح الطيران','W/S للأمام والخلف • A/D للجانبين • E للصعود • Q للنزول • OFF للهبوط الطبيعي')
+local charFlyDiagnostic=label(protection,'طيران اللاعب: متوقف','اعرف هل الحركة تُطبّق محليًا أو يعيد السيرفر مكانك')
+characterFly.diagnosticText=charFlyDiagnostic:FindFirstChildOfClass('TextLabel')
+local protectionInfo=label(protection,'المراقبة متوقفة','شغّل المراقبة لمعرفة سرعة الشخصية والانتقالات المفاجئة')
+local protectionText=protectionInfo:FindFirstChildOfClass('TextLabel')
+local protectionCount=0
+local protectionPrevious=nil
+local protectionHistory={}
+local protectionRoot=nil
+local protectionLast=0
+local protectionRecent={}
+local protectionCause='لا توجد أحداث مسجلة'
+local protectionSpeed=0
+S.ProtectionMonitor=true
+local protectionTick=0
+local protectionDetails=label(protection,'حالة الإرجاع: لا توجد بيانات','يُرصد تغير الموقع؛ الاستنتاج تقريبي ولا يحدد مصدره قطعًا')
+local protectionDetailsText=protectionDetails:FindFirstChildOfClass('TextLabel')
+toggle(protection,'تفعيل فحص الحماية والحركة','ProtectionMonitor',function(on)
+ protectionPrevious=nil
+ table.clear(protectionHistory)
+ protectionRoot=nil
+ protectionTick=0
+ if not on then protectionText.Text='المراقبة متوقفة' end
 end)
-info(fullbrightPage, "إضاءة كاملة", "ON يرفع الإضاءة ويخفف الظلال محليًا. OFF يستعيد إعدادات الماب الأصلية.")
-illustration(fullbrightPage,"Fullbright")
-toggle(fullbrightPage, "إضاءة كاملة", function(on)
-    fullbright = on
-    updateLighting()
-    return true
+action(protection,'عرض حالة الحماية',function()
+ local r=root()
+ if not r then msg('الشخصية غير محمّلة') return end
+ msg(('السرعة %.1f | انتقالات مفاجئة %d | الموقع %.0f, %.0f, %.0f'):format(protectionSpeed,protectionCount,r.Position.X,r.Position.Y,r.Position.Z))
 end)
-info(playerSpeedPage, "سرعة اللاعب", "في لعبتك تتغير السرعة من السيرفر عند توفره. بدون السيرفر يتوفر تطبيق محلي مؤقت وقد يعيده نظام الماب.")
-local speedControl = toggle(playerSpeedPage, "سرعة اللاعب", function(on)
-    local h = human()
-    if not h then return false, "الشخصية غير جاهزة" end
-    -- IMPORTANT: remember original speed BEFORE the remote call modifies it.
-    -- Otherwise OFF would restore the new speed rather than the old one.
-    if on and oldWalkSpeed == nil then oldWalkSpeed = h.WalkSpeed end
-    if not remoteFunction and not RunService:IsStudio() then
-        return false, "تغيير سرعة اللاعب يحتاج سيرفر تجربتك"
-    end
-    if remoteFunction then
-        local ok, why = invoke("PlayerSpeed", {enabled=on, value=walkSpeed})
-        if not ok then
-            if on then oldWalkSpeed = nil end
-            return false, why
-        end
-    end
-    if on then
-        speedOn = true
-        h.WalkSpeed = walkSpeed
-    else
-        speedOn = false
-        h.WalkSpeed = oldWalkSpeed or 16
-        oldWalkSpeed = nil
-    end
-    return true
+action(protection,'تصفير عداد الإرجاع',function()
+ protectionCount=0
+ S._protectionCount=0
+ S._protectionLast=0
+ protectionPrevious=nil
+ protectionRoot=nil
+ table.clear(protectionHistory)
+ table.clear(protectionRecent)
+ protectionCause='لا توجد أحداث مسجلة'
+ protectionDetailsText.Text='حالة الإرجاع: لا توجد أحداث مسجلة'
+ msg('تم تصفير عداد الانتقالات المحتملة')
 end)
-numberInput(playerSpeedPage, "قيمة سرعة اللاعب", walkSpeed, 8, 70, 4, function(value)
-    if speedOn and remoteFunction then
-        local ok, why = invoke("PlayerSpeed", {enabled=true, value=value})
-        if not ok then return false, why end
-    end
-    walkSpeed = value
-    local h = human()
-    if speedOn and h then h.WalkSpeed = value end
-    return true
+action(protection,'نسخ تقرير الإرجاع',function()
+ local textLines={'Lx REDLINE v77 | تقرير مراقبة الحركة','الأحداث: '..tostring(protectionCount),'آخر حالة: '..protectionCause}
+ for _,entry in ipairs(protectionRecent) do textLines[#textLines+1]=entry end
+ local report=table.concat(textLines,'\n')
+ if type(setclipboard)=='function' then
+  local success=pcall(setclipboard,report)
+  msg(success and 'تم نسخ تقرير المراقبة' or 'تعذر نسخ التقرير')
+ else
+  msg('النسخ غير متاح في بيئة التشغيل الحالية')
+ end
 end)
-local playerSpeedInfo = info(playerSpeedPage, "السرعة الحالية: —", "في الوضع المحلي قد يفرض سيرفر الماب سرعة مختلفة.")
-local playerSpeedActualText = playerSpeedInfo:FindFirstChildOfClass("TextLabel")
+label(protection,'حدود التحكم','لا تُحتسب الالتفاتات كإرجاع. القفزات الكبيرة قد تكون انتقالًا مشروعًا أو تصحيحًا أو تأخر اتصال')
+-- Diagnostic only: directional reversals are normal controls, NOT proof of rollback.
+-- Evaluate only large discontinuities and optionally compare with an older
+-- recorded location. Even these can be intentional teleports or physics.
+conn(RunService.Heartbeat,function(dt)
+ if not alive or not S.ProtectionMonitor then return end
+ protectionTick=protectionTick+dt
+ if protectionTick<0.20 then return end
+ local elapsed=protectionTick
+ protectionTick=0
+ local r=root()
+ if not r then
+  protectionPrevious=nil
+  protectionRoot=nil
+  table.clear(protectionHistory)
+  return
+ end
+ if protectionRoot~=r then
+  protectionRoot=r
+  protectionPrevious=nil
+  table.clear(protectionHistory)
+ end
+ local position=r.Position
+ local velocity=r.AssemblyLinearVelocity
+ protectionSpeed=Vector3.new(velocity.X,0,velocity.Z).Magnitude
+ local h=hum()
+ local seated=h and h.SeatPart~=nil
+ local now=os.clock()
+ -- Keep 3 seconds of lightweight position samples to recognize a snapback.
+ for i=#protectionHistory,1,-1 do
+  if now-protectionHistory[i].t>3 then table.remove(protectionHistory,i) end
+ end
+ if protectionPrevious and not seated and elapsed>0 and elapsed<1 then
+  local delta=(position-protectionPrevious).Magnitude
+  local discontinuity=delta>math.max(55,elapsed*145)
+  local revisited=false
+  if S.PlayerFly and delta>30 then
+   for _,sample in ipairs(protectionHistory) do
+    if now-sample.t>=1 and (position-sample.pos).Magnitude<8 then
+     revisited=true
+     break
+    end
+   end
+  end
+  local classification
+  if discontinuity and revisited then
+   classification='عودة مفاجئة لموقع سابق أثناء الطيران (تصحيح محتمل)'
+  elseif discontinuity then
+   classification='انتقال مفاجئ (المصدر غير معروف)'
+  elseif revisited then
+   classification='عودة لموقع سابق (احتمال تصحيح)'
+  end
+  if classification and now-protectionLast>=1 then
+   protectionCount+=1
+   protectionLast=now
+   S._protectionLast=now
+   S._protectionCount=protectionCount
+   protectionCause=('%s | فرق %.1f وحدة | عينة %.2f ثانية'):format(classification,delta,elapsed)
+   local line=('%s | %s'):format(os.date('%H:%M:%S'),protectionCause)
+   protectionRecent[#protectionRecent+1]=line
+   if #protectionRecent>8 then table.remove(protectionRecent,1) end
+   if protectionDetailsText and protectionDetailsText.Parent then
+    protectionDetailsText.Text='آخر رصد: '..protectionCause
+   end
+  end
+ end
+ protectionHistory[#protectionHistory+1]={t=now,pos=position}
+ protectionPrevious=position
+ protectionText.Text=('السرعة: %.1f | أحداث حركة كبيرة: %d'):format(protectionSpeed,protectionCount)
+end)
+end -- end protection diagnostics local scope
+local extras=tab('أدوات إضافية')
+action(extras,'تحديث معلومات أقرب ضب',function()refreshCache();local e,d=nearest('الكل');if not e then msg('لا يوجد ضب حي قريب');return end;local m=e.model;msg(m.Name..' | '..rarity(m)..' | '..math.floor(d)..' وحدة') end)
+label(extras,'Lx REDLINE PRO','المعلومات الحقيقية فقط؛ القيم غير الموجودة لا تُخترع')
+-- Official community tab: built entirely from UI primitives (no external image download).
+local og=tab('OG | المجتمع')
+local ogCard=inst('Frame',{Size=UDim2.new(1,-2,0,146),BackgroundColor3=Color3.fromRGB(20,20,22),BorderSizePixel=0},og)
+round(ogCard,14)
+inst('UIStroke',{Color=C.purple,Thickness=1.4,Transparency=.15},ogCard)
+local ogLogo=inst('Frame',{Size=UDim2.fromOffset(66,66),Position=UDim2.new(.5,-33,0,12),BackgroundColor3=C.white,BorderSizePixel=0},ogCard)
+round(ogLogo,100)
+inst('UIStroke',{Color=C.purple,Thickness=3},ogLogo)
+inst('TextLabel',{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text='Lx',Font=Enum.Font.GothamBlack,TextSize=32,TextColor3=C.purple},ogLogo)
+inst('TextLabel',{Size=UDim2.new(1,-12,0,28),Position=UDim2.fromOffset(6,87),BackgroundTransparency=1,Text='منورين يا ساطير',TextColor3=C.white,TextSize=19,Font=Enum.Font.GothamBold},ogCard)
+inst('TextLabel',{Size=UDim2.new(1,-12,0,20),Position=UDim2.fromOffset(6,116),BackgroundTransparency=1,Text='Lx  •  OFFICIAL COMMUNITY',TextColor3=C.muted,TextSize=10,Font=Enum.Font.GothamMedium},ogCard)
+label(og,'ديسكورد Lx','discord.gg/7HyFER45Y')
+action(og,'نسخ رابط الديسكورد',function()
+ local url='https://discord.gg/7HyFER45Y'
+ if type(setclipboard)=='function' then
+  local ok=pcall(setclipboard,url)
+  if ok then msg('تم نسخ رابط الديسكورد');return end
+ end
+ msg('الرابط: '..url)
+end)
+action(og,'عرض رابط الديسكورد',function()msg('https://discord.gg/7HyFER45Y') end)
 
-info(watchPage, "تشخيص الحركة", "يرصد القفزات الكبيرة في الموقع ولا يتجاوز حماية السيرفر.")
-toggle(watchPage, "مراقبة تغيّر الموقع", function(on)
-    monitorEnabled = on
-    lastPosition = nil
-    return true
-end)
-local monitorInfo = info(watchPage, "آخر حدث: لا يوجد", "التشخيص محلي وتقريبي")
-local monitorText = monitorInfo:FindFirstChildOfClass("TextLabel")
-button(watchPage, "عرض حالة السيارة الحالية", function()
-    local seat = getDriverSeat()
-    if not seat then log("أنت لست في VehicleSeat") return end
-    log(string.format("السيارة: %.1f studs/s | Throttle: %.1f | Steer: %.1f",
-        seat.AssemblyLinearVelocity.Magnitude, seat.ThrottleFloat, seat.SteerFloat))
-end)
-
-info(settingsPage, "إعدادات وتشخيص", "التشغيل مستقل والاتصالات تُنظف عند الإنهاء.")
-local errorsLabel = info(settingsPage, "لا توجد أخطاء مسجلة", "إذا فشلت وظيفة سيظهر سبب الفشل هنا")
-local errorsText = errorsLabel:FindFirstChildOfClass("TextLabel")
-button(settingsPage, "عرض آخر أخطاء", function()
-    errorsText.Text = errors[1] and errors[1]:sub(1, 100) or "لا توجد أخطاء مسجلة"
-    log("الأخطاء المسجلة: " .. tostring(#errors))
-end, true)
-button(settingsPage, "إعادة توسيط القائمة", function()
-    main.Position = UDim2.fromScale(0.5, 0.5)
-    sizeToViewport()
-    log("تمت إعادة التوسيط")
-end, true)
-button(settingsPage, "التحقق من عضوية ديسكورد", function()
-    local ok, response = invoke("AuthStatus", {})
-    log(ok and "العضوية سارية" or response, not ok)
-end)
-
--- Independent Discord, diagnostics, and debug pages. These operate on real observed state.
-info(discordPage, "عضوية Discord", "الربط الحقيقي يتم بالخادم الخارجي، ولا نعرض رابطًا خارجيًا داخل تجربة Roblox.")
-button(discordPage, "فتح شاشة التحقق", function()
-    previewing = false
-    welcome.Visible = not isAuthed
-    sidebar.Visible = isAuthed
-    content.Visible = isAuthed
-    log(isAuthed and "العضوية موثقة" or "تابع رمز الربط من شاشة التحقق")
-end)
-button(discordPage, "إعادة التحقق من العضوية", function()
-    local ok, response = invoke("AuthStatus", {})
-    setAuthorized(ok, tostring(response))
-end)
-info(protectionPage, "PROTECTION DIAGNOSTICS", "قياسات محلية: لا يمكن إثبات أن السيرفر صحح موقعك دون إشعار من السيرفر.")
-local protectionMeasure = info(protectionPage, "الموقع والسرعة: —", "تصنيف الحركة: Normal / Sudden / Unknown")
-local protectionText = protectionMeasure:FindFirstChildOfClass("TextLabel")
-info(performancePage, "Performance", "تردد التحديث ومعدل الإطارات قياسات تقريبية من عميل Roblox.")
-local perfMeasure = info(performancePage, "FPS: —", "وضع التوفير يباعد تحديث قوائم الرادار والموارد")
-local perfText = perfMeasure:FindFirstChildOfClass("TextLabel")
-toggle(performancePage, "وضع توفير الأداء", function(on)
-    performanceLow = on
-    return true
-end)
-info(debugPage, "DEBUG CONSOLE", "يعرض أحدث الأخطاء من وظائف Lx؛ زر نسخ غير موجود لأن Roblox لا يوفّر نسخ الحافظة لـ LocalScript.")
-debugReportLabel = create("TextBox", {
-    Name = "DebugTrace", Size = UDim2.new(1, -3, 0, 230),
-    Text = "لا توجد أخطاء", TextEditable = false, ClearTextOnFocus = false,
-    MultiLine = true, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
-    TextYAlignment = Enum.TextYAlignment.Top, Font = Enum.Font.Code,
-    TextSize = 12, TextColor3 = COLORS.white, BackgroundColor3 = COLORS.panel,
-}, debugPage)
-corner(debugReportLabel, 8)
-button(debugPage, "تحديث سجل الأخطاء", function()
-    debugReportLabel.Text = #errors > 0 and table.concat(errors, "\n\n") or "لا توجد أخطاء"
-    print("[Lx v77 DEBUG] " .. debugReportLabel.Text)
-end)
-button(debugPage, "فحص المكونات الحقيقية", function()
-    local h = human()
-    local seat = getDriverSeat()
-    local remoteOK = remoteFunction ~= nil and remoteEvent ~= nil
-    log(string.format("Client=%s | Server=%s | DriverSeat=%s | Player=%s | LizardIndex=%d",
-        tostring(localPlayer ~= nil), tostring(remoteOK), tostring(seat ~= nil),
-        tostring(h ~= nil), (function() local n=0 for _ in pairs(radarModels) do n=n+1 end return n end)()))
-end)
-
-local function stopLocalEffects()
-    radarEnabled = false
-    resourceEnabled = false
-    aimEnabled = false
-    monitorEnabled = false
-    resourceAlert = false
-    lizardAlert = false
-    banner.Visible = false
-    clearMarkers(radarMarkers)
-    clearMarkers(resourceMarkers)
-    fogOff = false
-    fullbright = false
-    pcall(updateLighting)
-    local h = human()
-    if speedOn and remoteEvent then pcall(function() remoteEvent:FireServer("PlayerSpeedOff", {}) end) end
-    if speedOn and h then h.WalkSpeed = oldWalkSpeed or 16 end
-    speedOn = false
-    oldWalkSpeed = nil
-    touchFrame.Visible = false
-    aimTouchButton.Visible = false
-    aimTouchHeld = false
-    flyMode = nil
-    for _, control in ipairs(toggles) do control:set(false) end
+-- Startup gate removed: immediate visible menu and no stuck multi-step flow.
+local minimized=false
+conn(mini.MouseButton1Click,function()minimized=not minimized;side.Visible=not minimized;area.Visible=not minimized;status.Visible=not minimized;main.Size=minimized and UDim2.fromOffset(650,66) or UDim2.fromOffset(650,500);mini.Text=minimized and '+' or '−' end)
+local dragging,dragStart,frameStart=false,nil,nil
+conn(head.InputBegan,function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true;dragStart=i.Position;frameStart=main.Position end end)
+conn(UIS.InputChanged,function(i)if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then local d=i.Position-dragStart;main.Position=UDim2.new(frameStart.X.Scale,frameStart.X.Offset+d.X,frameStart.Y.Scale,frameStart.Y.Offset+d.Y) end end)
+conn(UIS.InputEnded,function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
+-- Visible FOV overlay. Radius is in screen pixels, not camera degrees.
+for _,oldFov in ipairs({'Lx_NexusFOV_V77','Lx_NexusFOV_V76','Lx_NexusFOV_V75','Lx_NexusFOV_V74','Lx_NexusFOV_V73','Lx_NexusFOV_V72','Lx_NexusFOV_V71','Lx_NexusFOV_V56','Lx_NexusFOV_V70','Lx_NexusFOV_V69','Lx_NexusFOV_V68','Lx_NexusFOV_V67','Lx_NexusFOV_V55','Lx_NexusFOV_V54','Lx_NexusFOV_V53','Lx_NexusFOV_V52'}) do
+ local old=PG:FindFirstChild(oldFov)
+ if old then old:Destroy() end
 end
-setAuthorized = function(allowed, reason)
-    isAuthed = allowed == true
-    local canBrowse = isAuthed or (RunService:IsStudio() and previewing)
-    sidebar.Visible = canBrowse and not minimized
-    content.Visible = canBrowse and not minimized
-    welcome.Visible = not canBrowse and not minimized
-    if not isAuthed then
-        -- Auth revocation only clears server-controlled UI state; client-only
-        -- effects (lighting, radar, diagnostics) are not gated by Discord.
-        flyMode = nil
-        carFlyControl:set(false)
-        playerFlyControl:set(false)
-        carSpeedControl:set(false)
-        -- The server also restores WalkSpeed when authorization is revoked.
-        -- Do not leave the UI claiming ON after that server-side rollback.
-        if remoteFunction and speedOn then
-            local sh = human()
-            if sh and oldWalkSpeed ~= nil then sh.WalkSpeed = oldWalkSpeed end
-            speedOn = false
-            oldWalkSpeed = nil
-            speedControl:set(false)
-        end
-        touchFrame.Visible = false
-        welcomeStatus.Text = "التحقق مطلوب\n" .. tostring(reason or "لا توجد عضوية مثبتة")
-        log("وظائف السيرفر مقفلة: " .. tostring(reason or "تحقق من Discord") .. " | الأدوات المحلية متاحة")
-    else
-        log("تم التحقق من عضوية Discord • وظائف السيرفر متاحة")
-    end
+local fovGui=inst('ScreenGui',{
+ Name='Lx_NexusFOV_V77',ResetOnSpawn=false,IgnoreGuiInset=true,
+ DisplayOrder=89,ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+},PG)
+local fovCircle=inst('Frame',{
+ Name='FOVCircle',AnchorPoint=Vector2.new(.5,.5),
+ BackgroundTransparency=1,BorderSizePixel=0,Visible=false
+},fovGui)
+round(fovCircle,1000)
+inst('UIStroke',{Color=C.purple,Thickness=2,Transparency=.1},fovCircle)
+local fovDot=inst('Frame',{
+ Name='Center',Size=UDim2.fromOffset(4,4),AnchorPoint=Vector2.new(.5,.5),
+ Position=UDim2.fromScale(.5,.5),BackgroundColor3=C.purple,BorderSizePixel=0
+},fovCircle);round(fovDot,100)
+local function updateCircle(cam)
+ local enabled=S.Aim and cam~=nil
+ fovCircle.Visible=enabled
+ if not enabled then return end
+ local radius=math.clamp(S.FOV,10,150)
+ fovCircle.Size=UDim2.fromOffset(radius*2,radius*2)
+ local vp=cam.ViewportSize
+ fovCircle.Position=UDim2.fromOffset(vp.X*.5,vp.Y*.5)
 end
-local function refreshAuth()
-    local ok, result = invoke("AuthStatus", {})
-    setAuthorized(ok, ok and "تم التحقق" or tostring(result))
-    return ok
+-- Vehicle assist v42: restores the earlier velocity-based approach.
+-- Client-side vehicle control is best-effort; server-owned vehicles may ignore it.
+local savedSeat,savedMaxSpeed,savedTorque
+local vehicleState='مساعد السرعة متوقف'
+local flyBody=nil
+local flyAttachment=nil
+local flyLastSeat=nil
+local flyVelocity=nil
+local flyOrientation=nil
+stopCarFly=function(descend)
+ -- Exactly one actuator set is owned by this script. Remove it completely
+ -- so the ordinary suspension / gravity controller can take over on OFF.
+ local body=flyBody
+ if flyVelocity then pcall(function()flyVelocity:Destroy()end) end
+ if flyOrientation then pcall(function()flyOrientation:Destroy()end) end
+ if flyAttachment then pcall(function()flyAttachment:Destroy()end) end
+ flyVelocity=nil;flyOrientation=nil;flyAttachment=nil
+ if body and body.Parent then
+  for _,obj in ipairs(body:GetChildren()) do
+   if obj.Name=='LxFlyVelocity' or obj.Name=='LxFlyOrientation' or obj.Name=='LxFlyAttachment' then
+    pcall(function()obj:Destroy()end)
+   end
+  end
+  if descend and not body.Anchored then
+   -- Zero an upward hover velocity without resetting ground momentum.
+   pcall(function()
+    local velocity=body.AssemblyLinearVelocity
+    if velocity.Y>0 then
+     body.AssemblyLinearVelocity=Vector3.new(velocity.X,0,velocity.Z)
+    end
+   end)
+  end
+ end
+ flyBody=nil;flyLastSeat=nil
 end
-connect(generateButton.MouseButton1Click, function()
-    task.spawn(function()
-        welcomeStatus.Text = "جار إنشاء رمز الربط..."
-        local ok, result = invoke("AuthLink", {})
-        if ok and type(result) == "string" and result:match("^[%da-f%-]+$") then
-            urlField.Text = result
-            welcomeStatus.Text = "تم إنشاء رمز الربط.\nيمكنك تحديث حالة العضوية بعد اكتمال عملية التحقق عبر الإدارة."
-        else
-            welcomeStatus.Text = "تعذر إنشاء الرابط\n" .. tostring(result)
-            log(result, true)
-        end
-    end)
-end)
-connect(checkButton.MouseButton1Click, function() task.spawn(refreshAuth) end)
-
--- Heading / visibility lifecycle: close hides menu, launcher remains available.
-connect(launcher.MouseButton1Click, function()
-    main.Visible = not main.Visible
-    if main.Visible then sizeToViewport() end
-end)
-connect(closeButton.MouseButton1Click, function()
-    main.Visible = false
-end)
-connect(minimizeButton.MouseButton1Click, function()
-    minimized = not minimized
-    sizeToViewport()
-    local canBrowse = isAuthed or (RunService:IsStudio() and previewing)
-    sidebar.Visible = not minimized and canBrowse
-    content.Visible = not minimized and canBrowse
-    statusText.Visible = not minimized
-    welcome.Visible = not minimized and not (isAuthed or (RunService:IsStudio() and previewing))
-    minimizeButton.Text = minimized and "+" or "−"
-end)
-local dragInitialPosition, dragInitialInput, draggingInput
-connect(titlebar.InputBegan, function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        draggingInput = input
-        dragInitialPosition = main.Position
-        dragInitialInput = input.Position
-    end
-end)
-connect(UserInputService.InputChanged, function(input)
-    if not dragging then return end
-    if draggingInput and (input == draggingInput or input.UserInputType == Enum.UserInputType.MouseMovement) then
-        local delta = input.Position - dragInitialInput
-        main.Position = UDim2.new(dragInitialPosition.X.Scale, dragInitialPosition.X.Offset + delta.X / screenScale.Scale,
-            dragInitialPosition.Y.Scale, dragInitialPosition.Y.Offset + delta.Y / screenScale.Scale)
-    end
-end)
-connect(UserInputService.InputEnded, function(input)
-    if input == draggingInput or input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-end)
-connect(UserInputService.InputBegan, function(input, processed)
-    if processed then return end
-    inputHeld[input.KeyCode] = true
-end)
-connect(UserInputService.InputEnded, function(input)
-    inputHeld[input.KeyCode] = nil
-end)
-
-local function flightDirection()
-    local camera = Workspace.CurrentCamera
-    if not camera then return Vector3.zero, Vector3.new(0, 0, -1) end
-    local forward = camera.CFrame.LookVector
-    local horizontal = Vector3.new(forward.X, 0, forward.Z)
-    if horizontal.Magnitude < 0.01 then horizontal = Vector3.new(0, 0, -1) end
-    horizontal = horizontal.Unit
-    local right = Vector3.new(-horizontal.Z, 0, horizontal.X)
-    local function held(name, keycode)
-        return touchHeld[name] or inputHeld[keycode]
-    end
-    local move = Vector3.zero
-    if held("W", Enum.KeyCode.W) then move = move + horizontal end
-    if held("S", Enum.KeyCode.S) then move = move - horizontal end
-    if held("D", Enum.KeyCode.D) then move = move + right end
-    if held("A", Enum.KeyCode.A) then move = move - right end
-    if held("E", Enum.KeyCode.E) or inputHeld[Enum.KeyCode.Space] then move = move + Vector3.yAxis end
-    if held("Q", Enum.KeyCode.Q) or inputHeld[Enum.KeyCode.LeftControl] then move = move - Vector3.yAxis end
-    -- Mobile analog stick controls use Humanoid.MoveDirection for horizontal travel.
-    if move.Magnitude < 0.01 and UserInputService.TouchEnabled then
-        local h = human()
-        if h then move = h.MoveDirection end
-    end
-    if move.Magnitude > 1 then move = move.Unit end
-    return move, horizontal
+updateCarFly=function()
+ if not S.CarFly then
+  if flyBody or flyVelocity or flyOrientation then stopCarFly() end
+  flyState='الطيران متوقف'
+  return
+ end
+ local h=hum()
+ local seat=h and h.SeatPart
+ if not seat or not seat:IsA('VehicleSeat') or seat.Occupant~=h then
+  stopCarFly();flyState='اجلس في مقعد سائق السيارة';return
+ end
+ local body=seat.AssemblyRootPart or seat
+ if not body or body.Anchored then
+  stopCarFly();flyState='جسم السيارة ثابت أو غير متاح';return
+ end
+ if body~=flyBody or not flyVelocity or not flyVelocity.Parent then
+  stopCarFly()
+  flyBody=body
+  flyLastSeat=seat
+  flyAttachment=Instance.new('Attachment');flyAttachment.Name='LxFlyAttachment';flyAttachment.Parent=body
+  flyVelocity=Instance.new('LinearVelocity')
+  flyVelocity.Name='LxFlyVelocity'
+  flyVelocity.Attachment0=flyAttachment
+  flyVelocity.RelativeTo=Enum.ActuatorRelativeTo.World
+  flyVelocity.VelocityConstraintMode=Enum.VelocityConstraintMode.Vector
+  flyVelocity.MaxForce=math.max(100000,body.AssemblyMass*2500)
+  flyVelocity.Parent=body
+  flyOrientation=Instance.new('AlignOrientation')
+  flyOrientation.Name='LxFlyOrientation'
+  flyOrientation.Attachment0=flyAttachment
+  flyOrientation.Mode=Enum.OrientationAlignmentMode.OneAttachment
+  flyOrientation.Responsiveness=12
+  flyOrientation.MaxTorque=math.max(100000,body.AssemblyMass*2500)
+  flyOrientation.Parent=body
+ end
+ local cam=WS.CurrentCamera
+ if not cam then flyState='الكاميرا غير متاحة';return end
+ local look=cam.CFrame.LookVector
+ local right=cam.CFrame.RightVector
+ local forward=Vector3.new(look.X,0,look.Z)
+ local side=Vector3.new(right.X,0,right.Z)
+ if forward.Magnitude<.01 then forward=Vector3.new(seat.CFrame.LookVector.X,0,seat.CFrame.LookVector.Z) end
+ if forward.Magnitude<.01 then forward=Vector3.new(0,0,-1) end
+ forward=forward.Unit
+ if side.Magnitude<.01 then side=Vector3.new(-forward.Z,0,forward.X) end
+ side=side.Unit
+ local input=Vector3.zero
+ if not UIS:GetFocusedTextBox() and (UIS:IsKeyDown(Enum.KeyCode.W) or UIS:IsKeyDown(Enum.KeyCode.Up)) then input+=forward end
+ if not UIS:GetFocusedTextBox() and (UIS:IsKeyDown(Enum.KeyCode.S) or UIS:IsKeyDown(Enum.KeyCode.Down)) then input-=forward end
+ if not UIS:GetFocusedTextBox() and UIS:IsKeyDown(Enum.KeyCode.D) then input+=side end
+ if not UIS:GetFocusedTextBox() and UIS:IsKeyDown(Enum.KeyCode.A) then input-=side end
+ if not UIS:GetFocusedTextBox() and UIS:IsKeyDown(Enum.KeyCode.E) then input+=Vector3.yAxis end
+ if not UIS:GetFocusedTextBox() and UIS:IsKeyDown(Enum.KeyCode.Q) then input-=Vector3.yAxis end
+ local speed=math.clamp(S.FlySpeed,20,300)
+ flyVelocity.VectorVelocity=input.Magnitude>0 and input.Unit*speed or Vector3.zero
+ flyOrientation.CFrame=CFrame.lookAt(Vector3.zero,forward)
+ flyState=string.format('الطيران نشط | سرعة %.0f | الحركة %s',speed,input.Magnitude>0 and 'نعم' or 'ثبات')
 end
-local function nearestAimPart()
-    local camera = Workspace.CurrentCamera
-    if not camera then return nil end
-    local midpoint = camera.ViewportSize * 0.5
-    local best, bestPx = nil, aimRadius
-    for model in pairs(radarModels) do
-        if isLiveLizard(model) then
-            local hit = model:FindFirstChild("Head", true) or basePart(model)
-            if hit and hit:IsA("BasePart") then
-                local screenPoint, visible = camera:WorldToViewportPoint(hit.Position)
-                if visible then
-                    local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - midpoint).Magnitude
-                    if distance < bestPx then best, bestPx = hit, distance end
-                end
-            end
-        end
-    end
-    return best
+local lastVehicleSpeed,vehicleSpeedStuckFor=0,0
+local function restoreSeat()
+ if savedSeat and savedSeat.Parent then
+  pcall(function() if savedMaxSpeed~=nil then savedSeat.MaxSpeed=savedMaxSpeed end end)
+  pcall(function() if savedTorque~=nil then savedSeat.Torque=savedTorque end end)
+ end
+ savedSeat=nil;savedMaxSpeed=nil;savedTorque=nil
 end
-local reportTimer, radarTimer, resourceTimer, flightTimer, authTimer, monitorTimer, visualTimer = 0, 0, 0, 0, 0, 0, 0
-connect(RunService.Heartbeat, function(dt)
-    if not alive then return end
-    local instantFPS = 1 / math.max(0.004, dt)
-    fpsEstimate = fpsEstimate * 0.90 + instantFPS * 0.10
-    reportTimer = reportTimer + dt
-    radarTimer = radarTimer + dt
-    resourceTimer = resourceTimer + dt
-    flightTimer = flightTimer + dt
-    authTimer = authTimer + dt
-    monitorTimer = monitorTimer + dt
-    visualTimer = visualTimer + dt
-    if visualTimer >= 2.5 then
-        visualTimer = 0
-        if fogOff or fullbright then
-            local ok, issue = pcall(updateLighting)
-            if not ok then log("إعادة تطبيق الإضاءة: " .. tostring(issue), true) end
-        end
-    end
-    touchFrame.Visible = flyMode ~= nil and UserInputService.TouchEnabled
-    if reportTimer >= 0.35 then
-        reportTimer = 0
-        local seat = getDriverSeat()
-        if seat then
-            local speed = seat.AssemblyLinearVelocity.Magnitude
-            carDiagText.Text = string.format("السرعة الفعلية: %.1f / المطلوبة: %.1f studs/s", speed, speedWanted)
-        else carDiagText.Text = "السرعة الفعلية: ليست داخل مقعد قيادة" end
-        if activePage == performancePage and perfText then
-            perfText.Text = string.format("FPS ≈ %.0f | رادار: %s | موارد: %s | توفير: %s",
-                fpsEstimate, tostring(radarEnabled), tostring(resourceEnabled), tostring(performanceLow))
-        end
-        if activePage == protectionPage and protectionText then
-            local body = playerRoot()
-            local pos = body and body.Position
-            local velocity = body and body.AssemblyLinearVelocity.Magnitude or 0
-            protectionText.Text = pos and string.format("الموقع %.0f, %.0f, %.0f | السرعة %.1f | %s",
-                pos.X, pos.Y, pos.Z, velocity, lastLargeMove) or "الشخصية غير جاهزة"
-        end
-        local speedHum = human()
-        if speedHum and playerSpeedActualText then
-            playerSpeedActualText.Text = string.format("سرعة اللاعب الفعلية: %.1f / المطلوبة: %.1f", speedHum.WalkSpeed, walkSpeed)
-        end
-    end
-    if radarTimer >= (performanceLow and 5 or 2) then
-        radarTimer = 0
-        if radarEnabled or activePage == animalsPage then
-            local ok, e = pcall(fillAnimals)
-            if not ok then log("Radar refresh: " .. tostring(e), true) end
-        end
-    end
-    if resourceTimer >= (performanceLow and 7 or 3) then
-        resourceTimer = 0
-        if resourceEnabled or activePage == resourcesPage then
-            local ok, e = pcall(refreshResources)
-            if not ok then log("Resource refresh: " .. tostring(e), true) end
-        end
-    end
-    if flightTimer >= 0.10 then
-        flightTimer = 0
-        if remoteEvent then
-            if flyMode then
-                local direction, facing = flightDirection()
-                remoteEvent:FireServer("FlightInput", {direction = direction, facing = facing, mode = flyMode})
-            elseif carSpeedControl:get() then
-                local seat = getDriverSeat()
-                if seat then
-                    local throttle, steer = seat.ThrottleFloat, seat.SteerFloat
-                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then throttle = 1 end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then throttle = -1 end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then steer = -1 end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then steer = 1 end
-                    remoteEvent:FireServer("DriveInput", {throttle = throttle, steer = steer})
-                end
-            end
-        end
-    end
-    if monitorTimer >= 0.25 then
-        monitorTimer = 0
-        if monitorEnabled then
-            local r = playerRoot()
-            if r then
-                if lastPosition and (r.Position - lastPosition).Magnitude > 70 then
-                    lastLargeMove = "تغيّر الموقع بأكثر من 70 studs (قد يكون انتقالًا مشروعًا)"
-                end
-                lastPosition = r.Position
-                monitorText.Text = lastLargeMove
-            end
-        end
-    end
-    if authTimer >= 20 then
-        authTimer = 0
-        if remoteFunction then task.spawn(refreshAuth) end
-    end
-end)
-connect(RunService.RenderStepped, function()
-    local camera = Workspace.CurrentCamera
-    if not camera then return end
-    fovRing.Visible = aimEnabled
-    aimTouchButton.Visible = aimEnabled and UserInputService.TouchEnabled
-    fovRing.Size = UDim2.fromOffset(aimRadius * 2, aimRadius * 2)
-    fovRing.Position = UDim2.fromOffset(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-    if aimEnabled and (aimTouchHeld or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)) then
-        local target = nearestAimPart()
-        if target then
-            camera.CFrame = camera.CFrame:Lerp(CFrame.lookAt(camera.CFrame.Position, target.Position), 0.12)
-        end
-    end
-end)
-connect(localPlayer.CharacterAdded, function()
-    stopLocalEffects()
-    lastPosition = nil
-end)
-connect(Workspace:GetPropertyChangedSignal("CurrentCamera"), sizeToViewport)
-if Workspace.CurrentCamera then connect(Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"), sizeToViewport) end
+clearVehicleBoost=function()
+ restoreSeat()
+ lastVehicleSpeed=0;vehicleSpeedStuckFor=0
+end
+local function updateVehicleBoost(dt)
+ if S.CarFly then
+  vehicleState='الطيران مفعّل؛ مساعد السرعة الأرضي معلّق'
+  return
+ end
+ if not S.CarSpeed then
+  vehicleState='مساعد السرعة متوقف'
+  if savedSeat then clearVehicleBoost() end
+  return
+ end
+ local h=hum()
+ local seat=h and h.SeatPart
+ if not seat or not seat:IsA('VehicleSeat') or seat.Occupant~=h then
+  vehicleState=seat and 'هذا الماب يستخدم مقعد قيادة مخصصًا' or 'اجلس في مقعد قيادة السيارة'
+  if savedSeat then clearVehicleBoost() end
+  return
+ end
+ local body=seat.AssemblyRootPart or seat
+ if not body or body.Anchored then
+  vehicleState='جسم السيارة مثبت ولا يقبل تغيير السرعة'
+  if savedSeat then clearVehicleBoost() end
+  return
+ end
+ if savedSeat~=seat then
+  restoreSeat()
+  savedSeat=seat
+  savedMaxSpeed=seat.MaxSpeed
+  savedTorque=seat.Torque
+ end
+ local target=math.clamp(tonumber(S.CarTarget) or 200,20,400)
+ -- Some vehicles use native VehicleSeat propulsion; adjust only on change.
+ pcall(function()
+  local wantedMax=math.max(savedMaxSpeed or 0,target)
+  if math.abs(seat.MaxSpeed-wantedMax)>0.1 then seat.MaxSpeed=wantedMax end
+  local wantedTorque=math.max(savedTorque or 0,math.min(18000,target*45))
+  if math.abs(seat.Torque-wantedTorque)>0.1 then seat.Torque=wantedTorque end
+ end)
+ if UIS:GetFocusedTextBox() then
+  vehicleState='كتابة قيمة السرعة؛ لا يوجد دفع أثناء الكتابة'
+  return
+ end
+ local nativeThrottle=seat.ThrottleFloat
+ local wantsForward=UIS:IsKeyDown(Enum.KeyCode.W) or UIS:IsKeyDown(Enum.KeyCode.Up)
+ local wantsReverse=UIS:IsKeyDown(Enum.KeyCode.S) or UIS:IsKeyDown(Enum.KeyCode.Down)
+ local drive=0
+ if wantsForward~=wantsReverse then
+  drive=wantsForward and 1 or -1
+ elseif math.abs(nativeThrottle)>0.1 then
+  drive=nativeThrottle>0 and 1 or -1
+ end
+ local velocity=body.AssemblyLinearVelocity
+ local horizontal=Vector3.new(velocity.X,0,velocity.Z)
+ if drive==0 then
+  vehicleState=('انتظار W / S | الحالية %.1f | الهدف %.0f'):format(horizontal.Magnitude,target)
+  vehicleSpeedStuckFor=0
+  return
+ end
+ local forward=seat.CFrame.LookVector * S.CarDirection * drive
+ local flat=Vector3.new(forward.X,0,forward.Z)
+ if flat.Magnitude<0.05 then vehicleState='اتجاه مقعد القيادة غير صالح';return end
+ flat=flat.Unit
+ -- Drive in the requested direction without destroying sideways motion on turns.
+ local aligned=horizontal:Dot(flat)
+ local desired=math.min(target,math.max(0,aligned)+math.clamp(dt,0,0.12)*math.max(45,target*0.65))
+ local gain=math.clamp(desired-aligned,0,math.max(45,target*0.65)*math.clamp(dt,0,0.12))
+ if gain>0.01 then
+  local candidate=horizontal+flat*gain
+  -- Never write a huge impulse when the car is already moving faster than target.
+  if candidate.Magnitude<=target+math.max(12,target*0.15) then
+   local ok,err=pcall(function()
+    body.AssemblyLinearVelocity=Vector3.new(candidate.X,velocity.Y,candidate.Z)
+   end)
+   if not ok then vehicleState='تعذر تعديل السرعة: '..tostring(err):sub(1,45);return end
+  end
+ end
+ local actual=body.AssemblyLinearVelocity
+ local now=Vector3.new(actual.X,0,actual.Z).Magnitude
+ if now<target*0.35 and math.abs(now-lastVehicleSpeed)<0.15 then
+  vehicleSpeedStuckFor+=math.clamp(dt,0,0.12)
+ else
+  vehicleSpeedStuckFor=0
+ end
+ lastVehicleSpeed=now
+ vehicleState=('سرعة فعلية %.1f / %.0f | %s'):format(now,target,drive>0 and 'أمام' or 'خلف')
+ if vehicleSpeedStuckFor>2.5 then
+  vehicleState='السيارة لا تستجيب للتسارع المحلي؛ ربما يتحكم السيرفر أو نظام السيارة'
+ end
+end
+-- Character flight: client-side actuation only. Server corrections remain authoritative.
+characterFly.stop=function()
+ local cf=characterFly
+ if cf.velocity then pcall(function()cf.velocity:Destroy()end) end
+ if cf.orientation then pcall(function()cf.orientation:Destroy()end) end
+ if cf.attachment then pcall(function()cf.attachment:Destroy()end) end
+ cf.velocity=nil;cf.orientation=nil;cf.attachment=nil;cf.root=nil
+ if cf.humanoid and cf.humanoid.Parent then
+  pcall(function()
+   if cf.oldAutoRotate~=nil then cf.humanoid.AutoRotate=cf.oldAutoRotate end
+   if cf.oldPlatformStand~=nil then cf.humanoid.PlatformStand=cf.oldPlatformStand end
+  end)
+ end
+ cf.humanoid=nil;cf.oldAutoRotate=nil;cf.oldPlatformStand=nil
+end
+characterFly.update=function()
+ local cf=characterFly
+ if not S.PlayerFly then return end
+ local h=hum()
+ local r=root()
+ if not h or not r or h.Health<=0 then
+  if cf.root then cf.stop() end
+  cf.problem='في انتظار الشخصية'
+  return
+ end
+ if h.SeatPart then
+  if cf.root then cf.stop() end
+  cf.problem='انزل من السيارة أولاً'
+  return
+ end
+ if r.Anchored then
+  if cf.root then cf.stop() end
+  cf.problem='جسم اللاعب ثابت بسبب الماب'
+  return
+ end
+ if cf.root~=r or not cf.velocity or not cf.velocity.Parent then
+  cf.stop()
+  cf.root=r
+  cf.humanoid=h
+  cf.oldAutoRotate=h.AutoRotate
+  cf.oldPlatformStand=h.PlatformStand
+  local a=Instance.new('Attachment')
+  a.Name='LxCharacterFlightAttachment';a.Parent=r
+  cf.attachment=a
+  local v=Instance.new('LinearVelocity')
+  v.Name='LxCharacterFlightVelocity'
+  v.Attachment0=a
+  v.RelativeTo=Enum.ActuatorRelativeTo.World
+  v.VelocityConstraintMode=Enum.VelocityConstraintMode.Vector
+  v.MaxForce=math.max(50000,r.AssemblyMass*3000)
+  v.VectorVelocity=Vector3.zero
+  v.Parent=r
+  cf.velocity=v
+  local o=Instance.new('AlignOrientation')
+  o.Name='LxCharacterFlightOrientation'
+  o.Attachment0=a
+  o.Mode=Enum.OrientationAlignmentMode.OneAttachment
+  o.Responsiveness=14
+  o.MaxTorque=math.max(50000,r.AssemblyMass*3000)
+  o.Parent=r
+  cf.orientation=o
+  h.AutoRotate=false
+  h.PlatformStand=true
+ end
+ local cam=WS.CurrentCamera
+ if not cam then cf.problem='الكاميرا غير جاهزة';return end
+ local forward=Vector3.new(cam.CFrame.LookVector.X,0,cam.CFrame.LookVector.Z)
+ if forward.Magnitude<0.01 then forward=Vector3.new(r.CFrame.LookVector.X,0,r.CFrame.LookVector.Z) end
+ if forward.Magnitude<0.01 then forward=Vector3.new(0,0,-1) end
+ forward=forward.Unit
+ local right=Vector3.new(cam.CFrame.RightVector.X,0,cam.CFrame.RightVector.Z)
+ if right.Magnitude<0.01 then right=Vector3.new(-forward.Z,0,forward.X) end
+ right=right.Unit
+ local vector=Vector3.zero
+ if not UIS:GetFocusedTextBox() then
+  if UIS:IsKeyDown(Enum.KeyCode.W) or UIS:IsKeyDown(Enum.KeyCode.Up) then vector+=forward end
+  if UIS:IsKeyDown(Enum.KeyCode.S) or UIS:IsKeyDown(Enum.KeyCode.Down) then vector-=forward end
+  if UIS:IsKeyDown(Enum.KeyCode.A) then vector-=right end
+  if UIS:IsKeyDown(Enum.KeyCode.D) then vector+=right end
+  if UIS:IsKeyDown(Enum.KeyCode.E) then vector+=Vector3.yAxis end
+  if UIS:IsKeyDown(Enum.KeyCode.Q) then vector-=Vector3.yAxis end
+ end
+ local speed=math.clamp(S.PlayerFlySpeed,15,120)
+ cf.velocity.VectorVelocity=vector.Magnitude>0 and vector.Unit*speed or Vector3.zero
+ cf.orientation.CFrame=CFrame.lookAt(Vector3.zero,forward)
+ if (S._protectionCount or 0)>0 and os.clock()-(S._protectionLast or 0)<2.5 then
+  cf.problem='طيران محلي • رُصد انتقال كبير؛ سببه غير مؤكد'
+ else
+  cf.problem=('نشط محليًا | السرعة %.0f | %s'):format(speed,vector.Magnitude>0 and 'حركة' or 'ثبات')
+ end
+end
 
 local function cleanup()
-    if not alive then return end
-    alive = false
-    stopLocalEffects()
-    if remoteEvent then pcall(function() remoteEvent:FireServer("StopAll", {}) end) end
-    for _, c in ipairs(connections) do pcall(function() c:Disconnect() end) end
-    table.clear(connections)
-    statusReference = nil
-    if _G.LxREDLINECleanup_v77 == cleanup then _G.LxREDLINECleanup_v77 = nil end
-    if gui and gui.Parent then gui:Destroy() end
+ if not alive then return end;alive=false;S.Radar=false;S.Aim=false;S.CarSpeed=false;S.CarFly=false;S.PlayerFly=false;S.Speed=false;S.Fog=false;S.Fullbright=false
+ if characterFly and characterFly.stop then pcall(characterFly.stop) end
+ if stopCarFly then pcall(stopCarFly) end
+ if clearVehicleBoost then pcall(clearVehicleBoost) end
+ pcall(clearMarkers);pcall(clearResourceMarkers)
+ pcall(function()resourceAlertText:Destroy()end)
+ if merchantMarker then pcall(function()merchantMarker:Destroy()end) end
+ pcall(applyVisuals)
+ if fovGui and fovGui.Parent then pcall(function()fovGui:Destroy()end) end
+ if speedHum and speedHum.Parent and originalSpeed then pcall(function()speedHum.WalkSpeed=originalSpeed end) end
+ for _,c in ipairs(conns) do c:Disconnect() end
+ pcall(function()RunService:UnbindFromRenderStep('Lx_NexusAimV77')end)
+ if env.XHubCleanup==cleanup then env.XHubCleanup=nil end
+ gui:Destroy()
 end
-_G.LxREDLINECleanup_v77 = cleanup
-button(settingsPage, "إنهاء السكربت وتنظيف العناصر", cleanup, true)
--- Startup stays visible even if server isn't installed or is unreachable.
-task.spawn(function()
-    local folder = ReplicatedStorage:WaitForChild("Lx_REDLINE_v77", 8)
-    if not folder then
-        previewing = RunService:IsStudio()
-        welcome.Visible = not previewing
-        sidebar.Visible = previewing
-        content.Visible = previewing
-        welcomeStatus.Text = "السيرفر غير جاهز\nأضف Lx_REDLINE_PRO_v77_SERVER.lua إلى ServerScriptService"
-        log("الأدوات المحلية جاهزة؛ تحكم السيارة والطيران والانتقال يحتاج ملف السيرفر", true)
-        return
+env.XHubCleanup=cleanup
+conn(close.MouseButton1Click,cleanup)
+local timer=0;local characterFlyTimer=0;local flyUpdateTimer=0;local groundUpdateTimer=0;local walkUpdateTimer=0;local aimTarget=nil;local aimTimer=0;local fitTimer=0;local listTimer=0;local extrasTimer=0;local visualTimer=0
+conn(RunService.Heartbeat,function(dt)
+ if not alive then return end
+ timer+=dt;fitTimer+=dt;listTimer+=dt;extrasTimer+=dt;visualTimer+=dt;if fitTimer>=1 then fitTimer=0;fitScreen() end
+ walkUpdateTimer+=dt
+ if S.Speed and walkUpdateTimer>=0.25 then
+  walkUpdateTimer=0
+  local h=hum()
+  if h then
+   if speedHum~=h then speedHum=h;originalSpeed=h.WalkSpeed end
+   if math.abs(h.WalkSpeed-S.Walk)>0.1 then h.WalkSpeed=S.Walk end
+  end
+ end
+ -- Update flight physics at 30Hz, not every rendered frame.
+ characterFlyTimer+=dt
+ if S.PlayerFly and characterFlyTimer>=1/30 then
+  characterFlyTimer=0
+  local ok,err=pcall(characterFly.update)
+  if not ok then characterFly.problem='خطأ طيران اللاعب: '..tostring(err):sub(1,60);S.PlayerFly=false;characterFly.stop();if togglePaints.PlayerFly then togglePaints.PlayerFly() end end
+ elseif not S.PlayerFly then
+  characterFlyTimer=0
+ end
+ -- Vehicle flight uses its own independent actuator.
+ flyUpdateTimer+=dt
+ groundUpdateTimer+=dt
+ if S.CarFly and flyUpdateTimer>=1/30 then
+  flyUpdateTimer=0
+  local ok,err=pcall(updateCarFly)
+  if not ok then
+   S.CarFly=false
+   pcall(stopCarFly,true)
+   if togglePaints.CarFly then togglePaints.CarFly() end
+   flyState='تم إيقاف الطيران بعد خطأ: '..tostring(err):sub(1,55)
+   warn('[Lx car flight]',err)
+  end
+ elseif not S.CarFly then
+  flyUpdateTimer=0
+ end
+ if S.CarSpeed and not S.CarFly and groundUpdateTimer>=0.10 then
+  local ok,err=pcall(updateVehicleBoost,groundUpdateTimer)
+  groundUpdateTimer=0
+  if not ok then
+   S.CarSpeed=false
+   pcall(clearVehicleBoost)
+   if togglePaints.CarSpeed then togglePaints.CarSpeed() end
+   vehicleState='تم إيقاف مساعد السرعة بعد خطأ: '..tostring(err):sub(1,45)
+   warn('[Lx vehicle speed]',err)
+  end
+ elseif not S.CarSpeed then
+  groundUpdateTimer=0
+ end
+ if timer>=1.5 then
+  timer=0
+  if S.Radar or S.Aim or S.RareAlert then local ok,err=pcall(refreshCache);if not ok then warn('[Lx radar]',err) end end
+  if S.RareAlert then local ok,err=pcall(checkRareSpawn);if not ok then warn('[Lx rare]',err) end elseif rareBanner.Visible then rareBanner.Visible=false end
+  if extrasTimer>=8 then extrasTimer=0;if S.ResourceESP or S.ResourceAlert or S.Merchant then local ok,err=pcall(refreshExtrasESP);if not ok then warn('[Lx extras]',err) end end end
+  if S.Radar then
+   local count=0
+   for _ in pairs(indexed) do count+=1 end
+   local diag=radarDiag:FindFirstChildOfClass('TextLabel')
+   if diag then diag.Text='تشخيص الكاشف: '..count..' ضب محتمل | '..#scanQueue..' مجسم في الفهرس' end
+   local r=root()
+   local visible={}
+   for _,e in ipairs(cache) do
+    local d=r and (e.part.Position-r.Position).Magnitude or math.huge
+    if d<=S.RadarRange then visible[#visible+1]={e=e,d=d} end
+   end
+   table.sort(visible,function(a,b)return a.d<b.d end)
+   local shown=0
+   local kept={}
+   for _,item in ipairs(visible) do
+    local e=item.e
+    local d=item.d
+    local match=living(e.model) and lizard(e.model) and (S.Filter=='الكل' or rarity(e.model)==S.Filter)
+    if match and shown<8 then
+     shown+=1
+     kept[e.model]=true
+     makeMarker(e);local bb=markers[e.model];if bb then bb.MaxDistance=S.RadarRange;local t=bb:FindFirstChildOfClass('TextLabel');if t then
+      local weight=animalWeight(e.model);local size=animalSize(e.model)
+      t.Text=speciesName(e.model)..' | '..rarity(e.model)..'\nحجم '..size..'  •  وزن '..weight..'  •  '..math.floor(d)..' وحدة'
+      t.TextColor3=rarityColors[rarity(e.model)] or C.white
+     end end
+    elseif markers[e.model] then markers[e.model]:Destroy();markers[e.model]=nil end
+   end
+   for m,bb in pairs(markers) do
+    local p=part(m)
+    local d=(r and p and p.Parent) and (p.Position-r.Position).Magnitude or math.huge
+    if not kept[m] or not m.Parent or not living(m) or not lizard(m) or d>S.RadarRange or (S.Filter~='الكل' and rarity(m)~=S.Filter) then
+     bb:Destroy();markers[m]=nil
     end
-    remoteFunction = folder:FindFirstChild("Action")
-    remoteEvent = folder:FindFirstChild("Events")
-    if not remoteFunction or not remoteFunction:IsA("RemoteFunction") or not remoteEvent then
-        previewing = RunService:IsStudio()
-        welcome.Visible = not previewing
-        sidebar.Visible = previewing
-        content.Visible = previewing
-        welcomeStatus.Text = "ملفات الاتصال ناقصة في ReplicatedStorage/Lx_REDLINE_v77"
-        log("الأدوات المحلية جاهزة؛ اتصال سيرفر Lx ناقص", true)
-        return
-    end
-    connect(remoteEvent.OnClientEvent, function(eventName, result)
-        if eventName == "AuthChanged" then
-            setAuthorized(result == true, result and "عضوية صالحة" or "انتهت العضوية أو فشل التحقق")
-        elseif eventName == "CarBoostStopped" then
-            carSpeedControl:set(false)
-            log(tostring(result))
-        elseif eventName == "TeleportResult" then
-            log(tostring(result))
-        elseif eventName == "ForcedStop" then
-            flyMode = nil
-            carFlyControl:set(false)
-            playerFlyControl:set(false)
-            carSpeedControl:set(false)
-            if remoteFunction and speedOn then
-                local sh = human()
-                if sh and oldWalkSpeed ~= nil then sh.WalkSpeed = oldWalkSpeed end
-                speedOn = false
-                oldWalkSpeed = nil
-                speedControl:set(false)
-            end
-            touchFrame.Visible = false
-            log("أوقف السيرفر التحكم: " .. tostring(result))
-        end
-    end)
-    refreshAuth()
+   end
+   local e,d=nearest(S.Filter);nearestText.Text=e and ('أقرب ضب: '..e.model.Name..' | حجم '..animalSize(e.model)..' | '..math.floor(d)..' وحدة') or 'أقرب ضب: لا يوجد'
+  else clearMarkers() end
+  if S.Radar and listTimer>=3 then listTimer=0;rebuildAnimalList() elseif not S.Radar then listTimer=0 end
+  if S.Merchant and extrasTimer==0 then local p,d=findMerchant();merchantText.Text=p and ('أقرب تاجر: '..math.floor(d)..' وحدة') or 'أقرب تاجر: غير مكتشف' end
+  if characterFly.diagnosticText and characterFly.diagnosticText.Parent then characterFly.diagnosticText.Text='طيران اللاعب: '..characterFly.problem end
+  if vehicleDiagnosticText then vehicleDiagnosticText.Text='التشخيص: '..(S.CarFly and flyState or vehicleState) end
+  -- Do not reapply Lighting periodically: repeated writes can cause flashes.
+  if visualTimer>=2.5 then visualTimer=0 end
+ end
 end)
+-- Apply aim after Roblox's camera update, so the camera does not fight the controller.
+local aimBinding='Lx_NexusAimV77'
+RunService:BindToRenderStep(aimBinding,Enum.RenderPriority.Camera.Value+1,function(dt)
+ if not alive then return end
+ if not S.Aim then return end
+ updateCircle(WS.CurrentCamera)
+ aimTimer=aimTimer+dt
+ if aimTimer<0.05 then return end
+ aimTimer=0
+ local cam=WS.CurrentCamera
+ updateCircle(cam)
+ if not S.Aim or not cam then return end
+ local r=root();if not r then return end
+ local vp=cam.ViewportSize
+ local center=Vector2.new(vp.X*.5,vp.Y*.5)
+ local best,bestPixelDistance=nil,math.huge
+ for _,e in ipairs(cache) do
+  if e.model.Parent and e.part.Parent and lizard(e.model) and living(e.model) then
+   local head=e.model:FindFirstChild('Head',true) or e.model:FindFirstChild('head',true) or e.model:FindFirstChild('رأس',true)
+   local targetPart=(head and head:IsA('BasePart')) and head or nil
+   local worldDistance=targetPart and (targetPart.Position-r.Position).Magnitude or math.huge
+   if targetPart and worldDistance<=S.AimRange then
+    local point,onScreen=cam:WorldToViewportPoint(targetPart.Position)
+    if onScreen and point.Z>0 then
+     local pixelDistance=(Vector2.new(point.X,point.Y)-center).Magnitude
+     if pixelDistance<=S.FOV and pixelDistance<bestPixelDistance then
+      best=targetPart
+      bestPixelDistance=pixelDistance
+     end
+    end
+   end
+  end
+ end
+ if best then
+  local desired=CFrame.lookAt(cam.CFrame.Position,best.Position)
+  local alpha=1-math.exp(-math.clamp(S.AimSmooth,.02,1)*30*math.min(dt,.1))
+  cam.CFrame=cam.CFrame:Lerp(desired,math.clamp(alpha,0,1))
+ end
+end)
+msg('Lx REDLINE v77 | تشغيل مستقر + مراقبة تغيّرات الموقع')
+print('[Lx REDLINE PRO] v77 loaded')
+end -- initializeFeatures
 
-end -- LxStartup
-local started, reason = pcall(LxStartup)
-if not started then
-    warn("[Lx REDLINE v77 startup error] " .. tostring(reason))
-    pcall(function()
-        local players = game:GetService("Players")
-        local player = players.LocalPlayer
-        if not player then return end
-        local parent = player:FindFirstChildOfClass("PlayerGui") or player:WaitForChild("PlayerGui", 5)
-        if not parent then return end
-        local prior = parent:FindFirstChild("Lx_REDLINE_v77_STARTUP_ERROR")
-        if prior then prior:Destroy() end
-        local gui = Instance.new("ScreenGui")
-        gui.Name = "Lx_REDLINE_v77_STARTUP_ERROR"
-        gui.ResetOnSpawn = false
-        gui.DisplayOrder = 2000
-        gui.Parent = parent
-        local panel = Instance.new("TextLabel")
-        panel.Name = "LxErrorReport"
-        panel.Size = UDim2.fromOffset(340, 124)
-        panel.Position = UDim2.fromOffset(12, 130)
-        panel.BackgroundColor3 = Color3.fromRGB(85, 15, 24)
-        panel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        panel.TextSize = 14
-        panel.TextWrapped = true
-        panel.Text = "Lx v77 | خطأ بدء التشغيل\n" .. tostring(reason):sub(1, 340)
-        panel.Parent = gui
-    end)
+task.defer(function()
+ local ok, err=xpcall(initializeFeatures,function(e)
+  if debug and debug.traceback then return debug.traceback(tostring(e),2) end
+  return tostring(e)
+ end)
+ if not ok then
+  warn('[Lx REDLINE v77 FEATURES]',err)
+  showFeatureError(err)
+ end
+end)
+end -- launchRedline
+local ok, issue=xpcall(launchRedline,function(err)
+ local trace=(debug and debug.traceback and debug.traceback(tostring(err),2)) or tostring(err)
+ warn('[Lx REDLINE v77 STARTUP ERROR] '..trace)
+ return trace
+end)
+if not ok then
+ local success,uierr=pcall(function()
+  local player=game:GetService('Players').LocalPlayer
+  if not player then return end
+  local pg=player:FindFirstChildOfClass('PlayerGui')
+  if not pg then return end
+  local previous=pg:FindFirstChild('Lx_Error_v77')
+  if previous then previous:Destroy() end
+  local gui=Instance.new('ScreenGui');gui.Name='Lx_Error_v77';gui.ResetOnSpawn=false;gui.DisplayOrder=10000;gui.Parent=pg
+  local frame=Instance.new('Frame');frame.Size=UDim2.fromOffset(540,195);frame.Position=UDim2.new(.5,-270,.32,0);frame.BackgroundColor3=Color3.fromRGB(30,17,18);frame.Parent=gui
+  local corner=Instance.new('UICorner');corner.Parent=frame
+  local lab=Instance.new('TextLabel');lab.Size=UDim2.new(1,-24,1,-62);lab.Position=UDim2.fromOffset(12,10);lab.BackgroundTransparency=1;lab.TextWrapped=true;lab.TextXAlignment=Enum.TextXAlignment.Left;lab.TextYAlignment=Enum.TextYAlignment.Top;lab.TextSize=15;lab.Font=Enum.Font.Code;lab.TextColor3=Color3.new(1,1,1);lab.Text='Lx REDLINE v77 - STARTUP ERROR\n'..tostring(issue):sub(1,350);lab.Parent=frame
+  local close=Instance.new('TextButton');close.Size=UDim2.new(1,-24,0,35);close.Position=UDim2.new(0,12,1,-45);close.Text='إغلاق';close.TextSize=17;close.TextColor3=Color3.new(1,1,1);close.BackgroundColor3=Color3.fromRGB(209,28,41);close.Parent=frame
+  close.MouseButton1Click:Connect(function()gui:Destroy()end)
+ end)
+ if not success then warn('Lx diagnostic UI failed:',uierr) end
 end
