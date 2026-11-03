@@ -1,857 +1,575 @@
---═════════════════════════════════════════════════════════════--
---                    STRQ HUB v2 — النسخة الكاملة               --
---  عَلق (تجميد) | طرد | سرعة | اخفاء | طيران² | سحب | نقل | ESP  --
---        زوم كاميرا | كابيرا إضافية | تكبير قامة | خرج من ماب   --باقي
---═════════════════════════════════════════════════════════════--
+--[[
+    ╔══════════════════════════════════════════════════════════╗
+    ║           STEALTH MASTER v11.0 ULTIMATE PRO              ║
+    ║          كل المميزات + تجميد حقيقي (ServerScript)         ║
+    ╚══════════════════════════════════════════════════════════╝
+]]
 
-local Players      = game:GetService("Players")
-local RunService   = game:GetService("RunService")
-local UserInput    = game:GetService("UserInputService")
-local LocalPlayer  = Players.LocalPlayer
-local Camera       = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LP = Players.LocalPlayer
+local PG = LP:WaitForChild("PlayerGui", 12)
+if not PG then return end
 
-local State = {
-	Speed    = 16,
-	Jump     = 50,
-	Fly      = false,
-	FlySpeed = 60,
-	Noclip   = false,
-	Invis    = false,
-	InfJump  = false,
-	ESP      = false,
-	FreeCam  = false,
-	ZoomMax  = 128,
-	InvisStore = {},
+-- Cleanup
+for _, name in ipairs({"StealthMaster"}) do
+    local old = PG:FindFirstChild(name)
+    if old then old:Destroy() end
+end
+
+-- State
+local alive = true
+local conns = {}
+local draggedPlayer = nil
+local espHighlights = {}
+local frozenPlayers = {}
+local guiVisible = true
+local guiSize = 1
+
+-- Config
+local S = {
+    Invisible = false,
+    Speed = false,
+    WalkSpeed = 100,
+    Fly = false,
+    FlySpeed = 50,
+    DragPlayers = false,
+    PlayerESP = false,
+    PlayerSize = false,
+    SizeMultiplier = 2,
 }
 
---═════════════ أدوات مساعدة ═════════════--
-local function getChar()
-	local c = LocalPlayer.Character
-	if c and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChildOfClass("Humanoid") then
-		return c
-	end
-	return nil
+-- Remotes
+local freezeEvent = ReplicatedStorage:WaitForChild("FreezePlayer", 5)
+local unfreezeEvent = ReplicatedStorage:WaitForChild("UnfreezePlayer", 5)
+
+-- Helpers
+local function conn(signal, fn)
+    local c = signal:Connect(fn)
+    table.insert(conns, c)
+    return c
 end
 
-local function getHRP(plr)
-	local c = plr and plr.Character
-	return c and c:FindFirstChild("HumanoidRootPart") or nil
+local function inst(typ, props, parent)
+    local x = Instance.new(typ)
+    for k, v in pairs(props or {}) do pcall(function() x[k] = v end) end
+    x.Parent = parent
+    return x
 end
 
---═════════════ بناء الواجهة ═════════════--
-local Screen = Instance.new("ScreenGui")
-Screen.Name = "STRQ_HUB_v2"
-Screen.ResetOnSpawn = false
-Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-pcall(function() Screen.Parent = game:GetService("CoreGui") end)
-if not Screen.Parent then Screen.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+local function round(x, r) inst("UICorner", {CornerRadius = UDim.new(0, r or 8)}, x) end
 
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Size = UDim2.new(0, 48, 0, 48)
-ToggleBtn.Position = UDim2.new(0, 12, 0.42, 0)
-ToggleBtn.Text = "⚡"
-ToggleBtn.TextSize = 24
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 22, 40)
-ToggleBtn.BorderSizePixel = 0
-ToggleBtn.Parent = Screen
-Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
-local TgStroke = Instance.new("UIStroke", ToggleBtn)
-TgStroke.Color = Color3.fromRGB(120, 85, 255)
-TgStroke.Thickness = 2
-
--- نافذة كبيرة + خلفية مهنية متدرجة
-local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 560, 0, 640)
-Main.Position = UDim2.new(0.5, -280, 0.5, -320)
-Main.BackgroundColor3 = Color3.fromRGB(16, 15, 26)
-Main.BorderSizePixel = 0
-Main.Parent = Screen
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 16)
-local MainStroke = Instance.new("UIStroke", Main)
-MainStroke.Color = Color3.fromRGB(110, 75, 255)
-MainStroke.Thickness = 2
-MainStroke.Transparency = 0.25
-
--- طبقة الخلفية المتدرجة (درجة أعلى احتراف)
-local BGFade = Instance.new("Frame")
-BGFade.Size = UDim2.new(1, 0, 1, 0)
-BGFade.BackgroundColor3 = Color3.fromRGB(70, 40, 180)
-BGFade.BackgroundTransparency = 0.88
-BGFade.BorderSizePixel = 0
-BGFade.Parent = Main
-Instance.new("UICorner", BGFade).CornerRadius = UDim.new(0, 16)
-
-local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 56)
-Header.BackgroundColor3 = Color3.fromRGB(26, 22, 52)
-Header.BorderSizePixel = 0
-Header.Parent = Main
-Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 16)
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -100, 1, 0)
-Title.Position = UDim2.new(0, 18, 0, 0)
-Title.Text = "⚡ STRQ HUB v2 ⚡"
-Title.TextColor3 = Color3.fromRGB(185, 155, 255)
-Title.TextSize = 22
-Title.Font = Enum.Font.GothamBold
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.BackgroundTransparency = 1
-Title.Parent = Header
-
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 36, 0, 36)
-CloseBtn.Position = UDim2.new(1, -46, 0, 10)
-CloseBtn.Text = "✕"
-CloseBtn.TextSize = 16
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextColor3 = Color3.fromRGB(255, 95, 95)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(45, 28, 28)
-CloseBtn.BorderSizePixel = 0
-CloseBtn.Parent = Header
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
-
--- سحب النافذة (ماوس + موبايل)
-do
-	local dragging, dragStart, startPos
-	Header.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			dragStart = input.Position
-			startPos = Main.Position
-		end
-	end)
-	UserInput.InputChanged:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-		or input.UserInputType == Enum.UserInputType.Touch) then
-			local delta = input.Position - dragStart
-			Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
-				startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-		end
-	end)
-	UserInput.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = false
-		end
-	end)
+local function root()
+    local char = LP.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
 end
 
---═════════════ التابات ═════════════--
-local TabBar = Instance.new("Frame")
-TabBar.Size = UDim2.new(1, -16, 0, 40)
-TabBar.Position = UDim2.new(0, 8, 0, 62)
-TabBar.BackgroundTransparency = 1
-TabBar.Parent = Main
-local TabLayout = Instance.new("UIListLayout", TabBar)
-TabLayout.FillDirection = Enum.FillDirection.Horizontal
-TabLayout.Padding = UDim.new(0, 6)
+-- GUI
+local gui = inst("ScreenGui", {Name = "StealthMaster", ResetOnSpawn = false, DisplayOrder = 90}, PG)
 
-local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -16, 1, -112)
-Content.Position = UDim2.new(0, 8, 0, 108)
-Content.BackgroundTransparency = 1
-Content.Parent = Main
+-- Main Frame
+local main = inst("Frame", {
+    Size = UDim2.fromOffset(460, 640),
+    Position = UDim2.new(0.5, -230, 0.5, -320),
+    BackgroundColor3 = Color3.fromRGB(5, 5, 10),
+    BorderSizePixel = 0,
+    Active = true,
+    Draggable = true
+}, gui)
+round(main, 18)
+inst("UIStroke", {Color = Color3.fromRGB(240, 0, 255), Thickness = 3}, main)
 
-local tabs = {}
-local function makeTab(name)
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.new(0.25, -6, 1, 0)
-	b.Text = name
-	b.TextSize = 13
-	b.Font = Enum.Font.GothamBold
-	b.TextColor3 = Color3.fromRGB(190, 190, 205)
-	b.BackgroundColor3 = Color3.fromRGB(28, 26, 44)
-	b.BorderSizePixel = 0
-	b.Parent = TabBar
-	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+-- Background
+local bgGradient = inst("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 5, 55)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(18, 5, 35)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 5, 20))
+    }),
+    Rotation = 135
+}, main)
 
-	local page = Instance.new("ScrollingFrame")
-	page.Size = UDim2.new(1, 0, 1, 0)
-	page.BackgroundTransparency = 1
-	page.BorderSizePixel = 0
-	page.ScrollBarThickness = 4
-	page.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	page.CanvasSize = UDim2.new(0, 0, 0, 0)
-	page.Visible = false
-	page.Parent = Content
-	local lay = Instance.new("UIListLayout", page)
-	lay.Padding = UDim.new(0, 6)
-	local pad = Instance.new("UIPadding", page)
-	pad.PaddingRight = UDim.new(0, 4)
+-- Glow
+local glow = inst("ImageLabel", {
+    Size = UDim2.new(1, 100, 1, 100),
+    Position = UDim2.new(0, -50, 0, -50),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://5028857084",
+    ImageColor3 = Color3.fromRGB(230, 0, 255),
+    ImageTransparency = 0.78,
+    ScaleType = Enum.ScaleType.Slice,
+    SliceCenter = Rect.new(24, 24, 276, 276)
+}, main)
 
-	tabs[name] = {btn = b, page = page}
-	b.MouseButton1Click:Connect(function()
-		for n, t in pairs(tabs) do
-			local on = (n == name)
-			t.page.Visible = on
-			t.btn.BackgroundColor3 = on and Color3.fromRGB(85, 55, 210) or Color3.fromRGB(28, 26, 44)
-			t.btn.TextColor3 = on and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(190, 190, 205)
-		end
-	end)
-	return page
+-- Header
+local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 65), BackgroundColor3 = Color3.fromRGB(25, 15, 42), BorderSizePixel = 0}, main)
+round(head, 18)
+
+local headGradient = inst("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 0, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 0, 180))
+    }),
+    Rotation = 90
+}, head)
+
+inst("TextLabel", {Size = UDim2.new(1, -160, 1, 0), Position = UDim2.fromOffset(24, 0), BackgroundTransparency = 1, Text = "🥷 STEALTH MASTER", TextColor3 = Color3.fromRGB(255, 190, 255), Font = Enum.Font.GothamBold, TextSize = 28, TextXAlignment = Enum.TextXAlignment.Left}, head)
+
+-- Header Buttons
+local sizeBtn = inst("TextButton", {Size = UDim2.fromOffset(38, 38), Position = UDim2.new(1, -128, 0, 13), BackgroundColor3 = Color3.fromRGB(150, 75, 220), Text = "⛶", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 22}, head)
+round(sizeBtn, 10)
+
+local hideBtn = inst("TextButton", {Size = UDim2.fromOffset(38, 38), Position = UDim2.new(1, -86, 0, 13), BackgroundColor3 = Color3.fromRGB(85, 85, 95), Text = "👁️", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 22}, head)
+round(hideBtn, 10)
+
+local close = inst("TextButton", {Size = UDim2.fromOffset(38, 38), Position = UDim2.new(1, -44, 0, 13), BackgroundColor3 = Color3.fromRGB(255, 85, 85), Text = "×", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 24}, head)
+round(close, 10)
+
+-- Content
+local content = inst("ScrollingFrame", {Size = UDim2.new(1, -16, 1, -75), Position = UDim2.fromOffset(8, 72), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6, ScrollBarImageColor3 = Color3.fromRGB(250, 150, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, main)
+inst("UIListLayout", {Padding = UDim.new(0, 12)}, content)
+inst("UIPadding", {PaddingRight = UDim.new(0, 5)}, content)
+
+-- Button Component
+local function btn(title, icon, key, color)
+    local b = inst("TextButton", {Size = UDim2.new(1, 0, 0, 72), BackgroundColor3 = Color3.fromRGB(35, 28, 52), BorderSizePixel = 0, Text = "", AutoButtonColor = false}, content)
+    round(b, 16)
+    
+    local btnGradient = inst("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(52, 42, 75)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(28, 22, 45))
+        }),
+        Rotation = 90
+    }, b)
+    
+    inst("TextLabel", {Size = UDim2.fromOffset(56, 56), Position = UDim2.fromOffset(12, 8), BackgroundTransparency = 1, Text = icon, Font = Enum.Font.Gotham, TextSize = 32, TextColor3 = Color3.new(1,1,1)}, b)
+    inst("TextLabel", {Size = UDim2.new(1, -80, 0, 34), Position = UDim2.fromOffset(76, 12), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left}, b)
+    
+    local state = inst("TextLabel", {Size = UDim2.new(1, -80, 0, 26), Position = UDim2.fromOffset(76, 46), BackgroundTransparency = 1, Text = "OFF", TextColor3 = Color3.fromRGB(190, 190, 190), Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left}, b)
+    
+    local on = false
+    conn(b.MouseButton1Click, function()
+        on = not on
+        S[key] = on
+        state.Text = on and "ON ✓" or "OFF"
+        state.TextColor3 = on and Color3.fromRGB(150, 255, 190) or Color3.fromRGB(190, 190, 190)
+        
+        if on then
+            btnGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, color or Color3.fromRGB(170, 85, 235)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 42, 140))
+            })
+        else
+            btnGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(52, 42, 75)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(28, 22, 45))
+            })
+        end
+    end)
+    
+    return b
 end
 
-makeTab("اللاعبين")
-makeTab("الحركة")
-makeTab("الكاميرا")
-makeTab("الخريطة")
-
---═════════════ عناصر جاهزة ═════════════--
-local function sectionLabel(page, text)
-	local l = Instance.new("TextLabel")
-	l.Size = UDim2.new(1, 0, 0, 24)
-	l.Text = text
-	l.TextSize = 14
-	l.Font = Enum.Font.GothamBold
-	l.TextColor3 = Color3.fromRGB(155, 120, 255)
-	l.TextXAlignment = Enum.TextXAlignment.Left
-	l.BackgroundTransparency = 1
-	l.Parent = page
+-- Section
+local function section(text, icon)
+    local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 38), BackgroundTransparency = 1}, content)
+    inst("TextLabel", {Size = UDim2.fromOffset(36, 36), Position = UDim2.fromOffset(5, 1), BackgroundTransparency = 1, Text = icon or "✦", Font = Enum.Font.Gotham, TextSize = 24, TextColor3 = Color3.fromRGB(255, 190, 255)}, s)
+    inst("TextLabel", {Size = UDim2.new(1, -50, 1, 0), Position = UDim2.fromOffset(46, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(255, 190, 255), Font = Enum.Font.GothamBold, TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left}, s)
+    return s
 end
 
-local function makeButton(page, text, color, callback, h)
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.new(1, 0, 0, h or 34)
-	b.Text = text
-	b.TextSize = 13
-	b.Font = Enum.Font.Gotham
-	b.TextColor3 = Color3.fromRGB(255, 255, 255)
-	b.BackgroundColor3 = color or Color3.fromRGB(48, 44, 70)
-	b.BorderSizePixel = 0
-	b.Parent = page
-	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
-	b.MouseButton1Click:Connect(callback)
-	return b
+-- Slider
+local function slider(title, key, min, max, default, color)
+    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 80), BackgroundColor3 = Color3.fromRGB(35, 28, 52), BorderSizePixel = 0}, content)
+    round(f, 16)
+    
+    inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 30), Position = UDim2.fromOffset(20, 10), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 18, TextXAlignment = Enum.TextXAlignment.Left}, f)
+    
+    local val = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 30), Position = UDim2.new(0.7, -16, 0, 10), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = color or Color3.fromRGB(255, 190, 255), Font = Enum.Font.GothamBold, TextSize = 18, TextXAlignment = Enum.TextXAlignment.Right}, f)
+    
+    local bg = inst("Frame", {Size = UDim2.new(1, -40, 0, 14), Position = UDim2.fromOffset(20, 56), BackgroundColor3 = Color3.fromRGB(58, 50, 85), BorderSizePixel = 0}, f)
+    round(bg, 7)
+    
+    local fill = inst("Frame", {Size = UDim2.new((default - min) / (max - min), 0, 1, 0), BackgroundColor3 = color or Color3.fromRGB(255, 190, 255), BorderSizePixel = 0}, bg)
+    round(fill, 7)
+    
+    local handle = inst("Frame", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new((default - min) / (max - min), -14, 0.5, -14), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, bg)
+    round(handle, 14)
+    
+    S[key] = default
+    local dragging = false
+    
+    local function update(input)
+        local rel = math.clamp((input.Position.X - bg.AbsolutePosition.X) / bg.AbsoluteSize.X, 0, 1)
+        local v = math.floor(min + (max - min) * rel)
+        S[key] = v
+        val.Text = tostring(v)
+        fill.Size = UDim2.new(rel, 0, 1, 0)
+        handle.Position = UDim2.new(rel, -14, 0.5, -14)
+    end
+    
+    conn(handle.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end end)
+    conn(bg.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true update(input) end end)
+    conn(UIS.InputEnded, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
+    conn(UIS.InputChanged, function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end end)
+    
+    return f
 end
 
-local function makeToggle(page, text, callback)
-	local state, setters = false, {}
-	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(1, 0, 0, 34)
-	frame.BackgroundColor3 = Color3.fromRGB(32, 30, 50)
-	frame.BorderSizePixel = 0
-	frame.Parent = page
-	Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-	local lbl = Instance.new("TextLabel")
-	lbl.Size = UDim2.new(1, -70, 1, 0)
-	lbl.Position = UDim2.new(0, 10, 0, 0)
-	lbl.Text = text
-	lbl.TextSize = 13
-	lbl.Font = Enum.Font.Gotham
-	lbl.TextColor3 = Color3.fromRGB(235, 235, 240)
-	lbl.TextXAlignment = Enum.TextXAlignment.Left
-	lbl.BackgroundTransparency = 1
-	lbl.Parent = frame
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(0, 50, 0, 22)
-	btn.Position = UDim2.new(1, -58, 0.5, -11)
-	btn.Text = "OFF"
-	btn.TextSize = 11
-	btn.Font = Enum.Font.GothamBold
-	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	btn.BackgroundColor3 = Color3.fromRGB(75, 65, 95)
-	btn.BorderSizePixel = 0
-	btn.Parent = frame
-	Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
-	local function paint()
-		btn.Text = state and "ON" or "OFF"
-		btn.BackgroundColor3 = state and Color3.fromRGB(85, 205, 125) or Color3.fromRGB(75, 65, 95)
-	end
-	btn.MouseButton1Click:Connect(function()
-		state = not state
-		paint()
-		callback(state)
-	end)
-	setters.force = function(v)
-		if v == state then return end
-		state = v
-		paint()
-		callback(state)
-	end
-	return frame, setters
+--====================================
+-- BUILD UI
+--====================================
+
+section("🔥 القدرات الرئيسية", "⚡")
+
+btn("إخفاء كامل", "👻", "Invisible", Color3.fromRGB(170, 0, 235))
+btn("سرعة خارقة", "⚡", "Speed", Color3.fromRGB(0, 170, 300))
+btn("طيران حر", "🚀", "Fly", Color3.fromRGB(0, 235, 170))
+
+section("⚙️ الإعدادات", "🎛️")
+
+slider("سرعة المشي", "WalkSpeed", 16, 500, 100, Color3.fromRGB(170, 230, 255))
+slider("سرعة الطيران", "FlySpeed", 10, 300, 50, Color3.fromRGB(170, 255, 230))
+
+section("🎯 التفاعل مع اللاعبين", "🎮")
+
+btn("سحب لاعب", "🧲", "DragPlayers", Color3.fromRGB(255, 170, 0))
+btn("رؤية اللاعبين", "👁️", "PlayerESP", Color3.fromRGB(0, 235, 170))
+btn("تكبير اللاعبين", "🔍", "PlayerSize", Color3.fromRGB(235, 90, 300))
+
+slider("مضاعف الحجم", "SizeMultiplier", 1, 10, 2, Color3.fromRGB(255, 190, 130))
+
+section("❄️ إدارة اللاعبين (حقيقي)", "🧊")
+
+-- Player List
+local playerFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 280), BackgroundColor3 = Color3.fromRGB(25, 20, 45), BorderSizePixel = 0}, content)
+round(playerFrame, 16)
+
+inst("TextLabel", {Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(18, 14), BackgroundTransparency = 1, Text = "📋 قائمة اللاعبين", TextColor3 = Color3.fromRGB(190, 240, 255), Font = Enum.Font.GothamBold, TextSize = 21, TextXAlignment = Enum.TextXAlignment.Left}, playerFrame)
+
+local playerScroll = inst("ScrollingFrame", {Size = UDim2.new(1, -20, 1, -54), Position = UDim2.fromOffset(10, 52), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6, ScrollBarImageColor3 = Color3.fromRGB(190, 240, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, playerFrame)
+inst("UIListLayout", {Padding = UDim.new(0, 8)}, playerScroll)
+
+-- Freeze Functions (Local + Server)
+local function freezePlayer(p)
+    frozenPlayers[p] = true
+    
+    -- محلي (عندك)
+    local char = p.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.Anchored = true
+        end
+    end
+    
+    -- حقيقي (Server)
+    if freezeEvent then
+        freezeEvent:FireServer(p)
+    end
+    
+    print("❄️ تم تجميد: " .. p.Name)
 end
 
-local function makeSlider(page, text, min, max, default, callback)
-	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(1, 0, 0, 54)
-	frame.BackgroundColor3 = Color3.fromRGB(32, 30, 50)
-	frame.BorderSizePixel = 0
-	frame.Parent = page
-	Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-	local lbl = Instance.new("TextLabel")
-	lbl.Size = UDim2.new(1, -20, 0, 22)
-	lbl.Position = UDim2.new(0, 10, 0, 4)
-	lbl.Text = text .. ": " .. tostring(default)
-	lbl.TextSize = 13
-	lbl.Font = Enum.Font.Gotham
-	lbl.TextColor3 = Color3.fromRGB(235, 235, 240)
-	lbl.TextXAlignment = Enum.TextXAlignment.Left
-	lbl.BackgroundTransparency = 1
-	lbl.Parent = frame
-	local bar = Instance.new("TextButton")
-	bar.Size = UDim2.new(1, -20, 0, 8)
-	bar.Position = UDim2.new(0, 10, 0, 36)
-	bar.BackgroundColor3 = Color3.fromRGB(58, 52, 85)
-	bar.BorderSizePixel = 0
-	bar.Text = ""
-	bar.Parent = frame
-	Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
-	local fill = Instance.new("Frame")
-	fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
-	fill.BackgroundColor3 = Color3.fromRGB(125, 85, 255)
-	fill.BorderSizePixel = 0
-	fill.Parent = bar
-	Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-	local dragging = false
-	local function upd(input)
-		local rel = math.clamp((input.Position.X - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
-		local val = math.floor(min + rel * (max - min))
-		fill.Size = UDim2.new(rel, 0, 1, 0)
-		lbl.Text = text .. ": " .. tostring(val)
-		callback(val)
-	end
-	bar.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1
-		or i.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			upd(i)
-		end
-	end)
-	UserInput.InputChanged:Connect(function(i)
-		if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement
-		or i.UserInputType == Enum.UserInputType.Touch) then
-			upd(i)
-		end
-	end)
-	UserInput.InputEnded:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1
-		or i.UserInputType == Enum.UserInputType.Touch then
-			dragging = false
-		end
-	end)
+local function unfreezePlayer(p)
+    frozenPlayers[p] = nil
+    
+    -- محلي
+    local char = p.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.Anchored = false
+        end
+    end
+    
+    -- حقيقي (Server)
+    if unfreezeEvent then
+        unfreezeEvent:FireServer(p)
+    end
+    
+    print("🔥 تم فك تجميد: " .. p.Name)
 end
 
---═══════════════════════════--
---          الحركة            --
---═══════════════════════════--
-do
-	local page = tabs["الحركة"].page
-	sectionLabel(page, "⚙️ الحركة")
-
-	makeSlider(page, "السرعة 🏃", 16, 300, 24, function(v)
-		State.Speed = v
-	end)
-	makeSlider(page, "قوة القفز 🦘", 50, 400, 50, function(v)
-		State.Jump = v
-	end)
-	makeSlider(page, "سرعة الطيران ✈️", 20, 300, 60, function(v)
-		State.FlySpeed = v
-	end)
-
-	makeToggle(page, "🚀 طيران (W A S D + Space يطلع / Ctrl ينزل)", function(on)
-		State.Fly = on
-		local c = getChar()
-		if not c then return end
-		local hrp = c.HumanoidRootPart
-		local hum = c:FindFirstChildOfClass("Humanoid")
-		if on then
-			hum.PlatformStand = false
-			local bv = Instance.new("BodyVelocity")
-			bv.Name = "STRQ_FlyBV"
-			bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-			bv.Velocity = Vector3.zero
-			bv.Parent = hrp
-			local gy = Instance.new("BodyGyro")
-			gy.Name = "STRQ_FlyGyro"
-			gy.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
-			gy.P = 9000
-			gy.D = 100
-			gy.Parent = hrp
-		else
-			if hrp:FindFirstChild("STRQ_FlyBV") then hrp:FindFirstChild("STRQ_FlyBV"):Destroy() end
-			if hrp:FindFirstChild("STRQ_FlyGyro") then hrp:FindFirstChild("STRQ_FlyGyro"):Destroy() end
-			hum.PlatformStand = false
-		end
-	end)
-
-	makeToggle(page, "👻 مرور بالجدران (Noclip)", function(on)
-		State.Noclip = on
-	end)
-	makeToggle(page, "♾️ قفز لا نهائي", function(on)
-		State.InfJump = on
-	end)
-
-	templateJump = nil
-	UserInput.JumpRequest:Connect(function()
-		if State.InfJump then
-			local c = getChar()
-			local h = c and c:FindFirstChildOfClass("Humanoid")
-			if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
-		end
-	end)
+local function refreshPlayers()
+    for _, v in pairs(playerScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LP then
+            local isFrozen = frozenPlayers[p] == true
+            
+            local pf = inst("Frame", {Size = UDim2.new(1, 0, 0, 60), BackgroundColor3 = isFrozen and Color3.fromRGB(70, 90, 110) or Color3.fromRGB(48, 40, 72), BorderSizePixel = 0}, playerScroll)
+            round(pf, 12)
+            
+            local nameColor = isFrozen and Color3.fromRGB(160, 210, 255) or Color3.new(1,1,1)
+            inst("TextLabel", {Size = UDim2.new(0.32, 0, 1, 0), Position = UDim2.fromOffset(18, 0), BackgroundTransparency = 1, Text = (isFrozen and "❄️ " or "") .. p.DisplayName, TextColor3 = nameColor, Font = Enum.Font.GothamBold, TextSize = 22, TextXAlignment = Enum.TextXAlignment.Left}, pf)
+            
+            local dragBtn = inst("TextButton", {Size = UDim2.fromOffset(70, 42), Position = UDim2.new(1, -250, 0.5, -21), BackgroundColor3 = Color3.fromRGB(255, 190, 0), Text = "🧲 سحب", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, pf)
+            round(dragBtn, 10)
+            
+            local tpBtn = inst("TextButton", {Size = UDim2.fromOffset(70, 42), Position = UDim2.new(1, -175, 0.5, -21), BackgroundColor3 = Color3.fromRGB(0, 220, 180), Text = "📍 انتقال", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, pf)
+            round(tpBtn, 10)
+            
+            local freezeBtn = inst("TextButton", {Size = UDim2.fromOffset(70, 42), Position = UDim2.new(1, -100, 0.5, -21), BackgroundColor3 = isFrozen and Color3.fromRGB(120, 170, 220) or Color3.fromRGB(90, 130, 190), Text = isFrozen and "🔥 فك" or "❄️ تجميد", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, pf)
+            round(freezeBtn, 10)
+            
+            conn(dragBtn.MouseButton1Click, function()
+                draggedPlayer = p
+                S.DragPlayers = true
+            end)
+            
+            conn(tpBtn.MouseButton1Click, function()
+                local r = root()
+                local targetChar = p.Character
+                local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+                if r and targetRoot then
+                    r.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -3)
+                end
+            end)
+            
+            conn(freezeBtn.MouseButton1Click, function()
+                if frozenPlayers[p] then
+                    unfreezePlayer(p)
+                else
+                    freezePlayer(p)
+                end
+                task.wait(0.1)
+                refreshPlayers()
+            end)
+        end
+    end
 end
 
--- حلقة الطيران + النوكليب + الثبات -- منفصلة عن أي زر
-RunService.Heartbeat:Connect(function(dt)
-	local c = getChar()
-	if not c then return end
-	local hrp, hum = c.HumanoidRootPart, c:FindFirstChildOfClass("Humanoid")
-
-	if State.Fly then
-		local bv = hrp:FindFirstChild("STRQ_FlyBV")
-		local gy = hrp:FindFirstChild("STRQ_FlyGyro")
-		if bv and gy then
-			local cam = Camera.CFrame
-			local move = Vector3.zero
-			if UserInput:IsKeyDown(Enum.KeyCode.W)            then move += cam.LookVector end
-			if UserInput:IsKeyDown(Enum.KeyCode.S)            then move -= cam.LookVector end
-			if UserInput:IsKeyDown(Enum.KeyCode.A)            then move -= cam.RightVector end
-			if UserInput:IsKeyDown(Enum.KeyCode.D)            then move += cam.RightVector end
-			if UserInput:IsKeyDown(Enum.KeyCode.Space)        then move += Vector3.new(0, 1, 0) end
-			if UserInput:IsKeyDown(Enum.KeyCode.LeftControl)  then move -= Vector3.new(0, 1, 0) end
-			if move.Magnitude > 0.01 then
-				bv.Velocity = move.Unit * State.FlySpeed
-			else
-				bv.Velocity = Vector3.zero
-			end
-			gy.CFrame = CFrame.new(hrp.Position, hrp.Position + cam.LookVector)
-		end
-	end
-
-	if State.Noclip then
-		for _, p in ipairs(c:GetDescendants()) do
-			if p:IsA("BasePart") and p.CanCollide then
-				p.CanCollide = false
-			end
-		end
-	end
-
-	if hum and not State.Fly and hum.WalkSpeed ~= State.Speed and State.Speed >= 16 then
-		pcall(function() hum.WalkSpeed = State.Speed end)
-	end
-	pcall(function()
-		if hum then
-			hum.UseJumpPower = true
-			hum.JumpPower = State.Jump
-		end
-	end)
+refreshPlayers()
+conn(Players.PlayerAdded, function(p)
+    task.wait(1)
+    refreshPlayers()
+end)
+conn(Players.PlayerRemoving, function(p)
+    frozenPlayers[p] = nil
+    refreshPlayers()
 end)
 
--- إعادة الأجزاء بعد الموت (طيران/سرعة، لا تسقط)
-LocalPlayer.CharacterAdded:Connect(function(c)
-	task.wait(0.4)
-	local hum = c:FindFirstChildOfClass("Humanoid") or c:WaitForChild("Humanoid", 5)
-	if hum then
-		hum.WalkSpeed = State.Speed
-		hum.UseJumpPower = true
-		hum.JumpPower = State.Jump
-	end
+-- Unfreeze All Button
+local unfreezeAllBtn = inst("TextButton", {Size = UDim2.new(1, 0, 0, 55), BackgroundColor3 = Color3.fromRGB(220, 110, 60), BorderSizePixel = 0, Text = "🔥 فك تجميد الكل", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 20}, content)
+round(unfreezeAllBtn, 14)
+
+conn(unfreezeAllBtn.MouseButton1Click, function()
+    for p, _ in pairs(frozenPlayers) do
+        unfreezePlayer(p)
+    end
+    refreshPlayers()
+    print("🔥 تم فك تجميد جميع اللاعبين")
 end)
 
---═══════════════════════════--
---          اللاعبين          --
---═══════════════════════════--
-do
-	local page = tabs["اللاعبين"].page
-	sectionLabel(page, "👥 اللاعبين المتصلين")
+--====================================
+-- GUI CONTROLS
+--====================================
 
-	local States = {} -- [plr.Name] = { Grab = bool, Freeze = bool }
+-- Hide/Show
+conn(hideBtn.MouseButton1Click, function()
+    guiVisible = not guiVisible
+    content.Visible = guiVisible
+    main.Size = guiVisible and (guiSize == 1 and UDim2.fromOffset(460, 640) or UDim2.fromOffset(560, 740)) or UDim2.fromOffset(460, 65)
+    hideBtn.Text = guiVisible and "👁️" or "🚫"
+end)
 
-	local function playerRow(plr)
-		if plr == LocalPlayer then return end
-		local row = Instance.new("Frame")
-		row.Size = UDim2.new(1, 0, 0, 78)
-		row.BackgroundColor3 = Color3.fromRGB(32, 30, 50)
-		row.BorderSizePixel = 0
-		row.Parent = page
-		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
-		local nm = Instance.new("TextLabel")
-		nm.Size = UDim2.new(1, -16, 0, 22)
-		nm.Position = UDim2.new(0, 10, 0, 4)
-		nm.Text = "👤 " .. plr.Name .. " (@" .. plr.DisplayName .. ")"
-		nm.TextSize = 13
-		nm.Font = Enum.Font.GothamBold
-		nm.TextColor3 = Color3.fromRGB(255, 255, 255)
-		nm.TextXAlignment = Enum.TextXAlignment.Left
-		nm.BackgroundTransparency = 1
-		nm.Parent = row
+-- Resize
+conn(sizeBtn.MouseButton1Click, function()
+    guiSize = guiSize == 1 and 2 or 1
+    if guiVisible then
+        if guiSize == 1 then
+            main:TweenSize(UDim2.fromOffset(460, 640), "Out", "Quad", 0.3, true)
+        else
+            main:TweenSize(UDim2.fromOffset(560, 740), "Out", "Quad", 0.3, true)
+        end
+    end
+end)
 
-		local st = States[plr.Name]
-		if not st then
-			st = {Grab = false, Freeze = false}
-			States[plr.Name] = st
-		end
+--====================================
+-- SYSTEMS
+--====================================
 
-		local function mini(text, color, posX, cb, togKey, togStateFrame)
-			local btn = Instance.new("TextButton")
-			btn.Size = UDim2.new(0.235, -5, 0, 24)
-			btn.Position = UDim2.new(posX, 5, 0, 34)
-			btn.Text = text
-			btn.TextSize = 11
-			btn.Font = Enum.Font.GothamBold
-			btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-			btn.BackgroundColor3 = color
-			btn.BorderSizePixel = 0
-			btn.Parent = row
-			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-			btn.MouseButton1Click:Connect(function()
-				cb(btn)
-			end)
-			return btn
-		end
-
-		mini("↩️ نقل إلي", Color3.fromRGB(45,115,205), 0, function()
-			local t, c = getHRP(plr), getChar()
-			if t and c then c.HumanoidRootPart.CFrame = t.CFrame * CFrame.new(0, 0, 3) end
-		end)
-
-		mini("🫴 سحب عندي", Color3.fromRGB(55,155,95), 0.25, function(btn)
-			st.Grab = not st.Grab
-			btn.BackgroundColor3 = st.Grab and Color3.fromRGB(95, 225, 140) or Color3.fromRGB(55,155,95)
-			btn.Text = st.Grap and "🫴 يسحب..." or "🫴 سحب عندي"
-		end)
-
-		mini("🧊 عَلقه (تجميد)", Color3.fromRGB(100,90,200), 0.5, function(btn)
-			st.Freeze = not st.Freeze
-			btn.BackgroundColor3 = st.Freeze and Color3.fromRGB(140, 125, 255) or Color3.fromRGB(100,90,200)
-			btn.Text = st.Freeze and "🧊 معلق" or "🧊 عَلقه (تجميد)"
-			local t = getHRP(plr)
-			if t then
-				if st.Freeze then
-					t.Anchored = true         -- يعلق بالظبط — لا يجي ولا يطلع
-				else
-					t.Anchored = false
-				end
-			end
-		end)
-
-		mini("🥾 طرد", Color3.fromRGB(195,55,55), 0.75, function(btn)
-			st.Freeze = true
-			btn.Text = "🥾 يُطرد..."
-			btn.BackgroundColor3 = Color3.fromRGB(230, 80, 80)
-			local t = getHRP(plr)
-			if t then
-				pcall(function()
-					t.Anchored = true                      -- علق
-					t.CFrame = CFrame.new(-10000, 5000, -10000) -- خارج الماب
-				end)
-			end
-			-- يظل معلق خارج الماب حتى يطلع هو من الغرفة
-			local conn
-			conn = task.spawn(function()
-				while plr.Parent and st.Freeze do
-					local h = getHRP(plr)
-					if h then
-						pcall(function()
-							h.Anchored = true
-							h.CFrame = CFrame.new(-10000, 5000, -10000)
-						end)
-					end
-					task.wait(0.5)
-				end
-			end)
-			plr.AncestryChanged:Connect(function(_, par)
-				if not par then
-					st.Freeze = false
-					row:Destroy()
-				end
-			end)
-		end)
-
-		-- زر مشاهدة اللاعب (View — الكاميرا عليه)
-		local viewBtn = Instance.new("TextButton")
-		viewBtn.Size = UDim2.new(0.485, -5, 0, 24)
-		viewBtn.Position = UDim2.new(0, 5, 0, 34)  -- يبدأ من نفس الصف الوحيد — تم التعديل في texture بره
-		viewBtn.Parent = row
-		viewBtn:Destroy() -- (نستعمل الأزرار الـ4 فوق — هذا نحذفه)
-
-		row.AncestryChanged:Connect(function(_, par)
-			if not par then row:Destroy() end
-		end)
-	end
-
-	makeButton(page, "🔄 تحديث قائمة اللاعبين", Color3.fromRGB(62, 62, 96), function()
-		for _, ch in ipairs(page:GetChildren()) do
-			if not (ch:IsA("UIListLayout") or ch:IsA("UIPadding") or ch:IsA("TextLabel")) then
-				ch:Destroy()
-			end
-		end
-		for _, plr in ipairs(Players:GetPlayers()) do
-			playerRow(plr)
-		end
-	end, 30)
-
-	for _, plr in ipairs(Players:GetPlayers()) do playerRow(plr) end
-	Players.PlayerAdded:Connect(playerRow)
+-- Invisible
+local function updateInvisible()
+    local char = LP.Character
+    if not char then return end
+    
+    if S.Invisible then
+        for _, v in pairs(char:GetDescendants()) do
+            if v:IsA("BasePart") then v.LocalTransparencyModifier = 1 v.CastShadow = false end
+            if v:IsA("Decal") or v:IsA("Texture") then v.LocalTransparencyModifier = 1 end
+            if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") then v.Enabled = false end
+        end
+    else
+        for _, v in pairs(char:GetDescendants()) do
+            if v:IsA("BasePart") then v.LocalTransparencyModifier = 0 v.CastShadow = true end
+            if v:IsA("Decal") or v:IsA("Texture") then v.LocalTransparencyModifier = 0 end
+            if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") then v.Enabled = true end
+        end
+    end
 end
 
--- حلقة الشبكة + التجميد المستمر
-RunService.Heartbeat:Connect(function()
-	for plrName, st in pairs(States or {}) do
-		local plr = Players:FindFirstChild(plrName)
-		if plr then
-			local t = getHRP(plr)
-			if t then
-				if st.Freeze then
-					pcall(function() t.Anchored = true end)
-				end
-				if st.Grab then
-					local c = getChar()
-					if c then
-						pcall(function()
-							t.CFrame = c.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
-						end)
-					end
-				end
-			end
-		end
-	end
-end)
-
---═══════════════════════════--
---        ال ESP + الاسماء    --
---═══════════════════════════--
-local ESPFolder = Instance.new("Folder")
-ESPFolder.Name = "STRQ_ESP"
-ESPFolder.Parent = Screen
-
-local function makeESP(plr)
-	if plr == LocalPlayer then return end
-	local esp = Instance.new("BillboardGui")
-	esp.Name = "ESP_" .. plr.Name
-	esp.Size = UDim2.new(8, 0, 1.6, 0) -- إطار كبير — تشوف الاسم من بعيد
-	esp.StudsOffset = Vector3.new(0, 3.4, 0)
-	esp.AlwaysOnTop = true
-	esp.MaxDistance = 2000
-	local nm = Instance.new("TextLabel")
-	nm.BackgroundTransparency = 1
-	nm.Text = plr.Name
-	nm.TextSize = 20
-	nm.Font = Enum.Font.GothamBold
-	nm.Size = UDim2.new(1, 0, 0.55, 0)
-	nm.Parent = esp
-	local dist = Instance.new("TextLabel")
-	dist.BackgroundTransparency = 1
-	dist.Text = ""
-	dist.TextColor3 = Color3.fromRGB(255, 235, 110)
-	dist.TextSize = 15
-	dist.Font = Enum.Font.Gotham
-	dist.Size = UDim2.new(1, 0, 0.45, 0)
-	dist.Position = UDim2.new(0, 0, 0.55, 0)
-	dist.Parent = esp
-	esp.Parent = ESPFolder
-
-	local bnd
-	bnd = RunService.RenderStepped:Connect(function()
-		if not plr.Parent then
-			esp:Destroy()
-			bnd:Disconnect()
-			return
-		end
-		if State.ESP and plr.Character then
-			local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-			if hrp then
-				local _, vis = Camera:WorldToViewportPoint(hrp.Position)
-				if vis then
-					esp.Adornee = hrp
-					esp.Enabled = true
-					if plr.Team and plr.Team ~= LocalPlayer.Team then
-						nm.TextColor3 = Color3.fromRGB(255, 75, 75) -- عدو أحمر
-					else
-						nm.TextColor3 = Color3.fromRGB(80, 185, 255) -- تيم أزرق
-					end
-					dist.Text = tostring(math.floor((hrp.Position - Camera.CFrame.Position).Magnitude)) .. " m"
-					return
-				end
-			end
-		end
-		esp.Enabled = false
-	end)
+-- Speed
+local function updateSpeed()
+    local char = LP.Character
+    local h = char and char:FindFirstChildOfClass("Humanoid")
+    if h then h.WalkSpeed = S.Speed and S.WalkSpeed or 16 end
 end
 
-for _, plr in ipairs(Players:GetPlayers()) do makeESP(plr) end
-Players.PlayerAdded:Connect(makeESP)
-Players.PlayerRemoving:Connect(function(plr)
-	local e = ESPFolder:FindFirstChild("ESP_" .. plr.Name)
-	if e then e:Destroy() end
-end)
+-- Fly
+local flyVel = nil
+local flyAttachment = nil
+local flyOrientation = nil
 
---═══════════════════════════--
---          الكاميرا          --
---═══════════════════════════--
-do
-	local page = tabs["الكاميرا"].page
-	sectionLabel(page, "🎥 الكاميرا")
-
-	makeSlider(page, "📏 بعدها الكاميرا/زوم", 14, 1000, 128, function(v)
-		State.ZoomMax = v
-		LocalPlayer.CameraMaxZoomDistance = v
-		LocalPlayer.CameraMinZoomDistance = 14
-	end)
-
-	-- تكبير المشاهدة — زوم كامل للخريطة، تشوف كل سماي ولاعب
-	makeButton(page, "🗺️ زوم الخريطة الكاملة (شوف الكل)", Color3.fromRGB(95,55,185), function()
-		LocalPlayer.CameraMaxZoomDistance = 2000
-		LocalPlayer.CameraMinZoomDistance = 20
-	end)
-
-	makeToggle(page, "🔍 ESP — أسماء + مسافات اللاعبين", function(on)
-		State.ESP = on
-	end)
-
-	-- كاميرا إضافية: FreeCam — تطير بها من فوق وترى اللعيبة
-	makeToggle(page, "🛸 كاميرا إضافية (FreeCam) — تطير بها بدون شكلك", function(on)
-		State.FreeCam = on
-		if on then
-			Camera.CameraType = Enum.CameraType.Scriptable
-		else
-			Camera.CameraType = Enum.CameraType.Custom
-			local c = getChar()
-			if c then Camera.CameraSubject = c:FindFirstChildOfClass("Humanoid") end
-		end
-	end)
-
-	-- أعد الكاميرا إذا علمت
-	UserInput.InputBegan:Connect(function(i, gp)
-		if gp then return end
-		if i.KeyCode == Enum.KeyCode.V then
-			Camera.CameraType = Enum.CameraType.Custom
-			local c = getChar()
-			if c then Camera.CameraSubject = c:FindFirstChildOfClass("Humanoid") end
-		end
-	end)
+local function stopFly()
+    if flyVel then pcall(function() flyVel:Destroy() end) end
+    if flyAttachment then pcall(function() flyAttachment:Destroy() end) end
+    if flyOrientation then pcall(function() flyOrientation:Destroy() end) end
+    flyVel = nil flyAttachment = nil flyOrientation = nil
 end
 
--- حلقة FreeCam (تدوير + تحرك)
-RunService.RenderStepped:Connect(function(dt)
-	if State.FreeCam then
-		local delta = UserInput:GetMouseDelta()
-		local spd = UserInput:IsKeyDown(Enum.KeyCode.LeftShift) and 140 or 50
-		local look = Camera.CFrame.LookVector
-		local right = Camera.CFrame.RightVector
-		local move = Vector3.zero
-		if UserInput:IsKeyDown(Enum.KeyCode.W)     then move += look end
-		if UserInput:IsKeyDown(Enum.KeyCode.S)     then move -= look end
-		if UserInput:IsKeyDown(Enum.KeyCode.A)     then move -= right end
-		if UserInput:IsKeyDown(Enum.KeyCode.D)     then move += right end
-		if UserInput:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
-		if UserInput:IsKeyDown(Enum.KeyCode.E)     then move -= Vector3.new(0,1,0) end
-		local rot = CFrame.Angles(0, -delta.X * 0.0025, 0) * CFrame.Angles(-delta.Y * 0.0025, 0, 0)
-		Camera.CFrame = (Camera.CFrame - Camera.CFrame.Position) * rot + Camera.CFrame.Position + move * spd * dt
-	end
-end)
-
---═══════════════════════════--
---       قامتي (حجم+اخفاء)    --
---═══════════════════════════--
-do
-	local page = tabs["الخريطة"].page  -- داخل تاب الخريطة تحت مع قائمة
-	sectionLabel(page, "🧍 قامتي / جسمي")
-
-	-- تكبير قامتي لتشوف اسمك زين
-	makeSlider(page, "📏 تكبير قامتي", 1, 10, 1, function(v)
-		local c = getChar()
-		local hum = c and c:FindFirstChildOfClass("Humanoid")
-		if hum then
-			hum.BodyHeightScale.Value = v
-			hum.BodyWidthScale.Value  = math.max(v - 0.5, 0.5)
-			hum.BodyDepthScale.Value  = math.max(v - 0.5, 0.5)
-			hum.HeadScale.Value       = v
-		end
-	end)
-
-	-- اخفاء قامتي + الرجوع
-	makeToggle(page, "🫥 أخفي قامتي / أرجعها (محد يشوفني)", function(on)
-		State.Invis = on
-		local c = getChar()
-		if not c then return end
-		local hum = c:FindFirstChildOfClass("Humanoid")
-		if on then
-			State.InvisStore = {}
-			for _, p in ipairs(c:GetDescendants()) do
-				if p:IsA("BasePart") or p:IsA("Decal") then
-					State.InvisStore[p] = p.Transparency
-					pcall(function() p.Transparency = 1 end)
-				end
-				if p:IsA("ParticleEmitter") or p:IsA("Trail") or p:IsA("Beam") then
-					pcall(function() p.Enabled = false end)
-				end
-			end
-			if hum then
-				hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-			end
-		else
-			for p, t in pairs(State.InvisStore) do
-				if p and p.Parent then
-					pcall(function() p.Transparency = t end)
-				end
-			end
-			State.InvisStore = {}
-			if hum then
-				hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
-			end
-		end
-	end)
+local function updateFly()
+    local char = LP.Character
+    local r = char and char:FindFirstChild("HumanoidRootPart")
+    if not r then stopFly() return end
+    
+    if S.Fly then
+        if not flyVel or not flyVel.Parent then
+            stopFly()
+            flyAttachment = Instance.new("Attachment")
+            flyAttachment.Name = "StealthFly"
+            flyAttachment.Parent = r
+            flyVel = Instance.new("LinearVelocity")
+            flyVel.Name = "StealthFly"
+            flyVel.Attachment0 = flyAttachment
+            flyVel.RelativeTo = Enum.ActuatorRelativeTo.World
+            flyVel.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+            flyVel.MaxForce = math.huge
+            flyVel.VectorVelocity = Vector3.zero
+            flyVel.Parent = r
+            flyOrientation = Instance.new("AlignOrientation")
+            flyOrientation.Name = "StealthFly"
+            flyOrientation.Attachment0 = flyAttachment
+            flyOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
+            flyOrientation.Responsiveness = 15
+            flyOrientation.MaxTorque = math.huge
+            flyOrientation.Parent = r
+        end
+        
+        local cam = workspace.CurrentCamera
+        if not cam then return end
+        local look = cam.CFrame.LookVector
+        local forward = Vector3.new(look.X, 0, look.Z)
+        if forward.Magnitude < 0.01 then forward = Vector3.new(0, 0, -1) end
+        forward = forward.Unit
+        local side = Vector3.new(-forward.Z, 0, forward.X)
+        local input = Vector3.zero
+        if UIS:IsKeyDown(Enum.KeyCode.W) then input += forward end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then input -= forward end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then input -= side end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then input += side end
+        if UIS:IsKeyDown(Enum.KeyCode.E) or UIS:IsKeyDown(Enum.KeyCode.Space) then input += Vector3.yAxis end
+        if UIS:IsKeyDown(Enum.KeyCode.Q) or UIS:IsKeyDown(Enum.KeyCode.LeftControl) then input -= Vector3.yAxis end
+        flyVel.VectorVelocity = input.Magnitude > 0 and input.Unit * S.FlySpeed or Vector3.zero
+        flyOrientation.CFrame = CFrame.lookAt(Vector3.zero, forward)
+    else
+        stopFly()
+    end
 end
 
--- اجعل قامتي تظل مخفية حتى مع إلباس/تغيير
-RunService.Heartbeat:Connect(function()
-	if State.Invis then
-		local c = getChar()
-		if c then
-			for _, p in ipairs(c:GetDescendants()) do
-				if p:IsA("BasePart") and p.Transparency < 1 then
-					pcall(function() p.Transparency = 1 end)
-				end
-			end
-			local hum = c:FindFirstChildOfClass("Humanoid")
-			if hum then
-				hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-			end
-		end
-	end
-end)
-
---═══════════════════════════--
---          الخريطة           --
---═══════════════════════════--
-do
-	local page = tabs["الطيران"] and tabs["الحركة"].page or tabs["الخريطة"].page
-	sectionLabel(page, "🗺️ القفز بين الأماكن")
-
-	makeButton(page, "🚀 خروج من الخريطة (أطير بعيد)", Color3.fromRGB(185, 60, 60), function()
-		local c = getChar()
-		if c then c.HumanoidRootPart.CFrame = CFrame.new(-8000, 3000, -8000) end
-	end)
-
-	makeButton(page, "🏠 رجوع (Spawn)", Color3.fromRGB(60, 120, 200), function()
-		local c = getChar()
-		if c then
-			local sp = workspace:FindFirstChildOfClass("SpawnLocation")
-			if sp then
-				c.HumanoidRootPart.CFrame = sp.CFrame * CFrame.new(0, 6, 0)
-			else
-				c.HumanoidRootPart.CFrame = CFrame.new(0, 60, 0)
-			end
-		end
-	end)
+-- Drag
+local function updateDrag()
+    if S.DragPlayers and draggedPlayer then
+        local targetChar = draggedPlayer.Character
+        local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+        local myRoot = root()
+        if targetRoot and myRoot then
+            targetRoot.CFrame = myRoot.CFrame * CFrame.new(0, 0, -5)
+        end
+    end
 end
 
---══════════════ الفتح/الإغلاق ═════════════--
-ToggleBtn.MouseButton1Click:Connect(function()
-	Main.Visible = not Main.Visible
-end)
-CloseBtn.MouseButton1Click:Connect(function()
-	Main.Visible = false
+-- ESP
+local function updateESP()
+    if S.PlayerESP then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LP and p.Character and not espHighlights[p] then
+                local h = Instance.new("Highlight")
+                h.FillColor = Color3.fromRGB(255, 0, 100)
+                h.OutlineColor = Color3.new(1, 1, 1)
+                h.FillTransparency = 0.5
+                h.Adornee = p.Character
+                h.Parent = gui
+                espHighlights[p] = h
+            end
+        end
+    else
+        for p, h in pairs(espHighlights) do
+            if h then h:Destroy() end
+            espHighlights[p] = nil
+        end
+    end
+end
+
+-- Player Size
+local originalSizes = {}
+
+local function updatePlayerSize()
+    if S.PlayerSize then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LP and p.Character then
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                if hrp and not originalSizes[p] then
+                    originalSizes[p] = hrp.Size
+                end
+                if hrp then
+                    hrp.Size = Vector3.new(2, 2, 1) * S.SizeMultiplier
+                end
+            end
+        end
+    else
+        for p, size in pairs(originalSizes) do
+            local char = p.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.Size = size
+            end
+        end
+        table.clear(originalSizes)
+    end
+end
+
+-- Main Loop
+conn(RunService.Heartbeat, function()
+    if not alive then return end
+    updateInvisible()
+    updateSpeed()
+    updateFly()
+    updateDrag()
+    updateESP()
+    updatePlayerSize()
 end)
 
--- افتح تاب الحركة افتراضياً
-tabs["الحركة"].btn.BackgroundColor3 = Color3.fromRGB(85, 55, 210)
-tabs["الحركة"].btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-for n, t in pairs(tabs) do
-	t.page.Visible = (n == "الحركة")
+-- Cleanup
+local function cleanup()
+    alive = false
+    stopFly()
+    for p, _ in pairs(frozenPlayers) do
+        unfreezePlayer(p)
+    end
+    for p, h in pairs(espHighlights) do if h then h:Destroy() end end
+    for _, c in pairs(conns) do c:Disconnect() end
+    gui:Destroy()
 end
+
+conn(close.MouseButton1Click, cleanup)
+
+print("✅ STEALTH MASTER v11.0 ULTIMATE PRO LOADED")
+print("👻 Invisible | ⚡ Speed | 🚀 Fly")
+print("🧲 Drag | 📍 Teleport | 👁️ ESP | 🔍 Size")
+print("❄️ Freeze (Real+Local) | 🔥 Unfreeze All")
