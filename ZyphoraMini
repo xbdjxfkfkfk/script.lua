@@ -1,7 +1,7 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║           ULTIMATE ALL-IN-ONE v1.0                       ║
-    ║          كل المميزات + جلب أدوات أي ماب                  ║
+    ║           ULTIMATE HUB v2.0 (عربي كامل)                  ║
+    ║          كل شي بالعربي + أدوات تشتغل محلياً              ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
@@ -66,8 +66,8 @@ local gui = inst("ScreenGui", {Name = "UltimateHub", ResetOnSpawn = false, Displ
 
 -- Main Frame
 local main = inst("Frame", {
-    Size = UDim2.fromOffset(500, 700),
-    Position = UDim2.new(0.5, -250, 0.5, -350),
+    Size = UDim2.fromOffset(500, 720),
+    Position = UDim2.new(0.5, -250, 0.5, -360),
     BackgroundColor3 = Color3.fromRGB(5, 5, 10),
     BorderSizePixel = 0,
     Active = true,
@@ -90,7 +90,7 @@ local bgGradient = inst("UIGradient", {
 local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 60), BackgroundColor3 = Color3.fromRGB(25, 15, 42), BorderSizePixel = 0}, main)
 round(head, 18)
 
-inst("TextLabel", {Size = UDim2.new(1, -100, 1, 0), Position = UDim2.fromOffset(20, 0), BackgroundTransparency = 1, Text = "🎮 ULTIMATE HUB", TextColor3 = Color3.fromRGB(255, 190, 255), Font = Enum.Font.GothamBold, TextSize = 26, TextXAlignment = Enum.TextXAlignment.Left}, head)
+inst("TextLabel", {Size = UDim2.new(1, -100, 1, 0), Position = UDim2.fromOffset(20, 0), BackgroundTransparency = 1, Text = "🎮 المركز الشامل", TextColor3 = Color3.fromRGB(255, 190, 255), Font = Enum.Font.GothamBold, TextSize = 26, TextXAlignment = Enum.TextXAlignment.Left}, head)
 
 local close = inst("TextButton", {Size = UDim2.fromOffset(35, 35), Position = UDim2.new(1, -42, 0, 12), BackgroundColor3 = Color3.fromRGB(255, 85, 85), Text = "×", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 22}, head)
 round(close, 8)
@@ -108,13 +108,13 @@ local function btn(title, icon, key, color)
     inst("TextLabel", {Size = UDim2.fromOffset(50, 50), Position = UDim2.fromOffset(10, 7), BackgroundTransparency = 1, Text = icon, Font = Enum.Font.Gotham, TextSize = 28, TextColor3 = Color3.new(1,1,1)}, b)
     inst("TextLabel", {Size = UDim2.new(1, -70, 0, 30), Position = UDim2.fromOffset(68, 10), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 18, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
-    local state = inst("TextLabel", {Size = UDim2.new(1, -70, 0, 22), Position = UDim2.fromOffset(68, 40), BackgroundTransparency = 1, Text = "OFF", TextColor3 = Color3.fromRGB(190, 190, 190), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, b)
+    local state = inst("TextLabel", {Size = UDim2.new(1, -70, 0, 22), Position = UDim2.fromOffset(68, 40), BackgroundTransparency = 1, Text = "مطفأ", TextColor3 = Color3.fromRGB(190, 190, 190), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
     local on = false
     conn(b.MouseButton1Click, function()
         on = not on
         S[key] = on
-        state.Text = on and "ON ✓" or "OFF"
+        state.Text = on and "مشغّل ✓" or "مطفأ"
         state.TextColor3 = on and Color3.fromRGB(150, 255, 190) or Color3.fromRGB(190, 190, 190)
         b.BackgroundColor3 = on and (color or Color3.fromRGB(100, 50, 150)) or Color3.fromRGB(35, 28, 52)
     end)
@@ -123,29 +123,29 @@ local function btn(title, icon, key, color)
 end
 
 -- Section
-local function section(text, icon)
-    local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 32), BackgroundTransparency = 1}, content)
-    inst("TextLabel", {Size = UDim2.new(1, -40, 1, 0), Position = UDim2.fromOffset(40, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(255, 190, 255), Font = Enum.Font.GothamBold, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left}, s)
+local function section(text)
+    local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1}, content)
+    inst("TextLabel", {Size = UDim2.new(1, -10, 1, 0), Position = UDim2.fromOffset(10, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(255, 190, 255), Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left}, s)
     return s
 end
 
 -- Slider
 local function slider(title, key, min, max, default)
-    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 70), BackgroundColor3 = Color3.fromRGB(35, 28, 52), BorderSizePixel = 0}, content)
+    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 65), BackgroundColor3 = Color3.fromRGB(35, 28, 52), BorderSizePixel = 0}, content)
     round(f, 12)
     
-    inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 25), Position = UDim2.fromOffset(15, 8), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left}, f)
+    inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 22), Position = UDim2.fromOffset(15, 6), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, f)
     
-    local val = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 25), Position = UDim2.new(0.7, -10, 0, 8), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = Color3.fromRGB(255, 190, 255), Font = Enum.Font.GothamBold, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Right}, f)
+    local val = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 22), Position = UDim2.new(0.7, -10, 0, 6), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = Color3.fromRGB(255, 190, 255), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Right}, f)
     
-    local bg = inst("Frame", {Size = UDim2.new(1, -30, 0, 10), Position = UDim2.fromOffset(15, 45), BackgroundColor3 = Color3.fromRGB(50, 45, 70), BorderSizePixel = 0}, f)
-    round(bg, 5)
+    local bg = inst("Frame", {Size = UDim2.new(1, -30, 0, 8), Position = UDim2.fromOffset(15, 38), BackgroundColor3 = Color3.fromRGB(50, 45, 70), BorderSizePixel = 0}, f)
+    round(bg, 4)
     
     local fill = inst("Frame", {Size = UDim2.new((default - min) / (max - min), 0, 1, 0), BackgroundColor3 = Color3.fromRGB(255, 190, 255), BorderSizePixel = 0}, bg)
-    round(fill, 5)
+    round(fill, 4)
     
-    local handle = inst("Frame", {Size = UDim2.fromOffset(20, 20), Position = UDim2.new((default - min) / (max - min), -10, 0.5, -10), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, bg)
-    round(handle, 10)
+    local handle = inst("Frame", {Size = UDim2.fromOffset(18, 18), Position = UDim2.new((default - min) / (max - min), -9, 0.5, -9), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, bg)
+    round(handle, 9)
     
     S[key] = default
     local dragging = false
@@ -156,7 +156,7 @@ local function slider(title, key, min, max, default)
         S[key] = v
         val.Text = tostring(v)
         fill.Size = UDim2.new(rel, 0, 1, 0)
-        handle.Position = UDim2.new(rel, -10, 0.5, -10)
+        handle.Position = UDim2.new(rel, -9, 0.5, -9)
     end
     
     conn(handle.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end end)
@@ -168,21 +168,21 @@ local function slider(title, key, min, max, default)
 end
 
 --====================================
--- BUILD UI
+-- BUILD UI (عربي)
 --====================================
 
-section("🔥 القدرات الرئيسية", "⚡")
+section("🔥 القدرات الرئيسية")
 
-btn("إخفاء كامل", "👻", "Invisible", Color3.fromRGB(170, 0, 235))
-btn("سرعة خارقة", "⚡", "Speed", Color3.fromRGB(0, 170, 300))
-btn("طيران حر", "🚀", "Fly", Color3.fromRGB(0, 235, 170))
+btn("الاختفاء التام", "👻", "Invisible", Color3.fromRGB(170, 0, 235))
+btn("السرعة الخارقة", "⚡", "Speed", Color3.fromRGB(0, 170, 300))
+btn("الطيران الحر", "🚀", "Fly", Color3.fromRGB(0, 235, 170))
 
-section("⚙️ الإعدادات", "🎛️")
+section("⚙️ الإعدادات")
 
 slider("سرعة المشي", "WalkSpeed", 16, 500, 100)
 slider("سرعة الطيران", "FlySpeed", 10, 300, 50)
 
-section("🎯 التفاعل مع اللاعبين", "🎮")
+section("🎯 التفاعل مع اللاعبين")
 
 btn("سحب لاعب", "🧲", "DragPlayers", Color3.fromRGB(255, 170, 0))
 btn("حمل لاعب", "🤗", "CarryPlayers", Color3.fromRGB(255, 100, 150))
@@ -191,13 +191,13 @@ btn("تكبير اللاعبين", "🔍", "PlayerSize", Color3.fromRGB(235, 90,
 
 slider("مضاعف الحجم", "SizeMultiplier", 1, 10, 2)
 
-section("🎒 جلب أدوات اللعبة", "🛒")
+section("🎒 سلة الأدوات (من اللعبة)")
 
 -- Tool Grabber
-local toolFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 200), BackgroundColor3 = Color3.fromRGB(25, 20, 45), BorderSizePixel = 0}, content)
+local toolFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 220), BackgroundColor3 = Color3.fromRGB(25, 20, 45), BorderSizePixel = 0}, content)
 round(toolFrame, 14)
 
-inst("TextLabel", {Size = UDim2.new(1, -16, 0, 28), Position = UDim2.fromOffset(14, 10), BackgroundTransparency = 1, Text = "🎒 أدوات موجودة في اللعبة", TextColor3 = Color3.fromRGB(190, 240, 255), Font = Enum.Font.GothamBold, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left}, toolFrame)
+inst("TextLabel", {Size = UDim2.new(1, -16, 0, 28), Position = UDim2.fromOffset(14, 10), BackgroundTransparency = 1, Text = "🎒 الأدوات الموجودة في اللعبة", TextColor3 = Color3.fromRGB(190, 240, 255), Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left}, toolFrame)
 
 local toolScroll = inst("ScrollingFrame", {Size = UDim2.new(1, -16, 1, -45), Position = UDim2.fromOffset(8, 40), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = Color3.fromRGB(190, 240, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, toolFrame)
 inst("UIListLayout", {Padding = UDim.new(0, 5)}, toolScroll)
@@ -207,22 +207,22 @@ local function refreshTools()
     
     local count = 0
     for _, tool in pairs(game:GetDescendants()) do
-        if tool:IsA("Tool") and tool.Parent ~= LP.Backpack and tool.Parent ~= LP.Character and count < 30 then
+        if tool:IsA("Tool") and tool.Parent ~= LP.Backpack and tool.Parent ~= LP.Character and count < 25 then
             count = count + 1
-            local btn = inst("TextButton", {Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = Color3.fromRGB(45, 40, 65), Text = "🎒 " .. tool.Name, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13}, toolScroll)
+            local btn = inst("TextButton", {Size = UDim2.new(1, 0, 0, 35), BackgroundColor3 = Color3.fromRGB(45, 40, 65), Text = "🎒 " .. tool.Name, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 14}, toolScroll)
             round(btn, 8)
             
             conn(btn.MouseButton1Click, function()
                 local clone = tool:Clone()
                 clone.Parent = LP.Backpack
-                btn.Text = "✅ " .. tool.Name
+                btn.Text = "✅ تم الجلب: " .. tool.Name
                 btn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
             end)
         end
     end
     
     if count == 0 then
-        local lbl = inst("TextLabel", {Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1, Text = "لا توجد أدوات", TextColor3 = Color3.fromRGB(150, 150, 150), Font = Enum.Font.Gotham, TextSize = 13}, toolScroll)
+        inst("TextLabel", {Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1, Text = "لا توجد أدوات", TextColor3 = Color3.fromRGB(150, 150, 150), Font = Enum.Font.Gotham, TextSize = 13}, toolScroll)
     end
 end
 
@@ -233,13 +233,13 @@ round(refreshToolsBtn, 10)
 
 conn(refreshToolsBtn.MouseButton1Click, refreshTools)
 
-section("❄️ إدارة اللاعبين", "🧊")
+section("❄️ إدارة اللاعبين")
 
 -- Player List
-local playerFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 250), BackgroundColor3 = Color3.fromRGB(25, 20, 45), BorderSizePixel = 0}, content)
+local playerFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 260), BackgroundColor3 = Color3.fromRGB(25, 20, 45), BorderSizePixel = 0}, content)
 round(playerFrame, 14)
 
-inst("TextLabel", {Size = UDim2.new(1, -16, 0, 28), Position = UDim2.fromOffset(14, 10), BackgroundTransparency = 1, Text = "📋 قائمة اللاعبين", TextColor3 = Color3.fromRGB(190, 240, 255), Font = Enum.Font.GothamBold, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left}, playerFrame)
+inst("TextLabel", {Size = UDim2.new(1, -16, 0, 28), Position = UDim2.fromOffset(14, 10), BackgroundTransparency = 1, Text = "📋 قائمة اللاعبين", TextColor3 = Color3.fromRGB(190, 240, 255), Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left}, playerFrame)
 
 local playerScroll = inst("ScrollingFrame", {Size = UDim2.new(1, -16, 1, -45), Position = UDim2.fromOffset(8, 40), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = Color3.fromRGB(190, 240, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, playerFrame)
 inst("UIListLayout", {Padding = UDim.new(0, 6)}, playerScroll)
@@ -298,31 +298,36 @@ local function refreshPlayers()
             if isFrozen then nameText = "❄️ " .. nameText end
             if isFlying then nameText = "🚀 " .. nameText end
             
-            inst("TextLabel", {Size = UDim2.new(0.3, 0, 1, 0), Position = UDim2.fromOffset(12, 0), BackgroundTransparency = 1, Text = nameText, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left}, pf)
+            inst("TextLabel", {Size = UDim2.new(0.3, 0, 1, 0), Position = UDim2.fromOffset(12, 0), BackgroundTransparency = 1, Text = nameText, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left}, pf)
             
-            local btns = {"🧲", "🤗", "📍", "🚀", "❄️"}
-            local colors = {Color3.fromRGB(255, 190, 0), Color3.fromRGB(255, 100, 150), Color3.fromRGB(0, 220, 180), isFlying and Color3.fromRGB(100, 200, 255) or Color3.fromRGB(80, 150, 220), isFrozen and Color3.fromRGB(120, 170, 220) or Color3.fromRGB(90, 130, 190)}
+            local btns = {
+                {icon = "🧲", color = Color3.fromRGB(255, 190, 0), desc = "سحب"},
+                {icon = "🤗", color = Color3.fromRGB(255, 100, 150), desc = "حمل"},
+                {icon = "📍", color = Color3.fromRGB(0, 220, 180), desc = "انتقال"},
+                {icon = isFlying and "🛬" or "🚀", color = isFlying and Color3.fromRGB(100, 200, 255) or Color3.fromRGB(80, 150, 220), desc = "طيران"},
+                {icon = isFrozen and "🔥" or "❄️", color = isFrozen and Color3.fromRGB(120, 170, 220) or Color3.fromRGB(90, 130, 190), desc = "تجميد"},
+            }
             
-            for i, icon in ipairs(btns) do
-                local b = inst("TextButton", {Size = UDim2.fromOffset(45, 35), Position = UDim2.new(1, -240 + (i-1) * 48, 0.5, -17), BackgroundColor3 = colors[i], Text = icon, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, pf)
+            for i, data in ipairs(btns) do
+                local b = inst("TextButton", {Size = UDim2.fromOffset(48, 38), Position = UDim2.new(1, -250 + (i-1) * 50, 0.5, -19), BackgroundColor3 = data.color, Text = data.icon, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 18}, pf)
                 round(b, 8)
                 
-                if icon == "🧲" then
+                if data.icon == "🧲" then
                     conn(b.MouseButton1Click, function() draggedPlayer = p S.DragPlayers = true end)
-                elseif icon == "🤗" then
+                elseif data.icon == "🤗" then
                     conn(b.MouseButton1Click, function() carriedPlayer = (carriedPlayer == p) and nil or p end)
-                elseif icon == "📍" then
+                elseif data.icon == "📍" then
                     conn(b.MouseButton1Click, function()
                         local r = root()
                         local t = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
                         if r and t then r.CFrame = t.CFrame * CFrame.new(0, 0, -3) end
                     end)
-                elseif icon == "🚀" then
+                elseif data.icon == "🚀" or data.icon == "🛬" then
                     conn(b.MouseButton1Click, function()
                         if flyingPlayers[p] then removeFly(p) else giveFly(p) end
                         task.wait(0.1) refreshPlayers()
                     end)
-                elseif icon == "❄️" then
+                elseif data.icon == "❄️" or data.icon == "🔥" then
                     conn(b.MouseButton1Click, function()
                         if frozenPlayers[p] then unfreezePlayer(p) else freezePlayer(p) end
                         task.wait(0.1) refreshPlayers()
@@ -338,10 +343,12 @@ conn(Players.PlayerAdded, function(p) task.wait(1) refreshPlayers() end)
 conn(Players.PlayerRemoving, function(p) frozenPlayers[p] = nil flyingPlayers[p] = nil refreshPlayers() end)
 
 -- Action Buttons
-local unfreezeBtn = inst("TextButton", {Size = UDim2.new(0.48, 0, 0, 45), BackgroundColor3 = Color3.fromRGB(220, 110, 60), Text = "🔥 فك الكل", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, content)
+local btnFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 50), BackgroundTransparency = 1}, content)
+
+local unfreezeBtn = inst("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(220, 110, 60), Text = "🔥 فك تجميد الكل", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 15}, btnFrame)
 round(unfreezeBtn, 10)
 
-local unflyBtn = inst("TextButton", {Size = UDim2.new(0.48, 0, 0, 45), BackgroundColor3 = Color3.fromRGB(80, 120, 200), Text = "🛬 إيقاف طيران الكل", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, content)
+local unflyBtn = inst("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), Position = UDim2.new(0.52, 0, 0, 0), BackgroundColor3 = Color3.fromRGB(80, 120, 200), Text = "🛬 إيقاف طيران الكل", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 15}, btnFrame)
 round(unflyBtn, 10)
 
 conn(unfreezeBtn.MouseButton1Click, function()
@@ -498,7 +505,7 @@ end
 
 conn(close.MouseButton1Click, cleanup)
 
-print("✅ ULTIMATE ALL-IN-ONE LOADED")
-print("👻 Invisible | ⚡ Speed | 🚀 Fly")
-print("🧲 Drag | 🤗 Carry | 📍 Teleport | 👁️ ESP | 🔍 Size")
-print("🎒 Tool Grabber | ❄️ Freeze | 🚀 Give Fly")
+print("✅ المركز الشامل v2.0 (عربي)")
+print("👻 اختفاء | ⚡ سرعة | 🚀 طيران")
+print("🧲 سحب | 🤗 حمل | 📍 انتقال | 👁️ رؤية | 🔍 تكبير")
+print("🎒 سلة الأدوات | ❄️ تجميد | 🚀 طيران للاعبين")
