@@ -1,7 +1,7 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║           STEALTH MASTER v11.0 ULTIMATE PRO              ║
-    ║          كل المميزات + تجميد حقيقي (ServerScript)         ║
+    ║           STEALTH MASTER v12.0 ULTIMATE                  ║
+    ║          كل المميزات + حمل + عطي طيران                   ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
@@ -9,7 +9,6 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui", 12)
 if not PG then return end
@@ -24,8 +23,10 @@ end
 local alive = true
 local conns = {}
 local draggedPlayer = nil
+local carriedPlayer = nil
 local espHighlights = {}
 local frozenPlayers = {}
+local flyingPlayers = {}
 local guiVisible = true
 local guiSize = 1
 
@@ -41,10 +42,6 @@ local S = {
     PlayerSize = false,
     SizeMultiplier = 2,
 }
-
--- Remotes
-local freezeEvent = ReplicatedStorage:WaitForChild("FreezePlayer", 5)
-local unfreezeEvent = ReplicatedStorage:WaitForChild("UnfreezePlayer", 5)
 
 -- Helpers
 local function conn(signal, fn)
@@ -72,8 +69,8 @@ local gui = inst("ScreenGui", {Name = "StealthMaster", ResetOnSpawn = false, Dis
 
 -- Main Frame
 local main = inst("Frame", {
-    Size = UDim2.fromOffset(460, 640),
-    Position = UDim2.new(0.5, -230, 0.5, -320),
+    Size = UDim2.fromOffset(480, 680),
+    Position = UDim2.new(0.5, -240, 0.5, -340),
     BackgroundColor3 = Color3.fromRGB(5, 5, 10),
     BorderSizePixel = 0,
     Active = true,
@@ -238,14 +235,15 @@ slider("سرعة الطيران", "FlySpeed", 10, 300, 50, Color3.fromRGB(170, 2
 section("🎯 التفاعل مع اللاعبين", "🎮")
 
 btn("سحب لاعب", "🧲", "DragPlayers", Color3.fromRGB(255, 170, 0))
+btn("حمل لاعب", "🤗", "CarryPlayers", Color3.fromRGB(255, 100, 150))
 btn("رؤية اللاعبين", "👁️", "PlayerESP", Color3.fromRGB(0, 235, 170))
 btn("تكبير اللاعبين", "🔍", "PlayerSize", Color3.fromRGB(235, 90, 300))
 
 slider("مضاعف الحجم", "SizeMultiplier", 1, 10, 2, Color3.fromRGB(255, 190, 130))
 
-section("❄️ إدارة اللاعبين (حقيقي)", "🧊")
+section("❄️ إدارة اللاعبين", "🧊")
 
--- Player List
+-- Player List (كبيرة جداً)
 local playerFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 280), BackgroundColor3 = Color3.fromRGB(25, 20, 45), BorderSizePixel = 0}, content)
 round(playerFrame, 16)
 
@@ -254,45 +252,45 @@ inst("TextLabel", {Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(
 local playerScroll = inst("ScrollingFrame", {Size = UDim2.new(1, -20, 1, -54), Position = UDim2.fromOffset(10, 52), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6, ScrollBarImageColor3 = Color3.fromRGB(190, 240, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, playerFrame)
 inst("UIListLayout", {Padding = UDim.new(0, 8)}, playerScroll)
 
--- Freeze Functions (Local + Server)
+-- Functions
 local function freezePlayer(p)
     frozenPlayers[p] = true
-    
-    -- محلي (عندك)
     local char = p.Character
     if char then
         local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.Anchored = true
-        end
+        if hrp then hrp.Anchored = true end
     end
-    
-    -- حقيقي (Server)
-    if freezeEvent then
-        freezeEvent:FireServer(p)
-    end
-    
-    print("❄️ تم تجميد: " .. p.Name)
 end
 
 local function unfreezePlayer(p)
     frozenPlayers[p] = nil
-    
-    -- محلي
+    local char = p.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then hrp.Anchored = false end
+    end
+end
+
+local function giveFly(p)
+    flyingPlayers[p] = true
     local char = p.Character
     if char then
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if hrp then
-            hrp.Anchored = false
+            local bv = Instance.new("BodyVelocity")
+            bv.MaxForce = Vector3.new(0, math.huge, 0)
+            bv.Velocity = Vector3.new(0, 50, 0)
+            bv.Parent = hrp
+            flyingPlayers[p] = bv
         end
     end
-    
-    -- حقيقي (Server)
-    if unfreezeEvent then
-        unfreezeEvent:FireServer(p)
+end
+
+local function removeFly(p)
+    if flyingPlayers[p] and typeof(flyingPlayers[p]) == "Instance" then
+        flyingPlayers[p]:Destroy()
     end
-    
-    print("🔥 تم فك تجميد: " .. p.Name)
+    flyingPlayers[p] = nil
 end
 
 local function refreshPlayers()
@@ -301,25 +299,55 @@ local function refreshPlayers()
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP then
             local isFrozen = frozenPlayers[p] == true
+            local isFlying = flyingPlayers[p] ~= nil
             
-            local pf = inst("Frame", {Size = UDim2.new(1, 0, 0, 60), BackgroundColor3 = isFrozen and Color3.fromRGB(70, 90, 110) or Color3.fromRGB(48, 40, 72), BorderSizePixel = 0}, playerScroll)
+            local pf = inst("Frame", {Size = UDim2.new(1, 0, 0, 65), BackgroundColor3 = isFrozen and Color3.fromRGB(70, 90, 110) or Color3.fromRGB(48, 40, 72), BorderSizePixel = 0}, playerScroll)
             round(pf, 12)
             
-            local nameColor = isFrozen and Color3.fromRGB(160, 210, 255) or Color3.new(1,1,1)
-            inst("TextLabel", {Size = UDim2.new(0.32, 0, 1, 0), Position = UDim2.fromOffset(18, 0), BackgroundTransparency = 1, Text = (isFrozen and "❄️ " or "") .. p.DisplayName, TextColor3 = nameColor, Font = Enum.Font.GothamBold, TextSize = 22, TextXAlignment = Enum.TextXAlignment.Left}, pf)
+            local nameText = p.DisplayName
+            if isFrozen then nameText = "❄️ " .. nameText end
+            if isFlying then nameText = "🚀 " .. nameText end
             
-            local dragBtn = inst("TextButton", {Size = UDim2.fromOffset(70, 42), Position = UDim2.new(1, -250, 0.5, -21), BackgroundColor3 = Color3.fromRGB(255, 190, 0), Text = "🧲 سحب", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, pf)
-            round(dragBtn, 10)
+            inst("TextLabel", {Size = UDim2.new(0.28, 0, 1, 0), Position = UDim2.fromOffset(18, 0), BackgroundTransparency = 1, Text = nameText, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left}, pf)
             
-            local tpBtn = inst("TextButton", {Size = UDim2.fromOffset(70, 42), Position = UDim2.new(1, -175, 0.5, -21), BackgroundColor3 = Color3.fromRGB(0, 220, 180), Text = "📍 انتقال", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, pf)
-            round(tpBtn, 10)
+            -- Buttons
+            local btnY = 0.5
+            local btnH = 40
             
-            local freezeBtn = inst("TextButton", {Size = UDim2.fromOffset(70, 42), Position = UDim2.new(1, -100, 0.5, -21), BackgroundColor3 = isFrozen and Color3.fromRGB(120, 170, 220) or Color3.fromRGB(90, 130, 190), Text = isFrozen and "🔥 فك" or "❄️ تجميد", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, pf)
-            round(freezeBtn, 10)
+            local dragBtn = inst("TextButton", {Size = UDim2.fromOffset(55, btnH), Position = UDim2.new(1, -280, btnY, -btnH/2), BackgroundColor3 = Color3.fromRGB(255, 190, 0), Text = "🧲", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 18}, pf)
+            round(dragBtn, 8)
             
+            local carryBtn = inst("TextButton", {Size = UDim2.fromOffset(55, btnH), Position = UDim2.new(1, -220, btnY, -btnH/2), BackgroundColor3 = Color3.fromRGB(255, 100, 150), Text = "🤗", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 18}, pf)
+            round(carryBtn, 8)
+            
+            local tpBtn = inst("TextButton", {Size = UDim2.fromOffset(55, btnH), Position = UDim2.new(1, -160, btnY, -btnH/2), BackgroundColor3 = Color3.fromRGB(0, 220, 180), Text = "📍", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 18}, pf)
+            round(tpBtn, 8)
+            
+            local flyBtn = inst("TextButton", {Size = UDim2.fromOffset(55, btnH), Position = UDim2.new(1, -100, btnY, -btnH/2), BackgroundColor3 = isFlying and Color3.fromRGB(100, 200, 255) or Color3.fromRGB(80, 150, 220), Text = isFlying and "🛬" or "🚀", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 18}, pf)
+            round(flyBtn, 8)
+            
+            local freezeBtn = inst("TextButton", {Size = UDim2.fromOffset(55, btnH), Position = UDim2.new(1, -40, btnY, -btnH/2), BackgroundColor3 = isFrozen and Color3.fromRGB(120, 170, 220) or Color3.fromRGB(90, 130, 190), Text = isFrozen and "🔥" or "❄️", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 18}, pf)
+            round(freezeBtn, 8)
+            
+            -- Tooltips
+            inst("TextLabel", {Size = UDim2.fromOffset(55, 16), Position = UDim2.new(1, -280, 1, -18), BackgroundTransparency = 1, Text = "سحب", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Center}, pf)
+            inst("TextLabel", {Size = UDim2.fromOffset(55, 16), Position = UDim2.new(1, -220, 1, -18), BackgroundTransparency = 1, Text = "حمل", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Center}, pf)
+            inst("TextLabel", {Size = UDim2.fromOffset(55, 16), Position = UDim2.new(1, -160, 1, -18), BackgroundTransparency = 1, Text = "انتقال", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Center}, pf)
+            inst("TextLabel", {Size = UDim2.fromOffset(55, 16), Position = UDim2.new(1, -100, 1, -18), BackgroundTransparency = 1, Text = "طيران", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Center}, pf)
+            inst("TextLabel", {Size = UDim2.fromOffset(55, 16), Position = UDim2.new(1, -40, 1, -18), BackgroundTransparency = 1, Text = "تجميد", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.Gotham, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Center}, pf)
+            
+            -- Events
             conn(dragBtn.MouseButton1Click, function()
                 draggedPlayer = p
                 S.DragPlayers = true
+            end)
+            
+            conn(carryBtn.MouseButton1Click, function()
+                if carriedPlayer == p then
+                    carriedPlayer = nil
+                else
+                    carriedPlayer = p
+                end
             end)
             
             conn(tpBtn.MouseButton1Click, function()
@@ -329,6 +357,16 @@ local function refreshPlayers()
                 if r and targetRoot then
                     r.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -3)
                 end
+            end)
+            
+            conn(flyBtn.MouseButton1Click, function()
+                if flyingPlayers[p] then
+                    removeFly(p)
+                else
+                    giveFly(p)
+                end
+                task.wait(0.1)
+                refreshPlayers()
             end)
             
             conn(freezeBtn.MouseButton1Click, function()
@@ -345,12 +383,10 @@ local function refreshPlayers()
 end
 
 refreshPlayers()
-conn(Players.PlayerAdded, function(p)
-    task.wait(1)
-    refreshPlayers()
-end)
+conn(Players.PlayerAdded, function(p) task.wait(1) refreshPlayers() end)
 conn(Players.PlayerRemoving, function(p)
     frozenPlayers[p] = nil
+    flyingPlayers[p] = nil
     refreshPlayers()
 end)
 
@@ -359,33 +395,37 @@ local unfreezeAllBtn = inst("TextButton", {Size = UDim2.new(1, 0, 0, 55), Backgr
 round(unfreezeAllBtn, 14)
 
 conn(unfreezeAllBtn.MouseButton1Click, function()
-    for p, _ in pairs(frozenPlayers) do
-        unfreezePlayer(p)
-    end
+    for p, _ in pairs(frozenPlayers) do unfreezePlayer(p) end
     refreshPlayers()
-    print("🔥 تم فك تجميد جميع اللاعبين")
+end)
+
+-- Remove Fly All Button
+local removeFlyAllBtn = inst("TextButton", {Size = UDim2.new(1, 0, 0, 55), BackgroundColor3 = Color3.fromRGB(80, 120, 200), BorderSizePixel = 0, Text = "🛬 إيقاف طيران الكل", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 20}, content)
+round(removeFlyAllBtn, 14)
+
+conn(removeFlyAllBtn.MouseButton1Click, function()
+    for p, _ in pairs(flyingPlayers) do removeFly(p) end
+    refreshPlayers()
 end)
 
 --====================================
 -- GUI CONTROLS
 --====================================
 
--- Hide/Show
 conn(hideBtn.MouseButton1Click, function()
     guiVisible = not guiVisible
     content.Visible = guiVisible
-    main.Size = guiVisible and (guiSize == 1 and UDim2.fromOffset(460, 640) or UDim2.fromOffset(560, 740)) or UDim2.fromOffset(460, 65)
+    main.Size = guiVisible and (guiSize == 1 and UDim2.fromOffset(480, 680) or UDim2.fromOffset(580, 780)) or UDim2.fromOffset(480, 65)
     hideBtn.Text = guiVisible and "👁️" or "🚫"
 end)
 
--- Resize
 conn(sizeBtn.MouseButton1Click, function()
     guiSize = guiSize == 1 and 2 or 1
     if guiVisible then
         if guiSize == 1 then
-            main:TweenSize(UDim2.fromOffset(460, 640), "Out", "Quad", 0.3, true)
+            main:TweenSize(UDim2.fromOffset(480, 680), "Out", "Quad", 0.3, true)
         else
-            main:TweenSize(UDim2.fromOffset(560, 740), "Out", "Quad", 0.3, true)
+            main:TweenSize(UDim2.fromOffset(580, 780), "Out", "Quad", 0.3, true)
         end
     end
 end)
@@ -394,7 +434,6 @@ end)
 -- SYSTEMS
 --====================================
 
--- Invisible
 local function updateInvisible()
     local char = LP.Character
     if not char then return end
@@ -414,14 +453,12 @@ local function updateInvisible()
     end
 end
 
--- Speed
 local function updateSpeed()
     local char = LP.Character
     local h = char and char:FindFirstChildOfClass("Humanoid")
     if h then h.WalkSpeed = S.Speed and S.WalkSpeed or 16 end
 end
 
--- Fly
 local flyVel = nil
 local flyAttachment = nil
 local flyOrientation = nil
@@ -482,7 +519,6 @@ local function updateFly()
     end
 end
 
--- Drag
 local function updateDrag()
     if S.DragPlayers and draggedPlayer then
         local targetChar = draggedPlayer.Character
@@ -494,7 +530,17 @@ local function updateDrag()
     end
 end
 
--- ESP
+local function updateCarry()
+    if carriedPlayer then
+        local targetChar = carriedPlayer.Character
+        local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+        local myRoot = root()
+        if targetRoot and myRoot then
+            targetRoot.CFrame = myRoot.CFrame * CFrame.new(0, 2, 0)
+        end
+    end
+end
+
 local function updateESP()
     if S.PlayerESP then
         for _, p in pairs(Players:GetPlayers()) do
@@ -516,7 +562,6 @@ local function updateESP()
     end
 end
 
--- Player Size
 local originalSizes = {}
 
 local function updatePlayerSize()
@@ -524,44 +569,36 @@ local function updatePlayerSize()
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LP and p.Character then
                 local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-                if hrp and not originalSizes[p] then
-                    originalSizes[p] = hrp.Size
-                end
-                if hrp then
-                    hrp.Size = Vector3.new(2, 2, 1) * S.SizeMultiplier
-                end
+                if hrp and not originalSizes[p] then originalSizes[p] = hrp.Size end
+                if hrp then hrp.Size = Vector3.new(2, 2, 1) * S.SizeMultiplier end
             end
         end
     else
         for p, size in pairs(originalSizes) do
             local char = p.Character
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                hrp.Size = size
-            end
+            if hrp then hrp.Size = size end
         end
         table.clear(originalSizes)
     end
 end
 
--- Main Loop
 conn(RunService.Heartbeat, function()
     if not alive then return end
     updateInvisible()
     updateSpeed()
     updateFly()
     updateDrag()
+    updateCarry()
     updateESP()
     updatePlayerSize()
 end)
 
--- Cleanup
 local function cleanup()
     alive = false
     stopFly()
-    for p, _ in pairs(frozenPlayers) do
-        unfreezePlayer(p)
-    end
+    for p, _ in pairs(frozenPlayers) do unfreezePlayer(p) end
+    for p, _ in pairs(flyingPlayers) do removeFly(p) end
     for p, h in pairs(espHighlights) do if h then h:Destroy() end end
     for _, c in pairs(conns) do c:Disconnect() end
     gui:Destroy()
@@ -569,7 +606,7 @@ end
 
 conn(close.MouseButton1Click, cleanup)
 
-print("✅ STEALTH MASTER v11.0 ULTIMATE PRO LOADED")
+print("✅ STEALTH MASTER v12.0 ULTIMATE LOADED")
 print("👻 Invisible | ⚡ Speed | 🚀 Fly")
-print("🧲 Drag | 📍 Teleport | 👁️ ESP | 🔍 Size")
-print("❄️ Freeze (Real+Local) | 🔥 Unfreeze All")
+print("🧲 Drag | 🤗 Carry | 📍 Teleport | 👁️ ESP | 🔍 Size")
+print("❄️ Freeze | 🚀 Give Fly | 🔥 Unfreeze All | 🛬 Remove Fly All")
