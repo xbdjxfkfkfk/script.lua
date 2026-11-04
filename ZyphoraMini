@@ -1,7 +1,7 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║           المركز الشامل v4.0 (مصلح)                       ║
-    ║          كل شي بالعربي - قائمة اللاعبين تشتغل              ║
+    ║           سكربت شامل v1.0 (محلي)                          ║
+    ║          كل شي يشتغل عندك أنت بس                            ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
@@ -11,13 +11,10 @@ local UIS = game:GetService("UserInputService")
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui", 12)
 
-if not PG then 
-    warn("لم يتم العثور على PlayerGui")
-    return 
-end
+if not PG then return end
 
--- تنظيف القديم
-for _, name in ipairs({"المركزالشامل", "UltimateHub", "StealthMaster"}) do
+-- تنظيف
+for _, name in ipairs({"سكربتشامل"}) do
     local old = PG:FindFirstChild(name)
     if old then old:Destroy() end
 end
@@ -44,7 +41,7 @@ local S = {
     SizeMultiplier = 2,
 }
 
--- دوال مساعدة
+-- دوال
 local function conn(signal, fn)
     local c = signal:Connect(fn)
     table.insert(conns, c)
@@ -53,235 +50,90 @@ end
 
 local function inst(typ, props, parent)
     local x = Instance.new(typ)
-    for k, v in pairs(props or {}) do 
-        pcall(function() x[k] = v end) 
-    end
+    for k, v in pairs(props or {}) do pcall(function() x[k] = v end) end
     x.Parent = parent
     return x
 end
 
-local function round(x, r) 
-    inst("UICorner", {CornerRadius = UDim.new(0, r or 8)}, x) 
-end
+local function round(x, r) inst("UICorner", {CornerRadius = UDim.new(0, r or 8)}, x) end
 
 local function root()
     local char = LP.Character
     return char and char:FindFirstChild("HumanoidRootPart")
 end
 
--- الواجهة
-local gui = inst("ScreenGui", {
-    Name = "المركزالشامل",
-    ResetOnSpawn = false,
-    DisplayOrder = 90,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-}, PG)
+-- واجهة
+local gui = inst("ScreenGui", {Name = "سكربتشامل", ResetOnSpawn = false, DisplayOrder = 90}, PG)
 
--- الإطار الرئيسي
 local main = inst("Frame", {
-    Size = UDim2.fromOffset(500, 720),
-    Position = UDim2.new(0.5, -250, 0.5, -360),
-    BackgroundColor3 = Color3.fromRGB(5, 5, 10),
+    Size = UDim2.fromOffset(450, 600),
+    Position = UDim2.new(0.5, -225, 0.5, -300),
+    BackgroundColor3 = Color3.fromRGB(10, 10, 15),
     BorderSizePixel = 0,
     Active = true,
     Draggable = true
 }, gui)
-round(main, 18)
-inst("UIStroke", {Color = Color3.fromRGB(240, 0, 255), Thickness = 3}, main)
+round(main, 14)
+inst("UIStroke", {Color = Color3.fromRGB(200, 0, 255), Thickness = 2}, main)
 
--- الخلفية
-local bgGradient = inst("UIGradient", {
-    Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 5, 55)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(18, 5, 35)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 5, 20))
-    }),
-    Rotation = 135
-}, main)
+-- ترويسة
+local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = Color3.fromRGB(20, 12, 35), BorderSizePixel = 0}, main)
+round(head, 14)
 
--- الترويسة
-local head = inst("Frame", {
-    Size = UDim2.new(1, 0, 0, 60),
-    BackgroundColor3 = Color3.fromRGB(25, 15, 42),
-    BorderSizePixel = 0
-}, main)
-round(head, 18)
+inst("TextLabel", {Size = UDim2.new(1, -50, 1, 0), Position = UDim2.fromOffset(15, 0), BackgroundTransparency = 1, Text = "🎮 السكربت الشامل", TextColor3 = Color3.fromRGB(255, 180, 255), Font = Enum.Font.GothamBold, TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left}, head)
 
-inst("TextLabel", {
-    Size = UDim2.new(1, -100, 1, 0),
-    Position = UDim2.fromOffset(20, 0),
-    BackgroundTransparency = 1,
-    Text = "🎮 المركز الشامل v4.0",
-    TextColor3 = Color3.fromRGB(255, 190, 255),
-    Font = Enum.Font.GothamBold,
-    TextSize = 24,
-    TextXAlignment = Enum.TextXAlignment.Left
-}, head)
+local close = inst("TextButton", {Size = UDim2.fromOffset(30, 30), Position = UDim2.new(1, -35, 0, 10), BackgroundColor3 = Color3.fromRGB(255, 80, 80), Text = "×", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 18}, head)
+round(close, 6)
 
-local close = inst("TextButton", {
-    Size = UDim2.fromOffset(35, 35),
-    Position = UDim2.new(1, -42, 0, 12),
-    BackgroundColor3 = Color3.fromRGB(255, 85, 85),
-    Text = "×",
-    TextColor3 = Color3.new(1, 1, 1),
-    Font = Enum.Font.GothamBold,
-    TextSize = 22
-}, head)
-round(close, 8)
-
--- المحتوى
-local content = inst("ScrollingFrame", {
-    Size = UDim2.new(1, -16, 1, -70),
-    Position = UDim2.fromOffset(8, 65),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 6,
-    ScrollBarImageColor3 = Color3.fromRGB(250, 150, 255),
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-    CanvasSize = UDim2.new()
-}, main)
-
-inst("UIListLayout", {
-    Padding = UDim.new(0, 10),
-    SortOrder = Enum.SortOrder.LayoutOrder
-}, content)
-
-inst("UIPadding", {
-    PaddingRight = UDim.new(0, 5)
-}, content)
+-- محتوى
+local content = inst("ScrollingFrame", {Size = UDim2.new(1, -12, 1, -60), Position = UDim2.fromOffset(6, 55), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, main)
+inst("UIListLayout", {Padding = UDim.new(0, 8)}, content)
 
 -- زر
-local function btn(title, icon, key, color, order)
-    local b = inst("TextButton", {
-        Size = UDim2.new(1, 0, 0, 65),
-        BackgroundColor3 = Color3.fromRGB(35, 28, 52),
-        BorderSizePixel = 0,
-        Text = "",
-        AutoButtonColor = false,
-        LayoutOrder = order or 1
-    }, content)
-    round(b, 14)
+local function btn(title, icon, key, color)
+    local b = inst("TextButton", {Size = UDim2.new(1, 0, 0, 55), BackgroundColor3 = Color3.fromRGB(30, 25, 45), BorderSizePixel = 0, Text = ""}, content)
+    round(b, 10)
     
-    inst("TextLabel", {
-        Size = UDim2.fromOffset(50, 50),
-        Position = UDim2.fromOffset(10, 7),
-        BackgroundTransparency = 1,
-        Text = icon,
-        Font = Enum.Font.Gotham,
-        TextSize = 28,
-        TextColor3 = Color3.new(1, 1, 1)
-    }, b)
+    inst("TextLabel", {Size = UDim2.fromOffset(40, 40), Position = UDim2.fromOffset(8, 7), BackgroundTransparency = 1, Text = icon, Font = Enum.Font.Gotham, TextSize = 24, TextColor3 = Color3.new(1,1,1)}, b)
+    inst("TextLabel", {Size = UDim2.new(1, -55, 0, 25), Position = UDim2.fromOffset(55, 8), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
-    inst("TextLabel", {
-        Size = UDim2.new(1, -70, 0, 30),
-        Position = UDim2.fromOffset(68, 10),
-        BackgroundTransparency = 1,
-        Text = title,
-        TextColor3 = Color3.new(1, 1, 1),
-        Font = Enum.Font.GothamBold,
-        TextSize = 18,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, b)
-    
-    local state = inst("TextLabel", {
-        Size = UDim2.new(1, -70, 0, 22),
-        Position = UDim2.fromOffset(68, 40),
-        BackgroundTransparency = 1,
-        Text = "مطفأ",
-        TextColor3 = Color3.fromRGB(190, 190, 190),
-        Font = Enum.Font.GothamBold,
-        TextSize = 14,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, b)
+    local state = inst("TextLabel", {Size = UDim2.new(1, -55, 0, 18), Position = UDim2.fromOffset(55, 33), BackgroundTransparency = 1, Text = "مطفأ", TextColor3 = Color3.fromRGB(170, 170, 170), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
     local on = false
     conn(b.MouseButton1Click, function()
         on = not on
         S[key] = on
         state.Text = on and "مشغّل ✓" or "مطفأ"
-        state.TextColor3 = on and Color3.fromRGB(150, 255, 190) or Color3.fromRGB(190, 190, 190)
-        b.BackgroundColor3 = on and (color or Color3.fromRGB(100, 50, 150)) or Color3.fromRGB(35, 28, 52)
+        state.TextColor3 = on and Color3.fromRGB(140, 255, 180) or Color3.fromRGB(170, 170, 170)
+        b.BackgroundColor3 = on and (color or Color3.fromRGB(90, 45, 140)) or Color3.fromRGB(30, 25, 45)
     end)
     
     return b
 end
 
 -- قسم
-local function section(text, order)
-    local s = inst("Frame", {
-        Size = UDim2.new(1, 0, 0, 30),
-        BackgroundTransparency = 1,
-        LayoutOrder = order or 1
-    }, content)
-    
-    inst("TextLabel", {
-        Size = UDim2.new(1, -10, 1, 0),
-        Position = UDim2.fromOffset(10, 0),
-        BackgroundTransparency = 1,
-        Text = text,
-        TextColor3 = Color3.fromRGB(255, 190, 255),
-        Font = Enum.Font.GothamBold,
-        TextSize = 16,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, s)
-    
-    return s
+local function section(text)
+    local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 25), BackgroundTransparency = 1}, content)
+    inst("TextLabel", {Size = UDim2.new(1, -10, 1, 0), Position = UDim2.fromOffset(8, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(255, 180, 255), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, s)
 end
 
 -- منزلق
-local function slider(title, key, min, max, default, order)
-    local f = inst("Frame", {
-        Size = UDim2.new(1, 0, 0, 65),
-        BackgroundColor3 = Color3.fromRGB(35, 28, 52),
-        BorderSizePixel = 0,
-        LayoutOrder = order or 1
-    }, content)
-    round(f, 12)
+local function slider(title, key, min, max, default)
+    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundColor3 = Color3.fromRGB(30, 25, 45), BorderSizePixel = 0}, content)
+    round(f, 10)
     
-    inst("TextLabel", {
-        Size = UDim2.new(0.6, 0, 0, 22),
-        Position = UDim2.fromOffset(15, 6),
-        BackgroundTransparency = 1,
-        Text = title,
-        TextColor3 = Color3.new(1, 1, 1),
-        Font = Enum.Font.GothamBold,
-        TextSize = 14,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, f)
+    inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 20), Position = UDim2.fromOffset(12, 5), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, f)
     
-    local val = inst("TextLabel", {
-        Size = UDim2.new(0.3, 0, 0, 22),
-        Position = UDim2.new(0.7, -10, 0, 6),
-        BackgroundTransparency = 1,
-        Text = tostring(default),
-        TextColor3 = Color3.fromRGB(255, 190, 255),
-        Font = Enum.Font.GothamBold,
-        TextSize = 14,
-        TextXAlignment = Enum.TextXAlignment.Right
-    }, f)
+    local val = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 20), Position = UDim2.new(0.7, -8, 0, 5), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = Color3.fromRGB(255, 180, 255), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Right}, f)
     
-    local bg = inst("Frame", {
-        Size = UDim2.new(1, -30, 0, 8),
-        Position = UDim2.fromOffset(15, 38),
-        BackgroundColor3 = Color3.fromRGB(50, 45, 70),
-        BorderSizePixel = 0
-    }, f)
-    round(bg, 4)
+    local bg = inst("Frame", {Size = UDim2.new(1, -24, 0, 6), Position = UDim2.fromOffset(12, 35), BackgroundColor3 = Color3.fromRGB(45, 40, 60), BorderSizePixel = 0}, f)
+    round(bg, 3)
     
-    local fill = inst("Frame", {
-        Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
-        BackgroundColor3 = Color3.fromRGB(255, 190, 255),
-        BorderSizePixel = 0
-    }, bg)
-    round(fill, 4)
+    local fill = inst("Frame", {Size = UDim2.new((default - min) / (max - min), 0, 1, 0), BackgroundColor3 = Color3.fromRGB(255, 180, 255), BorderSizePixel = 0}, bg)
+    round(fill, 3)
     
-    local handle = inst("Frame", {
-        Size = UDim2.fromOffset(18, 18),
-        Position = UDim2.new((default - min) / (max - min), -9, 0.5, -9),
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        BorderSizePixel = 0
-    }, bg)
-    round(handle, 9)
+    local handle = inst("Frame", {Size = UDim2.fromOffset(16, 16), Position = UDim2.new((default - min) / (max - min), -8, 0.5, -8), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, bg)
+    round(handle, 8)
     
     S[key] = default
     local dragging = false
@@ -292,206 +144,75 @@ local function slider(title, key, min, max, default, order)
         S[key] = v
         val.Text = tostring(v)
         fill.Size = UDim2.new(rel, 0, 1, 0)
-        handle.Position = UDim2.new(rel, -9, 0.5, -9)
+        handle.Position = UDim2.new(rel, -8, 0.5, -8)
     end
     
-    conn(handle.InputBegan, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-        end
-    end)
-    
-    conn(bg.InputBegan, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            update(input)
-        end
-    end)
-    
-    conn(UIS.InputEnded, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-    
-    conn(UIS.InputChanged, function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            update(input)
-        end
-    end)
-    
-    return f
+    conn(handle.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end end)
+    conn(bg.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true update(input) end end)
+    conn(UIS.InputEnded, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
+    conn(UIS.InputChanged, function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end end)
 end
 
 --====================================
 -- بناء الواجهة
 --====================================
 
-local order = 1
+section("🔥 القدرات الرئيسية")
 
-section("🔥 القدرات الرئيسية", order) order = order + 1
+btn("الاختفاء التام", "👻", "Invisible", Color3.fromRGB(150, 0, 200))
+btn("السرعة الخارقة", "⚡", "Speed", Color3.fromRGB(0, 150, 250))
+btn("الطيران الحر", "🚀", "Fly", Color3.fromRGB(0, 200, 150))
 
-btn("الاختفاء التام", "👻", "Invisible", Color3.fromRGB(170, 0, 235), order) order = order + 1
-btn("السرعة الخارقة", "⚡", "Speed", Color3.fromRGB(0, 170, 300), order) order = order + 1
-btn("الطيران الحر", "🚀", "Fly", Color3.fromRGB(0, 235, 170), order) order = order + 1
+section("⚙️ الإعدادات")
 
-section("⚙️ الإعدادات", order) order = order + 1
+slider("سرعة المشي", "WalkSpeed", 16, 500, 100)
+slider("سرعة الطيران", "FlySpeed", 10, 300, 50)
 
-slider("سرعة المشي", "WalkSpeed", 16, 500, 100, order) order = order + 1
-slider("سرعة الطيران", "FlySpeed", 10, 300, 50, order) order = order + 1
+section("🎯 التفاعل مع اللاعبين")
 
-section("🎯 التفاعل مع اللاعبين", order) order = order + 1
+btn("سحب لاعب", "🧲", "DragPlayers", Color3.fromRGB(230, 160, 0))
+btn("حمل لاعب", "🤗", "CarryPlayers", Color3.fromRGB(240, 100, 150))
+btn("رؤية اللاعبين", "👁️", "PlayerESP", Color3.fromRGB(0, 200, 150))
+btn("تكبير اللاعبين", "🔍", "PlayerSize", Color3.fromRGB(220, 80, 280))
 
-btn("سحب لاعب", "🧲", "DragPlayers", Color3.fromRGB(255, 170, 0), order) order = order + 1
-btn("حمل لاعب", "🤗", "CarryPlayers", Color3.fromRGB(255, 100, 150), order) order = order + 1
-btn("رؤية اللاعبين", "👁️", "PlayerESP", Color3.fromRGB(0, 235, 170), order) order = order + 1
-btn("تكبير اللاعبين", "🔍", "PlayerSize", Color3.fromRGB(235, 90, 300), order) order = order + 1
+slider("مضاعف الحجم", "SizeMultiplier", 1, 10, 2)
 
-slider("مضاعف الحجم", "SizeMultiplier", 1, 10, 2, order) order = order + 1
+section("🎒 جلب الأدوات")
 
-section("🎒 جلب الأدوات من الماب", order) order = order + 1
+-- زر جلب كل الأدوات
+local grabAllBtn = inst("TextButton", {Size = UDim2.new(1, 0, 0, 45), BackgroundColor3 = Color3.fromRGB(0, 150, 100), Text = "🎒 جلب كل أدوات الماب", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 15}, content)
+round(grabAllBtn, 10)
 
--- جلب الأدوات
-local toolFrame = inst("Frame", {
-    Size = UDim2.new(1, 0, 0, 220),
-    BackgroundColor3 = Color3.fromRGB(25, 20, 45),
-    BorderSizePixel = 0,
-    LayoutOrder = order
-}, content)
-round(toolFrame, 14)
-order = order + 1
-
-inst("TextLabel", {
-    Size = UDim2.new(1, -16, 0, 28),
-    Position = UDim2.fromOffset(14, 10),
-    BackgroundTransparency = 1,
-    Text = "🎒 الأدوات الموجودة في الماب",
-    TextColor3 = Color3.fromRGB(190, 240, 255),
-    Font = Enum.Font.GothamBold,
-    TextSize = 16,
-    TextXAlignment = Enum.TextXAlignment.Left
-}, toolFrame)
-
-local toolScroll = inst("ScrollingFrame", {
-    Size = UDim2.new(1, -16, 1, -45),
-    Position = UDim2.fromOffset(8, 40),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 4,
-    ScrollBarImageColor3 = Color3.fromRGB(190, 240, 255),
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-    CanvasSize = UDim2.new()
-}, toolFrame)
-
-inst("UIListLayout", {
-    Padding = UDim.new(0, 5)
-}, toolScroll)
-
-local function refreshTools()
-    for _, v in pairs(toolScroll:GetChildren()) do
-        if v:IsA("TextButton") then
-            v:Destroy()
-        end
-    end
-    
+conn(grabAllBtn.MouseButton1Click, function()
     local count = 0
     for _, tool in pairs(game:GetDescendants()) do
-        if tool:IsA("Tool") and tool.Parent ~= LP.Backpack and tool.Parent ~= LP.Character and count < 25 then
+        if tool:IsA("Tool") and tool.Parent ~= LP.Backpack and tool.Parent ~= LP.Character then
+            local clone = tool:Clone()
+            clone.Parent = LP.Backpack
             count = count + 1
-            local btn = inst("TextButton", {
-                Size = UDim2.new(1, 0, 0, 35),
-                BackgroundColor3 = Color3.fromRGB(45, 40, 65),
-                Text = "🎒 أداة: " .. tool.Name,
-                TextColor3 = Color3.new(1, 1, 1),
-                Font = Enum.Font.GothamBold,
-                TextSize = 14
-            }, toolScroll)
-            round(btn, 8)
-            
-            conn(btn.MouseButton1Click, function()
-                local clone = tool:Clone()
-                clone.Parent = LP.Backpack
-                btn.Text = "✅ تم جلب الأداة: " .. tool.Name
-                btn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
-            end)
         end
     end
-    
-    if count == 0 then
-        inst("TextLabel", {
-            Size = UDim2.new(1, 0, 0, 30),
-            BackgroundTransparency = 1,
-            Text = "لا توجد أدوات في الماب",
-            TextColor3 = Color3.fromRGB(150, 150, 150),
-            Font = Enum.Font.Gotham,
-            TextSize = 13
-        }, toolScroll)
-    end
-end
+    grabAllBtn.Text = "✅ تم جلب " .. count .. " أداة"
+    grabAllBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 120)
+end)
 
-refreshTools()
-
-local refreshToolsBtn = inst("TextButton", {
-    Size = UDim2.new(1, 0, 0, 40),
-    BackgroundColor3 = Color3.fromRGB(0, 120, 200),
-    Text = "🔄 تحديث قائمة الأدوات",
-    TextColor3 = Color3.new(1, 1, 1),
-    Font = Enum.Font.GothamBold,
-    TextSize = 15,
-    LayoutOrder = order
-}, content)
-round(refreshToolsBtn, 10)
-order = order + 1
-
-conn(refreshToolsBtn.MouseButton1Click, refreshTools)
-
-section("❄️ إدارة اللاعبين", order) order = order + 1
+section("❄️ إدارة اللاعبين")
 
 -- قائمة اللاعبين
-local playerFrame = inst("Frame", {
-    Size = UDim2.new(1, 0, 0, 280),
-    BackgroundColor3 = Color3.fromRGB(25, 20, 45),
-    BorderSizePixel = 0,
-    LayoutOrder = order
-}, content)
-round(playerFrame, 14)
-order = order + 1
+local playerFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 200), BackgroundColor3 = Color3.fromRGB(20, 18, 35), BorderSizePixel = 0}, content)
+round(playerFrame, 10)
 
-inst("TextLabel", {
-    Size = UDim2.new(1, -16, 0, 28),
-    Position = UDim2.fromOffset(14, 10),
-    BackgroundTransparency = 1,
-    Text = "📋 قائمة اللاعبين",
-    TextColor3 = Color3.fromRGB(190, 240, 255),
-    Font = Enum.Font.GothamBold,
-    TextSize = 16,
-    TextXAlignment = Enum.TextXAlignment.Left
-}, playerFrame)
+inst("TextLabel", {Size = UDim2.new(1, -12, 0, 25), Position = UDim2.fromOffset(10, 8), BackgroundTransparency = 1, Text = "📋 اللاعبون", TextColor3 = Color3.fromRGB(170, 220, 255), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, playerFrame)
 
-local playerScroll = inst("ScrollingFrame", {
-    Size = UDim2.new(1, -16, 1, -45),
-    Position = UDim2.fromOffset(8, 40),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 4,
-    ScrollBarImageColor3 = Color3.fromRGB(190, 240, 255),
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-    CanvasSize = UDim2.new()
-}, playerFrame)
+local playerScroll = inst("ScrollingFrame", {Size = UDim2.new(1, -12, 1, -38), Position = UDim2.fromOffset(6, 35), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, playerFrame)
+inst("UIListLayout", {Padding = UDim.new(0, 4)}, playerScroll)
 
-inst("UIListLayout", {
-    Padding = UDim.new(0, 6)
-}, playerScroll)
-
--- دوال اللاعبين
 local function freezePlayer(p)
     frozenPlayers[p] = true
     local char = p.Character
     if char then
         local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.Anchored = true
-        end
+        if hrp then hrp.Anchored = true end
     end
 end
 
@@ -500,9 +221,7 @@ local function unfreezePlayer(p)
     local char = p.Character
     if char then
         local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.Anchored = false
-        end
+        if hrp then hrp.Anchored = false end
     end
 end
 
@@ -527,109 +246,54 @@ local function removeFly(p)
     end
 end
 
--- تحديث قائمة اللاعبين
 local function refreshPlayers()
-    -- تنظيف
-    for _, v in pairs(playerScroll:GetChildren()) do
-        if v:IsA("Frame") then
-            v:Destroy()
-        end
-    end
+    for _, v in pairs(playerScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
     
-    -- إضافة اللاعبين
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP then
             local isFrozen = frozenPlayers[p] == true
             local isFlying = flyingPlayers[p] ~= nil
             
-            local pf = inst("Frame", {
-                Size = UDim2.new(1, 0, 0, 55),
-                BackgroundColor3 = isFrozen and Color3.fromRGB(70, 90, 110) or Color3.fromRGB(45, 40, 65),
-                BorderSizePixel = 0
-            }, playerScroll)
-            round(pf, 10)
+            local pf = inst("Frame", {Size = UDim2.new(1, 0, 0, 45), BackgroundColor3 = isFrozen and Color3.fromRGB(60, 80, 100) or Color3.fromRGB(40, 35, 55), BorderSizePixel = 0}, playerScroll)
+            round(pf, 8)
             
             local nameText = p.DisplayName
-            if isFrozen then
-                nameText = "❄️ " .. nameText
-            end
-            if isFlying then
-                nameText = "🚀 " .. nameText
-            end
+            if isFrozen then nameText = "❄️ " .. nameText end
+            if isFlying then nameText = "🚀 " .. nameText end
             
-            inst("TextLabel", {
-                Size = UDim2.new(0.3, 0, 1, 0),
-                Position = UDim2.fromOffset(12, 0),
-                BackgroundTransparency = 1,
-                Text = nameText,
-                TextColor3 = Color3.new(1, 1, 1),
-                Font = Enum.Font.GothamBold,
-                TextSize = 15,
-                TextXAlignment = Enum.TextXAlignment.Left
-            }, pf)
+            inst("TextLabel", {Size = UDim2.new(0.35, 0, 1, 0), Position = UDim2.fromOffset(10, 0), BackgroundTransparency = 1, Text = nameText, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, pf)
             
-            -- الأزرار
-            local buttons = {
-                {icon = "🧲", color = Color3.fromRGB(255, 190, 0), action = "drag"},
-                {icon = "🤗", color = Color3.fromRGB(255, 100, 150), action = "carry"},
-                {icon = "📍", color = Color3.fromRGB(0, 220, 180), action = "tp"},
-                {icon = isFlying and "🛬" or "🚀", color = isFlying and Color3.fromRGB(100, 200, 255) or Color3.fromRGB(80, 150, 220), action = "fly"},
-                {icon = isFrozen and "🔥" or "❄️", color = isFrozen and Color3.fromRGB(120, 170, 220) or Color3.fromRGB(90, 130, 190), action = "freeze"},
+            local btns = {
+                {icon = "🧲", color = Color3.fromRGB(230, 160, 0), action = "drag"},
+                {icon = "🤗", color = Color3.fromRGB(240, 100, 150), action = "carry"},
+                {icon = "📍", color = Color3.fromRGB(0, 200, 150), action = "tp"},
+                {icon = isFlying and "🛬" or "🚀", color = isFlying and Color3.fromRGB(100, 180, 255) or Color3.fromRGB(70, 130, 200), action = "fly"},
+                {icon = isFrozen and "🔥" or "❄️", color = isFrozen and Color3.fromRGB(110, 160, 210) or Color3.fromRGB(80, 120, 180), action = "freeze"},
             }
             
-            for i, data in ipairs(buttons) do
-                local b = inst("TextButton", {
-                    Size = UDim2.fromOffset(48, 38),
-                    Position = UDim2.new(1, -250 + (i - 1) * 50, 0.5, -19),
-                    BackgroundColor3 = data.color,
-                    Text = data.icon,
-                    TextColor3 = Color3.new(1, 1, 1),
-                    Font = Enum.Font.GothamBold,
-                    TextSize = 18
-                }, pf)
-                round(b, 8)
+            for i, data in ipairs(btns) do
+                local b = inst("TextButton", {Size = UDim2.fromOffset(40, 32), Position = UDim2.new(1, -210 + (i-1) * 42, 0.5, -16), BackgroundColor3 = data.color, Text = data.icon, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, pf)
+                round(b, 6)
                 
-                -- الأحداث
                 if data.action == "drag" then
-                    conn(b.MouseButton1Click, function()
-                        draggedPlayer = p
-                        S.DragPlayers = true
-                    end)
+                    conn(b.MouseButton1Click, function() draggedPlayer = p S.DragPlayers = true end)
                 elseif data.action == "carry" then
-                    conn(b.MouseButton1Click, function()
-                        if carriedPlayer == p then
-                            carriedPlayer = nil
-                        else
-                            carriedPlayer = p
-                        end
-                    end)
+                    conn(b.MouseButton1Click, function() carriedPlayer = (carriedPlayer == p) and nil or p end)
                 elseif data.action == "tp" then
                     conn(b.MouseButton1Click, function()
                         local r = root()
                         local t = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-                        if r and t then
-                            r.CFrame = t.CFrame * CFrame.new(0, 0, -3)
-                        end
+                        if r and t then r.CFrame = t.CFrame * CFrame.new(0, 0, -3) end
                     end)
                 elseif data.action == "fly" then
                     conn(b.MouseButton1Click, function()
-                        if flyingPlayers[p] then
-                            removeFly(p)
-                        else
-                            giveFly(p)
-                        end
-                        task.wait(0.1)
-                        refreshPlayers()
+                        if flyingPlayers[p] then removeFly(p) else giveFly(p) end
+                        task.wait(0.1) refreshPlayers()
                     end)
                 elseif data.action == "freeze" then
                     conn(b.MouseButton1Click, function()
-                        if frozenPlayers[p] then
-                            unfreezePlayer(p)
-                        else
-                            freezePlayer(p)
-                        end
-                        task.wait(0.1)
-                        refreshPlayers()
+                        if frozenPlayers[p] then unfreezePlayer(p) else freezePlayer(p) end
+                        task.wait(0.1) refreshPlayers()
                     end)
                 end
             end
@@ -637,61 +301,26 @@ local function refreshPlayers()
     end
 end
 
--- تشغيل أول مرة
 refreshPlayers()
+conn(Players.PlayerAdded, function(p) task.wait(1) refreshPlayers() end)
+conn(Players.PlayerRemoving, function(p) frozenPlayers[p] = nil flyingPlayers[p] = nil refreshPlayers() end)
 
--- تحديث تلقائي
-conn(Players.PlayerAdded, function(p)
-    task.wait(1)
-    refreshPlayers()
-end)
+-- أزرار سريعة
+local quickFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1}, content)
 
-conn(Players.PlayerRemoving, function(p)
-    frozenPlayers[p] = nil
-    flyingPlayers[p] = nil
-    refreshPlayers()
-end)
+local unfreezeBtn = inst("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(200, 100, 50), Text = "🔥 فك الكل", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13}, quickFrame)
+round(unfreezeBtn, 8)
 
--- أزرار الإجراءات
-local btnFrame = inst("Frame", {
-    Size = UDim2.new(1, 0, 0, 50),
-    BackgroundTransparency = 1,
-    LayoutOrder = order
-}, content)
-order = order + 1
-
-local unfreezeBtn = inst("TextButton", {
-    Size = UDim2.new(0.48, 0, 1, 0),
-    BackgroundColor3 = Color3.fromRGB(220, 110, 60),
-    Text = "🔥 فك تجميد الكل",
-    TextColor3 = Color3.new(1, 1, 1),
-    Font = Enum.Font.GothamBold,
-    TextSize = 15
-}, btnFrame)
-round(unfreezeBtn, 10)
-
-local unflyBtn = inst("TextButton", {
-    Size = UDim2.new(0.48, 0, 1, 0),
-    Position = UDim2.new(0.52, 0, 0, 0),
-    BackgroundColor3 = Color3.fromRGB(80, 120, 200),
-    Text = "🛬 إيقاف طيران الكل",
-    TextColor3 = Color3.new(1, 1, 1),
-    Font = Enum.Font.GothamBold,
-    TextSize = 15
-}, btnFrame)
-round(unflyBtn, 10)
+local unflyBtn = inst("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), Position = UDim2.new(0.52, 0, 0, 0), BackgroundColor3 = Color3.fromRGB(70, 110, 180), Text = "🛬 إيقاف الطيران", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13}, quickFrame)
+round(unflyBtn, 8)
 
 conn(unfreezeBtn.MouseButton1Click, function()
-    for p, _ in pairs(frozenPlayers) do
-        unfreezePlayer(p)
-    end
+    for p, _ in pairs(frozenPlayers) do unfreezePlayer(p) end
     refreshPlayers()
 end)
 
 conn(unflyBtn.MouseButton1Click, function()
-    for p, _ in pairs(flyingPlayers) do
-        removeFly(p)
-    end
+    for p, _ in pairs(flyingPlayers) do removeFly(p) end
     refreshPlayers()
 end)
 
@@ -701,44 +330,25 @@ end)
 
 local function updateInvisible()
     local char = LP.Character
-    if not char then
-        return
-    end
-    
+    if not char then return end
     if S.Invisible then
         for _, v in pairs(char:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.LocalTransparencyModifier = 1
-                v.CastShadow = false
-            end
-            if v:IsA("Decal") or v:IsA("Texture") then
-                v.LocalTransparencyModifier = 1
-            end
-            if v:IsA("ParticleEmitter") or v:IsA("Trail") then
-                v.Enabled = false
-            end
+            if v:IsA("BasePart") then v.LocalTransparencyModifier = 1 v.CastShadow = false end
+            if v:IsA("Decal") or v:IsA("Texture") then v.LocalTransparencyModifier = 1 end
+            if v:IsA("ParticleEmitter") or v:IsA("Trail") then v.Enabled = false end
         end
     else
         for _, v in pairs(char:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.LocalTransparencyModifier = 0
-                v.CastShadow = true
-            end
-            if v:IsA("Decal") or v:IsA("Texture") then
-                v.LocalTransparencyModifier = 0
-            end
-            if v:IsA("ParticleEmitter") or v:IsA("Trail") then
-                v.Enabled = true
-            end
+            if v:IsA("BasePart") then v.LocalTransparencyModifier = 0 v.CastShadow = true end
+            if v:IsA("Decal") or v:IsA("Texture") then v.LocalTransparencyModifier = 0 end
+            if v:IsA("ParticleEmitter") or v:IsA("Trail") then v.Enabled = true end
         end
     end
 end
 
 local function updateSpeed()
     local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-    if h then
-        h.WalkSpeed = S.Speed and S.WalkSpeed or 16
-    end
+    if h then h.WalkSpeed = S.Speed and S.WalkSpeed or 16 end
 end
 
 local flyVel = nil
@@ -746,74 +356,38 @@ local flyAtt = nil
 local flyOri = nil
 
 local function stopFly()
-    if flyVel then
-        pcall(function()
-            flyVel:Destroy()
-        end)
-    end
-    if flyAtt then
-        pcall(function()
-            flyAtt:Destroy()
-        end)
-    end
-    if flyOri then
-        pcall(function()
-            flyOri:Destroy()
-        end)
-    end
-    flyVel = nil
-    flyAtt = nil
-    flyOri = nil
+    if flyVel then pcall(function() flyVel:Destroy() end) end
+    if flyAtt then pcall(function() flyAtt:Destroy() end) end
+    if flyOri then pcall(function() flyOri:Destroy() end) end
+    flyVel = nil flyAtt = nil flyOri = nil
 end
 
 local function updateFly()
     local r = root()
-    if not r then
-        stopFly()
-        return
-    end
+    if not r then stopFly() return end
     
     if S.Fly then
         if not flyVel or not flyVel.Parent then
             stopFly()
-            
-            flyAtt = Instance.new("Attachment")
-            flyAtt.Parent = r
-            
+            flyAtt = Instance.new("Attachment") flyAtt.Parent = r
             flyVel = Instance.new("LinearVelocity")
             flyVel.Attachment0 = flyAtt
             flyVel.MaxForce = math.huge
             flyVel.Parent = r
-            
             flyOri = Instance.new("AlignOrientation")
             flyOri.Attachment0 = flyAtt
             flyOri.Mode = Enum.OrientationAlignmentMode.OneAttachment
             flyOri.MaxTorque = math.huge
             flyOri.Parent = r
         end
-        
         local cam = workspace.CurrentCamera
         local dir = Vector3.zero
-        
-        if UIS:IsKeyDown(Enum.KeyCode.W) then
-            dir = dir + cam.CFrame.LookVector
-        end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then
-            dir = dir - cam.CFrame.LookVector
-        end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then
-            dir = dir - cam.CFrame.RightVector
-        end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then
-            dir = dir + cam.CFrame.RightVector
-        end
-        if UIS:IsKeyDown(Enum.KeyCode.E) or UIS:IsKeyDown(Enum.KeyCode.Space) then
-            dir = dir + Vector3.yAxis
-        end
-        if UIS:IsKeyDown(Enum.KeyCode.Q) or UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
-            dir = dir - Vector3.yAxis
-        end
-        
+        if UIS:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.E) or UIS:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.yAxis end
+        if UIS:IsKeyDown(Enum.KeyCode.Q) or UIS:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.yAxis end
         flyVel.VectorVelocity = dir * S.FlySpeed
     else
         stopFly()
@@ -824,9 +398,7 @@ local function updateDrag()
     if S.DragPlayers and draggedPlayer then
         local t = draggedPlayer.Character and draggedPlayer.Character:FindFirstChild("HumanoidRootPart")
         local r = root()
-        if t and r then
-            t.CFrame = r.CFrame * CFrame.new(0, 0, -5)
-        end
+        if t and r then t.CFrame = r.CFrame * CFrame.new(0, 0, -5) end
     end
 end
 
@@ -834,9 +406,7 @@ local function updateCarry()
     if carriedPlayer then
         local t = carriedPlayer.Character and carriedPlayer.Character:FindFirstChild("HumanoidRootPart")
         local r = root()
-        if t and r then
-            t.CFrame = r.CFrame * CFrame.new(0, 2, 0)
-        end
+        if t and r then t.CFrame = r.CFrame * CFrame.new(0, 2, 0) end
     end
 end
 
@@ -852,47 +422,31 @@ local function updateESP()
             end
         end
     else
-        for p, h in pairs(espHighlights) do
-            if h then
-                h:Destroy()
-            end
-            espHighlights[p] = nil
-        end
+        for p, h in pairs(espHighlights) do if h then h:Destroy() end espHighlights[p] = nil end
     end
 end
 
 local originalSizes = {}
-
 local function updateSize()
     if S.PlayerSize then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LP and p.Character then
                 local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-                if hrp and not originalSizes[p] then
-                    originalSizes[p] = hrp.Size
-                end
-                if hrp then
-                    hrp.Size = Vector3.new(2, 2, 1) * S.SizeMultiplier
-                end
+                if hrp and not originalSizes[p] then originalSizes[p] = hrp.Size end
+                if hrp then hrp.Size = Vector3.new(2, 2, 1) * S.SizeMultiplier end
             end
         end
     else
         for p, s in pairs(originalSizes) do
             local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                hrp.Size = s
-            end
+            if hrp then hrp.Size = s end
         end
         table.clear(originalSizes)
     end
 end
 
--- الحلقة الرئيسية
 conn(RunService.Heartbeat, function()
-    if not alive then
-        return
-    end
-    
+    if not alive then return end
     updateInvisible()
     updateSpeed()
     updateFly()
@@ -902,36 +456,20 @@ conn(RunService.Heartbeat, function()
     updateSize()
 end)
 
--- التنظيف
 local function cleanup()
     alive = false
-    
     stopFly()
-    
-    for p, _ in pairs(frozenPlayers) do
-        unfreezePlayer(p)
-    end
-    
-    for p, _ in pairs(flyingPlayers) do
-        removeFly(p)
-    end
-    
-    for p, h in pairs(espHighlights) do
-        if h then
-            h:Destroy()
-        end
-    end
-    
-    for _, c in pairs(conns) do
-        c:Disconnect()
-    end
-    
+    for p, _ in pairs(frozenPlayers) do unfreezePlayer(p) end
+    for p, _ in pairs(flyingPlayers) do removeFly(p) end
+    for p, h in pairs(espHighlights) do if h then h:Destroy() end end
+    for _, c in pairs(conns) do c:Disconnect() end
     gui:Destroy()
 end
 
 conn(close.MouseButton1Click, cleanup)
 
-print("✅ المركز الشامل v4.0 (مصلح)")
+print("✅ السكربت الشامل v1.0")
+print("⚠️ كل شي محلي - أنت بس تشوف")
 print("👻 اختفاء | ⚡ سرعة | 🚀 طيران")
-print("🧲 سحب | 🤗 حمل | 📍 انتقال | 👁️ رؤية | 🔍 تكبير")
+print("🧲 سحب | 🤗 حمل | 📍 انتقال | 👁️ رؤية")
 print("🎒 جلب الأدوات | ❄️ تجميد | 🚀 طيران للاعبين")
