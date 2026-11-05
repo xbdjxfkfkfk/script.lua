@@ -1,157 +1,611 @@
--- NOVA PRO v3 | Local Roblox Luau panel
--- Run as a LocalScript in StarterPlayerScripts in an experience you control.
--- Server-authoritative actions require separate, authorized server code.
-local Players = game:GetService('Players')
-local UIS = game:GetService('UserInputService')
-local RunService = game:GetService('RunService')
-local Lighting = game:GetService('Lighting')
-local player = Players.LocalPlayer
-local gui = Instance.new('ScreenGui')
-gui.Name = 'NOVA_PRO_v3'
-gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild('PlayerGui')
-local function create(class,props,parent)
- local obj=Instance.new(class)
- for k,v in pairs(props) do obj[k]=v end
- obj.Parent=parent
- return obj
+-- NOVA PRO v4 | StarterPlayer/StarterPlayerScripts/NOVA_Client.client.lua
+-- Interface and client controls. All cross-player actions are checked on the server.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+
+local me = Players.LocalPlayer
+local event = ReplicatedStorage:WaitForChild("NOVA_Remote", 15)
+if not event then warn("NOVA: install NOVA_Server.server.lua first") return end
+local remote = event :: RemoteEvent
+local palette = {
+    bg = Color3.fromRGB(12, 16, 25), surface = Color3.fromRGB(22, 29, 42),
+    surface2 = Color3.fromRGB(30, 40, 57), border = Color3.fromRGB(49, 64, 86),
+    accent = Color3.fromRGB(76, 139, 255), accent2 = Color3.fromRGB(37, 99, 235),
+    white = Color3.fromRGB(241, 246, 255), muted = Color3.fromRGB(157, 172, 195),
+    success = Color3.fromRGB(55, 194, 135), danger = Color3.fromRGB(232, 83, 106)
+}
+
+local function create(class: string, parent: Instance?, props: {[string]: any}?): Instance
+    local instance = Instance.new(class)
+    for key, value in pairs(props or {}) do (instance :: any)[key] = value end
+    if parent then instance.Parent = parent end
+    return instance
 end
-local dark=Color3.fromRGB(18,21,31)
-local accent=Color3.fromRGB(83,120,255)
-local frame=create('Frame',{Size=UDim2.fromOffset(640,430),Position=UDim2.new(.5,-320,.5,-215),BackgroundColor=dark,BorderSizePixel=0,Active=true,Draggable=true},gui)
-create('UICorner',{CornerRadius=UDim.new(0,14)},frame)
-local title=create('TextLabel',{Size=UDim2.new(1,-100,0,48),Position=UDim2.fromOffset(18,0),BackgroundTransparency=1,Text='NOVA PRO v3  |  LOCAL CONTROL',TextColor3=Color3.new(1,1,1),Font=Enum.Font.GothamBold,TextSize=19,TextXAlignment=Enum.TextXAlignment.Left},frame)
-local hide=create('TextButton',{Size=UDim2.fromOffset(76,32),Position=UDim2.new(1,-90,0,8),Text='إخفاء',BackgroundColor=accent,TextColor3=Color3.new(1,1,1),Font=Enum.Font.GothamBold,TextSize=14},frame)
-create('UICorner',{CornerRadius=UDim.new(0,8)},hide)
-local reopen=create('TextButton',{Size=UDim2.fromOffset(110,40),Position=UDim2.fromOffset(20,90),Text='NOVA PRO',Visible=false,BackgroundColor=accent,TextColor3=Color3.new(1,1,1),Font=Enum.Font.GothamBold,TextSize=14,Active=true,Draggable=true},gui)
-create('UICorner',{CornerRadius=UDim.new(0,10)},reopen)
-hide.MouseButton1Click:Connect(function() frame.Visible=false reopen.Visible=true end)
-reopen.MouseButton1Click:Connect(function() frame.Visible=true reopen.Visible=false end)
-local sidebar=create('Frame',{Size=UDim2.fromOffset(174,365),Position=UDim2.fromOffset(12,53),BackgroundColor=Color3.fromRGB(27,31,45),BorderSizePixel=0},frame)
-create('UICorner',{CornerRadius=UDim.new(0,10)},sidebar)
-local content=create('ScrollingFrame',{Size=UDim2.new(1,-210,1,-70),Position=UDim2.fromOffset(198,58),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=5,AutomaticCanvasSize=Enum.AutomaticSize.Y,CanvasSize=UDim2.new()},frame)
-create('UIListLayout',{Padding=UDim.new(0,9),SortOrder=Enum.SortOrder.LayoutOrder},content)
-local function clear()
- for _,c in ipairs(content:GetChildren()) do if not c:IsA('UIListLayout') then c:Destroy() end end
+local function rounded(object: Instance, radius: number)
+    create("UICorner", object, {CornerRadius = UDim.new(0, radius)})
 end
-local function label(t)
- return create('TextLabel',{Size=UDim2.new(1,-8,0,35),BackgroundTransparency=1,Text=t,TextWrapped=true,TextColor3=Color3.fromRGB(220,225,245),Font=Enum.Font.Gotham,TextSize=14,TextXAlignment=Enum.TextXAlignment.Left},content)
+local function stroked(object: Instance)
+    create("UIStroke", object, {Color = palette.border, Transparency = .35, Thickness = 1})
 end
-local function button(t,fn)
- local b=create('TextButton',{Size=UDim2.new(1,-8,0,40),BackgroundColor=Color3.fromRGB(43,49,70),Text=t,TextColor3=Color3.new(1,1,1),Font=Enum.Font.GothamMedium,TextSize=14},content)
- create('UICorner',{CornerRadius=UDim.new(0,8)},b)
- b.MouseButton1Click:Connect(fn)
- return b
+local function text(parent: Instance, label: string, size: number, color: Color3?, bold: boolean?): TextLabel
+    return create("TextLabel", parent, {
+        BackgroundTransparency = 1, Text = label, TextColor3 = color or palette.white,
+        TextSize = size, Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true,
+    }) :: TextLabel
 end
-local function humanoid()
- local ch=player.Character
- return ch and ch:FindFirstChildOfClass('Humanoid')
+
+local gui = create("ScreenGui", me:WaitForChild("PlayerGui"), {
+    Name = "NOVA_PRO_V4", ResetOnSpawn = false,
+    IgnoreGuiInset = true, DisplayOrder = 250, ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+}) :: ScreenGui
+-- Remove any earlier panel from the same client session.
+for _, child in ipairs(me.PlayerGui:GetChildren()) do
+    if child ~= gui and child.Name == "NOVA_PRO_V4" then child:Destroy() end
 end
-local selected=nil
-local speed=16
-local flight=false
-local flightConnection=nil
-local invisible=false
-local originals={}
-local function setInvisible(on)
- invisible=on
- local ch=player.Character
- if not ch then return end
- for _,part in ipairs(ch:GetDescendants()) do
-  if part:IsA('BasePart') then
-   if on then originals[part]=part.LocalTransparencyModifier;part.LocalTransparencyModifier=1
-   else part.LocalTransparencyModifier=originals[part] or 0 end
-  end
- end
+
+local viewport = Workspace.CurrentCamera.ViewportSize
+local function panelDimensions(): (number, number)
+    local size = Workspace.CurrentCamera.ViewportSize
+    return math.max(290, math.min(780, size.X - 22)), math.max(250, math.min(490, size.Y - 24))
 end
-local function stopFlight()
- flight=false
- if flightConnection then flightConnection:Disconnect();flightConnection=nil end
- local ch=player.Character
- local root=ch and ch:FindFirstChild('HumanoidRootPart')
- if root then
-  local lv=root:FindFirstChild('NovaFlightVelocity');if lv then lv:Destroy() end
-  local att=root:FindFirstChild('NovaFlightAttachment');if att then att:Destroy() end
- end
- local hum=humanoid();if hum then hum.PlatformStand=false end
+local w, h = panelDimensions()
+local main = create("Frame", gui, {
+    Name = "Panel", Size = UDim2.fromOffset(w, h),
+    Position = UDim2.fromOffset(math.max(8, math.floor((viewport.X-w)/2)), math.max(8, math.floor((viewport.Y-h)/2))),
+    BackgroundColor3 = palette.bg, BorderSizePixel = 0,
+    ClipsDescendants = true,
+}) :: Frame
+rounded(main, 16)
+stroked(main)
+
+local header = create("Frame", main, {
+    Size = UDim2.new(1, 0, 0, 66), BackgroundColor3 = palette.surface, BorderSizePixel = 0,
+}) :: Frame
+create("UIGradient", header, {
+    Rotation = 0, Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, palette.surface), ColorSequenceKeypoint.new(1, Color3.fromRGB(26, 49, 83))
+    })
+})
+local logo = text(header, "NOVA  /  PRO", 21, palette.white, true)
+logo.Position, logo.Size = UDim2.fromOffset(18, 9), UDim2.new(1,-130,0,29)
+local tagline = text(header, "v4  •  CONTROL CENTER", 10, palette.muted, true)
+tagline.Position, tagline.Size = UDim2.fromOffset(19, 37), UDim2.new(1,-130,0,18)
+local role = text(header, "فحص الصلاحيات...", 11, palette.muted, true)
+role.TextXAlignment = Enum.TextXAlignment.Right
+role.Position, role.Size = UDim2.new(1,-185,0,22), UDim2.fromOffset(120,22)
+local function topButton(name: string, label: string, x: number): TextButton
+    local b = create("TextButton", header, {
+        Name=name, Text=label, Font=Enum.Font.GothamBold, TextSize=18,
+        TextColor3=palette.white, BackgroundColor3=palette.surface2,
+        Size=UDim2.fromOffset(34,34), Position=UDim2.new(1,x,0,16), BorderSizePixel=0,
+    }) :: TextButton
+    rounded(b, 9)
+    return b
 end
-local function startFlight()
- stopFlight()
- local ch=player.Character
- local root=ch and ch:FindFirstChild('HumanoidRootPart')
- local hum=humanoid()
- if not root or not hum then return end
- flight=true
- local att=create('Attachment',{Name='NovaFlightAttachment'},root)
- local lv=create('LinearVelocity',{Name='NovaFlightVelocity',Attachment0=att,MaxForce=100000,VectorVelocity=Vector3.zero,RelativeTo=Enum.ActuatorRelativeTo.World},root)
- hum.PlatformStand=true
- flightConnection=RunService.RenderStepped:Connect(function()
-  if not root.Parent then stopFlight();return end
-  local camera=workspace.CurrentCamera
-  local dir=hum.MoveDirection
-  local up=(UIS:IsKeyDown(Enum.KeyCode.Space) and 1 or 0)-(UIS:IsKeyDown(Enum.KeyCode.LeftControl) and 1 or 0)
-  lv.VectorVelocity=(dir+Vector3.new(0,up,0))*55
-  if camera and dir.Magnitude>0 then root.CFrame=CFrame.lookAt(root.Position,root.Position+Vector3.new(camera.CFrame.LookVector.X,0,camera.CFrame.LookVector.Z)) end
- end)
+local collapse = topButton("Collapse", "—", -82)
+local close = topButton("Close", "×", -43)
+
+local rail = create("Frame", main, {
+    Name="Sidebar", Position=UDim2.fromOffset(0,66),
+    Size=UDim2.new(0,157,1,-108), BackgroundColor3=palette.surface, BorderSizePixel=0,
+}) :: Frame
+local railLayout = create("UIListLayout", rail, {Padding=UDim.new(0,7), SortOrder=Enum.SortOrder.LayoutOrder})
+create("UIPadding",rail, {PaddingTop=UDim.new(0,14),PaddingLeft=UDim.new(0,10),PaddingRight=UDim.new(0,10)})
+local body = create("ScrollingFrame", main, {
+    Name="Content", Position=UDim2.fromOffset(169,76),
+    Size=UDim2.new(1,-183,1,-128), BackgroundTransparency=1,
+    CanvasSize=UDim2.fromOffset(0,0), AutomaticCanvasSize=Enum.AutomaticSize.Y,
+    ScrollBarThickness=4, ScrollBarImageColor3=palette.accent,
+    BorderSizePixel=0,
+}) :: ScrollingFrame
+local layout = create("UIListLayout",body,{Padding=UDim.new(0,10), SortOrder=Enum.SortOrder.LayoutOrder})
+create("UIPadding",body,{
+    PaddingTop=UDim.new(0,5),PaddingBottom=UDim.new(0,12),
+    PaddingLeft=UDim.new(0,3),PaddingRight=UDim.new(0,8)
+})
+local status = create("TextLabel",main,{
+    Name="Status", Position=UDim2.new(0,13,1,-36), Size=UDim2.new(1,-26,0,26),
+    Text="جاهز • أوامر اللاعبين تُنفّذ بواسطة خادم الماب", TextSize=12,
+    TextColor3=palette.muted, BackgroundColor3=palette.surface,
+    Font=Enum.Font.Gotham, BorderSizePixel=0, TextXAlignment=Enum.TextXAlignment.Center,
+    TextTruncate=Enum.TextTruncate.AtEnd,
+}) :: TextLabel
+rounded(status, 7)
+
+local launcher = create("TextButton", gui, {
+    Name="Launcher", Text="N", Font=Enum.Font.GothamBlack, TextSize=22,
+    Size=UDim2.fromOffset(52,52), Position=UDim2.fromOffset(14,75),
+    BackgroundColor3=palette.accent2, TextColor3=palette.white,
+    BorderSizePixel=0, Visible=false,
+}) :: TextButton
+rounded(launcher, 15)
+stroked(launcher)
+local function setOpen(on: boolean)
+    main.Visible = on
+    launcher.Visible = not on
 end
-local tabs={}
-local function showHome()
- clear();label('لوحة تحكم محلية. ميزات الخادم تحتاج صلاحيات مالك التجربة.')
- button('السرعة: '..speed,function() speed=speed==16 and 32 or speed==32 and 50 or 16;local h=humanoid();if h then h.WalkSpeed=speed end;showHome() end)
- button('الطيران: '..(flight and 'ON' or 'OFF'),function() if flight then stopFlight() else startFlight() end;showHome() end)
- button('القفز العالي',function() local h=humanoid();if h then h.UseJumpPower=true;h.JumpPower=90 end end)
- button('إعادة الحركة الافتراضية',function()stopFlight();speed=16;local h=humanoid();if h then h.WalkSpeed=16;h.JumpPower=50 end;showHome() end)
+collapse.MouseButton1Click:Connect(function() setOpen(false) end)
+close.MouseButton1Click:Connect(function() setOpen(false) end)
+launcher.MouseButton1Click:Connect(function() setOpen(true) end)
+
+local dragging = false
+local inputStart: Vector3? = nil
+local positionStart: UDim2? = nil
+header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        inputStart = input.Position
+        positionStart = main.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if not dragging or not inputStart or not positionStart then return end
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+    local delta = input.Position - inputStart
+    local screen = Workspace.CurrentCamera.ViewportSize
+    local nx = math.clamp(positionStart.X.Offset + delta.X,0, math.max(0,screen.X-main.AbsoluteSize.X))
+    local ny = math.clamp(positionStart.Y.Offset + delta.Y,0, math.max(0,screen.Y-main.AbsoluteSize.Y))
+    main.Position = UDim2.fromOffset(nx,ny)
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+end)
+
+local authorized = false
+local selected: Player? = nil
+local spectating: Player? = nil
+local flightEnabled = false
+local flightConnection: RBXScriptConnection? = nil
+local flightObjects: {Instance} = {}
+local flightSpeed = 65
+local touchUp, touchDown = false, false
+local highlighted = false
+local fullbright = false
+local speed = 24
+local jump = 55
+local currentTab = "players"
+local railButtons: {[string]: TextButton} = {}
+local markers: {[Player]: {Instance}} = {}
+local savedLighting = {
+    Brightness = Lighting.Brightness,
+    ClockTime = Lighting.ClockTime,
+    FogEnd = Lighting.FogEnd,
+    GlobalShadows = Lighting.GlobalShadows,
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+}
+
+local function notify(message: string, success: boolean?)
+    status.Text = message
+    status.TextColor3 = success == false and palette.danger or palette.success
 end
-local function showPlayers()
- clear();label('اختر لاعبًا للمشاهدة أو الانتقال إليه محليًا.')
- local search=create('TextBox',{Size=UDim2.new(1,-8,0,39),PlaceholderText='بحث عن اسم اللاعب...',Text='',ClearTextOnFocus=false,BackgroundColor=Color3.fromRGB(43,49,70),TextColor3=Color3.new(1,1,1),PlaceholderColor3=Color3.fromRGB(160,170,190),Font=Enum.Font.Gotham,TextSize=14},content)
- create('UICorner',{CornerRadius=UDim.new(0,8)},search)
- local results=create('Frame',{Size=UDim2.new(1,-8,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},content)
- create('UIListLayout',{Padding=UDim.new(0,5)},results)
- local function render()
-  for _,c in ipairs(results:GetChildren()) do if c:IsA('TextButton') then c:Destroy() end end
-  for _,p in ipairs(Players:GetPlayers()) do
-   if p~=player and (search.Text=='' or string.find(string.lower(p.Name..' '..p.DisplayName),string.lower(search.Text),1,true)) then
-    local b=create('TextButton',{Size=UDim2.new(1,0,0,34),Text=p.DisplayName..'  (@'..p.Name..')',BackgroundColor=Color3.fromRGB(40,46,65),TextColor3=Color3.new(1,1,1),Font=Enum.Font.Gotham,TextSize=13},results)
-    b.MouseButton1Click:Connect(function()selected=p;showPlayers() end)
-   end
-  end
- end
- search:GetPropertyChangedSignal('Text'):Connect(render);render()
- label('المحدد: '..(selected and selected.Name or 'لا أحد'))
- button('مشاهدة اللاعب المحدد',function()
-  local h=selected and selected.Character and selected.Character:FindFirstChildOfClass('Humanoid')
-  if h then workspace.CurrentCamera.CameraSubject=h end
- end)
- button('إيقاف المشاهدة',function()local h=humanoid();if h then workspace.CurrentCamera.CameraSubject=h end end)
- button('انتقال محلي للاعب المحدد',function()
-  local target=selected and selected.Character and selected.Character:FindFirstChild('HumanoidRootPart')
-  local mine=player.Character and player.Character:FindFirstChild('HumanoidRootPart')
-  if target and mine then mine.CFrame=target.CFrame*CFrame.new(3,0,0) end
- end)
- label('المحادثة الصوتية تتحكم فيها إعدادات Roblox ونظام المسافة في التجربة.')
+local function send(action: string, data: {[string]: any}?)
+    if not authorized then notify("هذه العملية تحتاج صلاحية مالك الماب.",false) return end
+    remote:FireServer(action,data or {})
 end
-local function showVisual()
- clear()
- button('الاختفاء المحلي: '..(invisible and 'ON' or 'OFF'),function()setInvisible(not invisible);showVisual() end)
- button('إضاءة كاملة',function()Lighting.Brightness=4;Lighting.ClockTime=14;Lighting.FogEnd=100000 end)
- button('إعادة الإضاءة',function()Lighting.Brightness=2;Lighting.ClockTime=14;Lighting.FogEnd=100000 end)
- label('الاختفاء هنا على جهازك فقط. الاختفاء للجميع يحتاج تنفيذًا من الخادم.')
+local function targetId(): number?
+    if selected and selected.Parent == Players then return selected.UserId end
+    notify("اختر اللاعب من قائمة اللاعبين أولًا.",false)
+    return nil
 end
-local function showAdmin()
- clear();label('التجميد والضرب والطرد والاختفاء الحقيقي تتطلب نظام إدارة موثوقًا على الخادم داخل تجربة تملكها.')
- label('لا توجد أزرار وهمية أو محاولات لتعليق ألعاب اللاعبين الآخرين.')
+
+local function uiButton(parent: Instance, title: string, callback: () -> (), danger: boolean?): TextButton
+    local button = create("TextButton",parent,{
+        Text=title, TextSize=13, Font=Enum.Font.GothamBold,
+        TextColor3=palette.white, TextWrapped=true, BorderSizePixel=0,
+        BackgroundColor3=danger and Color3.fromRGB(117,45,65) or palette.surface2,
+        AutoButtonColor=true,
+    }) :: TextButton
+    rounded(button,9)
+    button.MouseButton1Click:Connect(callback)
+    return button
 end
-local function showAbout()
- clear();label('NOVA PRO v3 | لوحة تحكم Luau محلية')
- label('التحكم بالطيران: WASD للحركة، Space للصعود، LeftCtrl للنزول. على الجوال تعمل حركة الاتجاه، ويحتاج الصعود والنزول إلى أزرار لمس إضافية.')
- label('إذا أعاد الخادم تعيين الحركة، لن تستطيع الواجهة تجاوز ذلك.')
+local function heading(title: string, note: string?)
+    local frame = create("Frame",body,{Size=UDim2.new(1,0,0,note and 58 or 38),BackgroundTransparency=1})
+    local headingText = text(frame,title,18,palette.white,true)
+    headingText.Size=UDim2.new(1,0,0,30)
+    if note then
+        local noteText = text(frame,note,12,palette.muted,false)
+        noteText.Position=UDim2.fromOffset(0,30)
+        noteText.Size=UDim2.new(1,0,0,26)
+    end
 end
-local items={{'الرئيسية',showHome},{'اللاعبون',showPlayers},{'المظهر',showVisual},{'الإدارة',showAdmin},{'معلومات',showAbout}}
-for i,item in ipairs(items) do
- local b=create('TextButton',{Size=UDim2.fromOffset(154,52),Position=UDim2.fromOffset(10,10+(i-1)*65),BackgroundColor=Color3.fromRGB(43,49,70),Text=item[1],TextColor3=Color3.new(1,1,1),Font=Enum.Font.GothamBold,TextSize=15},sidebar)
- create('UICorner',{CornerRadius=UDim.new(0,9)},b)
- b.MouseButton1Click:Connect(item[2])
+local function buttonRow(items: {{label: string, onClick: () -> (), danger: boolean?}})
+    local row = create("Frame",body,{Size=UDim2.new(1,0,0,46),BackgroundTransparency=1})
+    local grid = create("UIGridLayout",row,{
+        FillDirection=Enum.FillDirection.Horizontal, FillDirectionMaxCells=#items,
+        SortOrder=Enum.SortOrder.LayoutOrder, CellPadding=UDim2.fromOffset(7,0),
+        CellSize=UDim2.new(1/#items,-7,1,0),
+    })
+    for _, item in ipairs(items) do uiButton(row,item.label,item.onClick,item.danger) end
+    return row
 end
-player.CharacterAdded:Connect(function()stopFlight();invisible=false;originals={};task.wait(1);local h=humanoid();if h then h.WalkSpeed=speed end end)
-showHome()
+local function info(message: string)
+    local frame = create("Frame",body,{Size=UDim2.new(1,0,0,65),BackgroundColor3=palette.surface,BorderSizePixel=0})
+    rounded(frame,10)
+    local note = text(frame,message,12,palette.muted)
+    note.Size=UDim2.new(1,-22,1,-14)
+    note.Position=UDim2.fromOffset(11,7)
+end
+local function valueControl(label: string, current: number, minus: () -> (), plus: () -> ())
+    local holder = create("Frame",body,{Size=UDim2.new(1,0,0,53),BackgroundColor3=palette.surface,BorderSizePixel=0})
+    rounded(holder,10)
+    local caption = text(holder,label.."  •  "..current,14,palette.white,true)
+    caption.Position=UDim2.fromOffset(12,0)
+    caption.Size=UDim2.new(1,-122,1,0)
+    local bminus = uiButton(holder,"−",minus)
+    bminus.Size=UDim2.fromOffset(42,34)
+    bminus.Position=UDim2.new(1,-99,.5,-17)
+    local bplus = uiButton(holder,"+",plus)
+    bplus.Size=UDim2.fromOffset(42,34)
+    bplus.Position=UDim2.new(1,-51,.5,-17)
+end
+
+local function clearMarkers()
+    for _, collection in pairs(markers) do
+        for _, item in ipairs(collection) do if item.Parent then item:Destroy() end end
+    end
+    table.clear(markers)
+end
+local function refreshMarkers()
+    clearMarkers()
+    if not highlighted then return end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= me and player.Character then
+            local character=player.Character
+            local head=character:FindFirstChild("Head")
+            local hi=create("Highlight",character,{
+                Name="NOVA_LocalHighlight", Adornee=character, FillTransparency=.83,
+                OutlineColor=palette.accent, OutlineTransparency=0,
+                DepthMode=Enum.HighlightDepthMode.AlwaysOnTop,
+            })
+            markers[player]={hi}
+            if head and head:IsA("BasePart") then
+                local bb=create("BillboardGui",head,{
+                    Name="NOVA_LocalName", Adornee=head, Size=UDim2.fromOffset(185,35),
+                    StudsOffsetWorldSpace=Vector3.new(0,2.8,0),AlwaysOnTop=true,
+                })
+                local name=text(bb,player.DisplayName.."  @"..player.Name,12,palette.white,true)
+                name.Size=UDim2.fromScale(1,1)
+                name.TextXAlignment=Enum.TextXAlignment.Center
+                table.insert(markers[player],bb)
+            end
+        end
+    end
+end
+local function setFullbright(on: boolean)
+    fullbright=on
+    if on then
+        Lighting.Brightness=4
+        Lighting.ClockTime=14
+        Lighting.FogEnd=100000
+        Lighting.GlobalShadows=false
+        Lighting.Ambient=Color3.fromRGB(235,235,235)
+        Lighting.OutdoorAmbient=Color3.fromRGB(235,235,235)
+    else
+        for k,v in pairs(savedLighting) do (Lighting :: any)[k]=v end
+    end
+end
+
+local function stopSpectating()
+    spectating=nil
+    local camera=Workspace.CurrentCamera
+    local char=me.Character
+    camera.CameraType=Enum.CameraType.Custom
+    if char then
+        local human=char:FindFirstChildOfClass("Humanoid")
+        if human then camera.CameraSubject=human end
+    end
+end
+local function spectate(player: Player)
+    if player==me then stopSpectating() return end
+    local char=player.Character
+    local human=char and char:FindFirstChildOfClass("Humanoid")
+    if not human then notify("شخصية اللاعب غير جاهزة.",false) return end
+    spectating=player
+    Workspace.CurrentCamera.CameraType=Enum.CameraType.Custom
+    Workspace.CurrentCamera.CameraSubject=human
+    notify("تشاهد: "..player.DisplayName)
+end
+
+local mobileFlyControls = create("Frame",gui,{
+    Size=UDim2.fromOffset(74,150),Position=UDim2.new(1,-88,1,-175),
+    BackgroundTransparency=1,Visible=false,
+}) :: Frame
+local function touchButton(symbol: string, y: number, flag: "up" | "down")
+    local b=create("TextButton",mobileFlyControls,{
+        Text=symbol,Font=Enum.Font.GothamBold,TextSize=25,
+        BackgroundColor3=palette.accent2,TextColor3=palette.white,
+        Size=UDim2.fromOffset(68,66),Position=UDim2.fromOffset(0,y),BorderSizePixel=0,
+    }) :: TextButton
+    rounded(b,12)
+    b.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if flag=="up" then touchUp=true else touchDown=true end
+        end
+    end)
+    b.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if flag=="up" then touchUp=false else touchDown=false end
+        end
+    end)
+end
+touchButton("↑",0,"up")
+touchButton("↓",75,"down")
+
+local function stopFlying()
+    flightEnabled=false
+    touchUp,touchDown=false,false
+    if flightConnection then flightConnection:Disconnect() flightConnection=nil end
+    for _, v in ipairs(flightObjects) do if v.Parent then v:Destroy() end end
+    table.clear(flightObjects)
+    local humanoid=me.Character and me.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.PlatformStand=false
+        humanoid.AutoRotate=true
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+    mobileFlyControls.Visible=false
+end
+local function startFlying()
+    stopFlying()
+    local character=me.Character
+    local root=character and character:FindFirstChild("HumanoidRootPart")
+    local humanoid=character and character:FindFirstChildOfClass("Humanoid")
+    if not root or not root:IsA("BasePart") or not humanoid then
+        notify("الشخصية غير جاهزة للطيران.",false)
+        return
+    end
+    flightEnabled=true
+    local attachment=create("Attachment",root,{Name="NOVA_FlightAttachment"}) :: Attachment
+    local velocity=create("LinearVelocity",root,{
+        Name="NOVA_FlightVelocity",Attachment0=attachment,
+        RelativeTo=Enum.ActuatorRelativeTo.World,
+        MaxForce=math.huge,ForceLimitsEnabled=false,
+        VectorVelocity=Vector3.zero,
+    }) :: LinearVelocity
+    local orientation=create("AlignOrientation",root,{
+        Name="NOVA_FlightOrientation",Attachment0=attachment,
+        Mode=Enum.OrientationAlignmentMode.OneAttachment,
+        MaxTorque=math.huge,Responsiveness=25,RigidityEnabled=false,
+    }) :: AlignOrientation
+    flightObjects={orientation,velocity,attachment}
+    humanoid.AutoRotate=false
+    humanoid.PlatformStand=true
+    mobileFlyControls.Visible=UserInputService.TouchEnabled
+    flightConnection=RunService.RenderStepped:Connect(function()
+        if not root.Parent or humanoid.Health<=0 then stopFlying() return end
+        local camera=Workspace.CurrentCamera
+        local forward=Vector3.new(camera.CFrame.LookVector.X,0,camera.CFrame.LookVector.Z)
+        if forward.Magnitude<.001 then forward=Vector3.new(0,0,-1) end
+        forward=forward.Unit
+        local right=Vector3.new(camera.CFrame.RightVector.X,0,camera.CFrame.RightVector.Z).Unit
+        local move=humanoid.MoveDirection
+        -- MoveDirection also covers mobile virtual thumbstick.
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then move+=forward end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then move-=forward end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then move+=right end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then move-=right end
+        local up=touchUp or UserInputService:IsKeyDown(Enum.KeyCode.Space)
+        local down=touchDown or UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
+        local direction=move+Vector3.new(0,(up and 1 or 0)-(down and 1 or 0),0)
+        velocity.VectorVelocity=(direction.Magnitude>0 and direction.Unit or Vector3.zero)*flightSpeed
+        orientation.CFrame=CFrame.lookAt(Vector3.zero,forward)
+    end)
+end
+
+local function selectName(): string
+    return selected and (selected.DisplayName.."  (@"..selected.Name..")") or "لم تحدد لاعبًا"
+end
+
+local showTab: (string) -> ()
+local rebuildList: (() -> ())? = nil
+local function playersTab()
+    heading("اللاعبون", "اختر اسمًا ثم استخدم المشاهدة أو أوامر الإدارة.")
+    local selectedFrame=create("Frame",body,{
+        Size=UDim2.new(1,0,0,50),BackgroundColor3=palette.surface,BorderSizePixel=0,
+    })
+    rounded(selectedFrame,10)
+    local selectedText=text(selectedFrame,"اللاعب المحدد: "..selectName(),13,palette.white,true)
+    selectedText.Position=UDim2.fromOffset(12,0)
+    selectedText.Size=UDim2.new(1,-24,1,0)
+    local search=create("TextBox",body,{
+        Size=UDim2.new(1,0,0,41),PlaceholderText="ابحث بالاسم أو اسم المستخدم...",
+        Text="",ClearTextOnFocus=false,TextSize=13,Font=Enum.Font.Gotham,
+        BackgroundColor3=palette.surface2,TextColor3=palette.white,
+        PlaceholderColor3=palette.muted,BorderSizePixel=0,
+    }) :: TextBox
+    rounded(search,10)
+    local entries=create("Frame",body,{
+        Size=UDim2.new(1,0,0,10),BackgroundTransparency=1,
+        AutomaticSize=Enum.AutomaticSize.Y,
+    }) :: Frame
+    create("UIListLayout",entries,{Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder})
+    local function rebuild()
+        if not entries.Parent then return end
+        for _, child in ipairs(entries:GetChildren()) do if child:IsA("GuiObject") then child:Destroy() end end
+        local query=string.lower(search.Text)
+        local people=Players:GetPlayers()
+        table.sort(people,function(a,b) return a.Name:lower()<b.Name:lower() end)
+        for _, player in ipairs(people) do
+            if player.Name:lower():find(query,1,true) or player.DisplayName:lower():find(query,1,true) then
+                local button=uiButton(entries,(player==selected and "● " or "○ ")..player.DisplayName.."  (@"..player.Name..")",function()
+                    selected=player
+                    showTab("players")
+                end)
+                button.Size=UDim2.new(1,0,0,40)
+                button.BackgroundColor3=player==selected and palette.accent2 or palette.surface
+                button.TextXAlignment=Enum.TextXAlignment.Left
+            end
+        end
+    end
+    rebuildList=rebuild
+    search:GetPropertyChangedSignal("Text"):Connect(rebuild)
+    rebuild()
+    buttonRow({
+        {label="مشاهدة اللاعب",onClick=function() if targetId() then spectate(selected :: Player) end end},
+        {label="إيقاف المشاهدة",onClick=stopSpectating},
+    })
+    buttonRow({
+        {label="انتقل إليه",onClick=function() local id=targetId();if id then send("Goto",{userId=id}) end end},
+        {label="أحضره عندك",onClick=function() local id=targetId();if id then send("Bring",{userId=id}) end end},
+    })
+    info("المشاهدة تغيّر الكاميرا فقط. المحادثة الصوتية تعمل وفق إعدادات Roblox والمسافة وقواعد التجربة، ولا تنتقل تلقائيًا مع المشاهدة.")
+end
+local function movementTab()
+    heading("الحركة والطيران", "السرعة والقفز يطبقهما الخادم على شخصيتك.")
+    valueControl("سرعة الجري",speed,function()
+        speed=math.max(8,speed-4);send("SetSpeed",{value=speed});showTab("movement")
+    end,function()
+        speed=math.min(70,speed+4);send("SetSpeed",{value=speed});showTab("movement")
+    end)
+    valueControl("قوة القفز",jump,function()
+        jump=math.max(30,jump-5);send("SetJump",{value=jump});showTab("movement")
+    end,function()
+        jump=math.min(110,jump+5);send("SetJump",{value=jump});showTab("movement")
+    end)
+    valueControl("سرعة الطيران",flightSpeed,function()
+        flightSpeed=math.max(20,flightSpeed-10);showTab("movement")
+    end,function()
+        flightSpeed=math.min(150,flightSpeed+10);showTab("movement")
+    end)
+    buttonRow({
+        {label="تشغيل طيراني",onClick=function() send("FlySelf",{enabled=true}) end},
+        {label="إيقاف طيراني",onClick=function() send("FlySelf",{enabled=false}) end},
+    })
+    info("الكمبيوتر: WASD للحركة، Space للصعود، Ctrl للنزول. الجوال: عصا الحركة وزرا ↑ و ↓. قد تمنع أنظمة الحركة الخاصة بالتجربة الطيران.")
+end
+local function visualsTab()
+    heading("الرؤية والاختفاء", "الاختفاء الحقيقي يُنفّذ على الخادم، وباقي التأثيرات محلية.")
+    buttonRow({
+        {label="اختفاء حقيقي",onClick=function() send("Invisible",{enabled=true}) end},
+        {label="إظهار شخصيتي",onClick=function() send("Invisible",{enabled=false}) end},
+    })
+    buttonRow({
+        {label=highlighted and "إيقاف تحديد اللاعبين" or "إظهار اللاعبين",onClick=function()
+            highlighted=not highlighted;refreshMarkers();showTab("visuals")
+        end},
+        {label=fullbright and "إيقاف الإضاءة" or "إضاءة كاملة",onClick=function()
+            setFullbright(not fullbright);showTab("visuals")
+        end},
+    })
+    info("الاختفاء يؤثر على مظهر الشخصية المكرر لجميع اللاعبين في تجربتك. بعض المؤثرات التي تولّدها سكربتات أخرى قد تحتاج معالجة إضافية.")
+end
+local function adminTab()
+    heading("إدارة اللاعبين", "مخصصة لمالك الماب أو المشرف المعتمد من الخادم.")
+    info("اللاعب الحالي: "..selectName().."\nاختر الهدف من تبويب اللاعبين. كل أمر يتم التحقق منه في السيرفر.")
+    buttonRow({
+        {label="تجميد اللاعب",onClick=function()local id=targetId();if id then send("Freeze",{userId=id,enabled=true}) end end},
+        {label="فك التجميد",onClick=function()local id=targetId();if id then send("Freeze",{userId=id,enabled=false}) end end},
+    })
+    buttonRow({
+        {label="إعطاء طيران",onClick=function()local id=targetId();if id then send("FlyTarget",{userId=id,enabled=true}) end end},
+        {label="إزالة الطيران",onClick=function()local id=targetId();if id then send("FlyTarget",{userId=id,enabled=false}) end end},
+    })
+    buttonRow({
+        {label="نقلني إليه",onClick=function()local id=targetId();if id then send("Goto",{userId=id}) end end},
+        {label="إحضاره عندي",onClick=function()local id=targetId();if id then send("Bring",{userId=id}) end end},
+    })
+    info("لا توجد أدوات لتعليق اتصال لاعب، أو إجباره على انهيار اللعبة، أو تجاوز الصلاحيات. هذه أوامر إدارة شرعية داخل تجربة تملكها.")
+end
+local function settingsTab()
+    heading("الإعدادات", "NOVA PRO v4 • تصميم للجوال والكمبيوتر")
+    buttonRow({
+        {label="إخفاء الواجهة",onClick=function() setOpen(false) end},
+        {label="إيقاف المشاهدة",onClick=stopSpectating},
+    })
+    buttonRow({
+        {label="إعادة الإضاءة",onClick=function() setFullbright(false);showTab("settings") end},
+        {label="مسح العلامات",onClick=function()highlighted=false;clearMarkers();showTab("settings") end},
+    })
+    info("الصوت: يجب أن تكون خدمة Roblox Voice Chat مفعّلة للحساب والتجربة. لا يضيف هذا السكربت بثًا صوتيًا أو يتجاوز المسافة.")
+    info("الصلاحيات: مالك التجربة الفردية يحصل على إدارة تلقائية. لتجربة مجموعة أضف UserId في NOVA_Server.server.lua.")
+end
+
+local tabs={{id="players",name="اللاعبون"},{id="movement",name="الحركة"},{id="visuals",name="الرؤية"},{id="admin",name="الإدارة"},{id="settings",name="الإعدادات"}}
+function showTab(id: string)
+    currentTab=id
+    rebuildList=nil
+    for _, child in ipairs(body:GetChildren()) do
+        if child:IsA("GuiObject") then child:Destroy() end
+    end
+    for key, button in pairs(railButtons) do
+        button.BackgroundColor3=key==id and palette.accent2 or palette.surface2
+    end
+    if id=="players" then playersTab()
+    elseif id=="movement" then movementTab()
+    elseif id=="visuals" then visualsTab()
+    elseif id=="admin" then adminTab()
+    else settingsTab() end
+    body.CanvasPosition=Vector2.zero
+end
+for index, item in ipairs(tabs) do
+    local button=uiButton(rail,item.name,function() showTab(item.id) end)
+    button.Size=UDim2.new(1,0,0,43)
+    button.LayoutOrder=index
+    railButtons[item.id]=button
+end
+
+remote.OnClientEvent:Connect(function(kind: any, data: any)
+    if typeof(kind)~="string" or typeof(data)~="table" then return end
+    if kind=="Init" then
+        authorized=data.isAdmin==true
+        role.Text=authorized and "● مالك / مشرف" or "● مشاهدة فقط"
+        role.TextColor3=authorized and palette.success or palette.danger
+        notify(authorized and "تم تفعيل صلاحيات الإدارة." or "تم فتح الواجهة بدون صلاحيات إدارة.",authorized)
+    elseif kind=="Flight" then
+        if data.enabled==true then startFlying() else stopFlying() end
+    elseif kind=="Status" then
+        notify(tostring(data.message or ""),data.success~=false)
+    end
+end)
+
+local function watchPlayer(player: Player)
+    player.CharacterAdded:Connect(function()
+        task.delay(.6,function()
+            if highlighted then refreshMarkers() end
+            if spectating==player then spectate(player) end
+        end)
+    end)
+end
+for _, player in ipairs(Players:GetPlayers()) do watchPlayer(player) end
+Players.PlayerAdded:Connect(function(player)
+    watchPlayer(player)
+    if rebuildList then rebuildList() end
+end)
+Players.PlayerRemoving:Connect(function(player)
+    if spectating==player then stopSpectating() end
+    if selected==player then selected=nil end
+    if markers[player] then refreshMarkers() end
+    if rebuildList then rebuildList() end
+end)
+me.CharacterAdded:Connect(function()
+    stopFlying()
+    if not spectating then task.delay(.5,stopSpectating) end
+end)
+
+local function resize()
+    local nw,nh=panelDimensions()
+    main.Size=UDim2.fromOffset(nw,nh)
+    local small=nw<500
+    local side=small and 104 or 157
+    rail.Size=UDim2.new(0,side,1,-108)
+    body.Position=UDim2.fromOffset(side+12,76)
+    body.Size=UDim2.new(1,-side-26,1,-128)
+    role.Visible=not small
+    local screen=Workspace.CurrentCamera.ViewportSize
+    main.Position=UDim2.fromOffset(
+        math.clamp(main.Position.X.Offset,0,math.max(0,screen.X-nw)),
+        math.clamp(main.Position.Y.Offset,0,math.max(0,screen.Y-nh))
+    )
+end
+resize()
+Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(resize)
+showTab("players")
+remote:FireServer("Hello",{})
