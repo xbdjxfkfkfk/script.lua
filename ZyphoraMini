@@ -609,3 +609,227 @@ resize()
 Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(resize)
 showTab("players")
 remote:FireServer("Hello",{})
+-- NOVA PRO v4 | ServerScriptService/NOVA_Server.server.lua
+-- Actual, server-authorized powers for a Roblox experience YOU own.
+-- Add your UserId to EXTRA_ADMINS for group-owned experiences.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local EXTRA_ADMINS: {[number]: boolean} = {
+    -- [123456789] = true,
+}
+
+local function isAdmin(player: Player): boolean
+    if RunService:IsStudio() then return true end -- testing only
+    if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
+        return true
+    end
+    return EXTRA_ADMINS[player.UserId] == true
+end
+
+local remote = ReplicatedStorage:FindFirstChild("NOVA_Remote")
+if not remote then
+    remote = Instance.new("RemoteEvent")
+    remote.Name = "NOVA_Remote"
+    remote.Parent = ReplicatedStorage
+end
+local event = remote :: RemoteEvent
+
+local lastCall: {[Player]: number} = {}
+local invisible: {[Player]: boolean} = {}
+local savedVisibility: {[Player]: {[Instance]: {prop: string, value: any}}} = {}
+local flying: {[Player]: boolean} = {}
+local frozen: {[Player]: {root: BasePart, anchored: boolean, autoRotate: boolean}} = {}
+
+local function reply(player: Player, message: string, success: boolean?)
+    event:FireClient(player, "Status", {message = message, success = success ~= false})
+end
+
+local function getCharacter(player: Player): (Model?, Humanoid?, BasePart?)
+    local char = player.Character
+    if not char then return nil, nil, nil end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not root or not root:IsA("BasePart") or humanoid.Health <= 0 then
+        return nil, nil, nil
+    end
+    return char, humanoid, root
+end
+
+local function setInvisible(player: Player, on: boolean)
+    -- Always restore tracked properties before taking another snapshot.
+    local prior = savedVisibility[player]
+    if prior then
+        for instance, property in pairs(prior) do
+            if instance.Parent then
+                pcall(function() (instance :: any)[property.prop] = property.value end)
+            end
+        end
+        savedVisibility[player] = nil
+    end
+    invisible[player] = on
+    if not on then return end
+
+    local char = player.Character
+    if not char then return end
+    local snapshot: {[Instance]: {prop: string, value: any}} = {}
+    for _, item in ipairs(char:GetDescendants()) do
+        if item:IsA("BasePart") then
+            snapshot[item] = {prop = "Transparency", value = item.Transparency}
+            item.Transparency = 1
+        elseif item:IsA("Decal") or item:IsA("Texture") then
+            snapshot[item] = {prop = "Transparency", value = item.Transparency}
+            item.Transparency = 1
+        elseif item:IsA("ParticleEmitter") or item:IsA("Trail") or item:IsA("Beam") then
+            snapshot[item] = {prop = "Enabled", value = item.Enabled}
+            item.Enabled = false
+        end
+    end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        snapshot[humanoid] = {prop = "DisplayDistanceType", value = humanoid.DisplayDistanceType}
+        humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+    end
+    savedVisibility[player] = snapshot
+end
+
+local function setFrozen(target: Player, shouldFreeze: boolean): boolean
+    local _, hum, root = getCharacter(target)
+    if not hum or not root then return false end
+    if shouldFreeze then
+        if not frozen[target] then
+            frozen[target] = {root = root, anchored = root.Anchored, autoRotate = hum.AutoRotate}
+        end
+        root.Anchored = true
+        hum.AutoRotate = false
+    else
+        local state = frozen[target]
+        if state and state.root == root then
+            root.Anchored = state.anchored
+            hum.AutoRotate = state.autoRotate
+        else
+            root.Anchored = false
+            hum.AutoRotate = true
+        end
+        frozen[target] = nil
+    end
+    return true
+end
+
+local function setFlight(target: Player, on: boolean)
+    flying[target] = on
+    event:FireClient(target, "Flight", {enabled = on})
+end
+
+local function getTarget(targetId: any): Player?
+    if typeof(targetId) ~= "number" or targetId % 1 ~= 0 then return nil end
+    return Players:GetPlayerByUserId(targetId)
+end
+
+local function handle(admin: Player, action: any, args: any)
+    if typeof(action) ~= "string" or typeof(args) ~= "table" then return end
+    if action == "Hello" then
+        event:FireClient(admin, "Init", {isAdmin = isAdmin(admin)})
+        if flying[admin] then setFlight(admin, true) end
+        return
+    end
+    if not isAdmin(admin) then
+        reply(admin, "هذا الزر يحتاج صلاحية مالك الماب.", false)
+        return
+    end
+    local now = os.clock()
+    if now - (lastCall[admin] or 0) < 0.12 then return end
+    lastCall[admin] = now
+
+    if action == "SetSpeed" then
+        local _, hum = getCharacter(admin)
+        if not hum then return reply(admin, "الشخصية غير جاهزة.", false) end
+        local speed = tonumber(args.value)
+        if not speed or speed ~= speed then return end
+        speed = math.clamp(math.floor(speed), 8, 70)
+        hum.WalkSpeed = speed
+        reply(admin, "السرعة: " .. speed)
+
+    elseif action == "SetJump" then
+        local _, hum = getCharacter(admin)
+        if not hum then return reply(admin, "الشخصية غير جاهزة.", false) end
+        local jump = tonumber(args.value)
+        if not jump or jump ~= jump then return end
+        jump = math.clamp(math.floor(jump), 30, 110)
+        hum.UseJumpPower = true
+        hum.JumpPower = jump
+        reply(admin, "قوة القفز: " .. jump)
+
+    elseif action == "Invisible" then
+        if typeof(args.enabled) ~= "boolean" then return end
+        setInvisible(admin, args.enabled)
+        reply(admin, args.enabled and "اختفيت عن بقية اللاعبين." or "ظهرت مجددًا.")
+
+    elseif action == "FlySelf" then
+        if typeof(args.enabled) ~= "boolean" then return end
+        setFlight(admin, args.enabled)
+        reply(admin, args.enabled and "تم تشغيل الطيران." or "تم إيقاف الطيران.")
+
+    elseif action == "FlyTarget" then
+        local target = getTarget(args.userId)
+        if not target then return reply(admin, "اللاعب غير متصل.", false) end
+        if typeof(args.enabled) ~= "boolean" then return end
+        setFlight(target, args.enabled)
+        reply(admin, (args.enabled and "تم منح الطيران: " or "تم إيقاف الطيران: ") .. target.DisplayName)
+
+    elseif action == "Freeze" then
+        local target = getTarget(args.userId)
+        if not target then return reply(admin, "حدد لاعبًا متصلًا.", false) end
+        if typeof(args.enabled) ~= "boolean" then return end
+        if not setFrozen(target, args.enabled) then return reply(admin, "شخصية اللاعب غير جاهزة.", false) end
+        reply(admin, (args.enabled and "تم تجميد: " or "تم فك التجميد: ") .. target.DisplayName)
+
+    elseif action == "Goto" or action == "Bring" then
+        local target = getTarget(args.userId)
+        if not target then return reply(admin, "حدد لاعبًا متصلًا.", false) end
+        local _, _, adminRoot = getCharacter(admin)
+        local _, _, targetRoot = getCharacter(target)
+        if not adminRoot or not targetRoot then return reply(admin, "إحدى الشخصيتين غير جاهزة.", false) end
+        if action == "Goto" then
+            adminRoot.CFrame = targetRoot.CFrame * CFrame.new(4, 0, 0)
+            reply(admin, "انتقلت إلى " .. target.DisplayName)
+        else
+            if target == admin then return end
+            if frozen[target] then setFrozen(target, false) end
+            targetRoot.CFrame = adminRoot.CFrame * CFrame.new(4, 0, 0)
+            reply(admin, "تم إحضار " .. target.DisplayName)
+        end
+    end
+end
+
+event.OnServerEvent:Connect(handle)
+
+local function watch(player: Player)
+    player.CharacterAdded:Connect(function()
+        -- Character is recreated after respawn; previous references are stale.
+        savedVisibility[player] = nil
+        frozen[player] = nil
+        if flying[player] then
+            task.delay(1, function()
+                if player.Parent == Players then setFlight(player, true) end
+            end)
+        end
+        if invisible[player] then
+            task.delay(0.4, function()
+                if player.Parent == Players and invisible[player] then setInvisible(player, true) end
+            end)
+        end
+    end)
+end
+for _, p in ipairs(Players:GetPlayers()) do watch(p) end
+Players.PlayerAdded:Connect(watch)
+Players.PlayerRemoving:Connect(function(player)
+    lastCall[player] = nil
+    invisible[player] = nil
+    savedVisibility[player] = nil
+    flying[player] = nil
+    frozen[player] = nil
+end)
+
