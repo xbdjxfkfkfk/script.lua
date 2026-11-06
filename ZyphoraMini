@@ -1,600 +1,70 @@
--- NOVA PRO v17 | Direct Xeno client menu (standalone; no unverified remote loader)
--- Camera-direction flight: aim downward and move forward to descend.
--- Controls local flight, camera movement, and tools already granted to the player.
--- Does not override server permissions, make everyone see invisibility, or unlock shop items.
--- Re-running safely closes prior NOVA panels.
-
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local Lighting = game:GetService("Lighting")
-local Workspace = game:GetService("Workspace")
-local player = Players.LocalPlayer
-if not player then
-    warn("[NOVA] LocalPlayer missing: execute after joining a game")
-    return
-end
+local LocalPlayer = Players.LocalPlayer
 
-local global = _G
-pcall(function()
-    if type(getgenv) == "function" then global = getgenv() end
-end)
-for _, key in ipairs({"NOVA_V15", "NOVA_V16", "NOVA_V17"}) do
-    if global[key] and type(global[key].Close) == "function" then
-        pcall(function() global[key].Close() end)
-    end
-end
+local Window = Fluent:CreateWindow({Title="cCraft Space | Pro Script", SubTitle="by Nova", TabWidth=160, Size=UDim2.fromOffset(580, 460), Acrylic=true, Theme="Dark", MinimizeKey=Enum.KeyCode.LeftControl})
+local Tabs = {Main = Window:AddTab({Title="التحكم", Icon=""}), Players = Window:AddTab({Title="اللاعبين", Icon=""})}
 
-local connections = {}
-local function connect(signal, callback)
-    local c = signal:Connect(callback)
-    table.insert(connections, c)
-    return c
-end
-local function new(class, properties, parent)
-    local instance = Instance.new(class)
-    for k, v in pairs(properties or {}) do instance[k] = v end
-    instance.Parent = parent
-    return instance
-end
-local function corner(frame, radius)
-    new("UICorner", {CornerRadius=UDim.new(0,radius or 9)}, frame)
-end
-local function stroke(frame, color)
-    new("UIStroke", {Color=color or Color3.fromRGB(78,86,106), Thickness=1, Transparency=0.4}, frame)
-end
-local COLORS = {
-    bg=Color3.fromRGB(14,14,20), panel=Color3.fromRGB(25,24,32),
-    section=Color3.fromRGB(35,34,43), button=Color3.fromRGB(46,44,57),
-    accent=Color3.fromRGB(232,78,88), text=Color3.fromRGB(244,245,248),
-    muted=Color3.fromRGB(161,172,191), good=Color3.fromRGB(84,203,149),
-    danger=Color3.fromRGB(215,99,97)
-}
-local stopped = false
-local flyEnabled, speedEnabled, espEnabled, lightEnabled = false, false, false, false
-local speed = 28
-local flySpeed = 55
-local held = {f=false,b=false,l=false,r=false}
-local keyboard = {w=false,a=false,s=false,d=false,up=false,down=false}
-local flyVelocity, flyGyro, flyAttachment, flyingRoot, flyingHumanoid
-local originalAutoRotate, originalPlatformStand
-local savedSpeed
-local selectedPlayer
-local highlights = {}
-local oldLight = {
-    Brightness=Lighting.Brightness, ClockTime=Lighting.ClockTime,
-    FogEnd=Lighting.FogEnd, GlobalShadows=Lighting.GlobalShadows,
-    Ambient=Lighting.Ambient, OutdoorAmbient=Lighting.OutdoorAmbient
-}
-local function characterParts()
-    local char = player.Character
-    if not char then return nil end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not root or not hum or hum.Health <= 0 then return nil end
-    return char, root, hum
-end
-local function stopFly()
-    flyEnabled=false
-    if flyVelocity then pcall(function() flyVelocity:Destroy() end) end
-    if flyGyro then pcall(function() flyGyro:Destroy() end) end
-    if flyAttachment then pcall(function() flyAttachment:Destroy() end) end
-    flyVelocity, flyGyro, flyAttachment=nil,nil,nil
-    if flyingHumanoid and flyingHumanoid.Parent then
-        pcall(function()
-            flyingHumanoid.PlatformStand=originalPlatformStand==true
-            flyingHumanoid.AutoRotate=originalAutoRotate~=false
-            flyingHumanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+-- Flight Logic
+local FlightSpeed = 50
+local Flying = false
+local FlyConnection
+
+local function ToggleFlight(state)
+    Flying = state
+    if Flying then
+        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local bv = Instance.new("BodyVelocity", hrp)
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bv.Velocity = Vector3.new(0, 0, 0)
+        FlyConnection = RunService.RenderStepped:Connect(function()
+            local cam = workspace.CurrentCamera
+            bv.Velocity = cam.CFrame.LookVector * FlightSpeed
         end)
-    end
-    flyingRoot, flyingHumanoid=nil,nil
-    for k in pairs(keyboard) do keyboard[k]=false end
-    for k in pairs(held) do held[k]=false end
-end
-local function startFly()
-    local _,root,hum=characterParts()
-    if not root then return false, "الشخصية غير جاهزة" end
-    if root.Anchored then return false, "الشخصية مثبتة من الماب" end
-    stopFly()
-    originalAutoRotate,originalPlatformStand=hum.AutoRotate,hum.PlatformStand
-    flyingRoot,flyingHumanoid=root,hum
-    local ok,err=pcall(function()
-        flyAttachment=new("Attachment",{Name="NOVA_Flight_Attachment"},root)
-        flyVelocity=new("LinearVelocity",{
-            Name="NOVA_Flight_LinearVelocity",Attachment0=flyAttachment,
-            RelativeTo=Enum.ActuatorRelativeTo.World,
-            VelocityConstraintMode=Enum.VelocityConstraintMode.Vector,
-            ForceLimitsEnabled=false,VectorVelocity=Vector3.zero
-        },root)
-        flyGyro=new("AlignOrientation",{
-            Name="NOVA_Flight_Orientation",Attachment0=flyAttachment,
-            Mode=Enum.OrientationAlignmentMode.OneAttachment,
-            RigidityEnabled=false,Responsiveness=30,MaxTorque=1e9
-        },root)
-        hum.AutoRotate=false
-        hum.PlatformStand=true
-    end)
-    if not ok then
-        stopFly()
-        return false,"تعذر تشغيل الطيران: "..tostring(err)
-    end
-    flyEnabled=true
-    return true
-end
-local function applySpeed()
-    local _, _, hum=characterParts()
-    if hum then
-        if not savedSpeed then savedSpeed=hum.WalkSpeed end
-        hum.WalkSpeed=speedEnabled and speed or savedSpeed
-    end
-end
-
-local pg = player:WaitForChild("PlayerGui",10)
-if not pg then warn("[NOVA] PlayerGui not ready"); return end
-local previous = pg:FindFirstChild("NOVA_PRO_V17")
-if previous then previous:Destroy() end
-local gui = new("ScreenGui", {
-    Name="NOVA_PRO_V17", ResetOnSpawn=false, DisplayOrder=500,
-    IgnoreGuiInset=true, ZIndexBehavior=Enum.ZIndexBehavior.Sibling
-}, pg)
-local view = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1280,720)
-local wide=math.min(720,math.max(280,view.X-20))
-local tall=math.min(470,math.max(300,view.Y-45))
-local navWidth=wide<440 and 100 or 150
-local window = new("Frame", {
-    Name="Window", BackgroundColor3=COLORS.bg, BorderSizePixel=0,
-    Position=UDim2.new(0.5,-wide/2,0.5,-tall/2), Size=UDim2.fromOffset(wide,tall),
-    Active=true
-}, gui)
-corner(window,14); stroke(window,COLORS.accent)
-local top = new("Frame", {Name="Top", BackgroundColor3=COLORS.panel,BorderSizePixel=0,Size=UDim2.new(1,0,0,53),Active=true},window)
-corner(top,12)
-new("TextLabel", {Name="Title", BackgroundTransparency=1,Text="NOVA  PRO   |   v17", Font=Enum.Font.GothamBold,
-    TextColor3=COLORS.accent, TextSize=19,TextXAlignment=Enum.TextXAlignment.Left,
-    Position=UDim2.fromOffset(18,5),Size=UDim2.new(1,-110,0,27)},top)
-new("TextLabel", {BackgroundTransparency=1,Text="XENO  /  CAMERA FLY  /  INVENTORY",Font=Enum.Font.Gotham,
-    TextColor3=COLORS.muted, TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,
-    Position=UDim2.fromOffset(19,30),Size=UDim2.new(1,-130,0,15)},top)
-local function textButton(parent, name, label, size, pos, color)
-    local b=new("TextButton", {Name=name,Text=label, Font=Enum.Font.GothamBold,TextSize=14,
-        TextColor3=COLORS.text,BackgroundColor3=color or COLORS.button,BorderSizePixel=0,
-        AutoButtonColor=true,Size=size,Position=pos or UDim2.fromOffset(0,0)},parent)
-    corner(b,8)
-    return b
-end
-local collapse=textButton(top,"Hide","—",UDim2.fromOffset(41,31),UDim2.new(1,-96,0,11))
-local exit=textButton(top,"Exit","×",UDim2.fromOffset(41,31),UDim2.new(1,-50,0,11),COLORS.danger)
-local mini=textButton(gui,"Restore","NOVA",UDim2.fromOffset(78,40),UDim2.new(0,14,0.42,0),COLORS.accent)
-mini.Visible=false
-mini.TextColor3=COLORS.bg
-
--- Drag the title bar without depending on executor-specific APIs.
-local dragging, dragInput, dragStart, startPosition
-connect(top.InputBegan,function(input)
-    if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
-        dragging=true;dragStart=input.Position;startPosition=window.Position
-        local ended
-        ended=input.Changed:Connect(function()
-            if input.UserInputState==Enum.UserInputState.End then
-                dragging=false
-                if ended then ended:Disconnect() end
-            end
-        end)
-    end
-end)
-connect(top.InputChanged,function(input)
-    if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then dragInput=input end
-end)
-connect(UIS.InputChanged,function(input)
-    if dragging and input==dragInput then
-        local delta=input.Position-dragStart
-        window.Position=UDim2.new(startPosition.X.Scale,startPosition.X.Offset+delta.X,startPosition.Y.Scale,startPosition.Y.Offset+delta.Y)
-    end
-end)
-
-local nav=new("Frame", {BackgroundColor3=COLORS.panel,BorderSizePixel=0,
-    Position=UDim2.fromOffset(10,63),Size=UDim2.new(0,navWidth,1,-109)},window)
-corner(nav,10)
-new("UIListLayout", {Padding=UDim.new(0,8),HorizontalAlignment=Enum.HorizontalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder},nav)
-new("UIPadding", {PaddingTop=UDim.new(0,12)},nav)
-local content =new("Frame", {BackgroundColor3=COLORS.panel,BorderSizePixel=0,
-    Position=UDim2.fromOffset(navWidth+21,63),Size=UDim2.new(1,-(navWidth+31),1,-109)},window)
-corner(content,10)
-local status=new("TextLabel", {BackgroundTransparency=1,Text="جاهز | LOCAL CLIENT",Font=Enum.Font.Gotham,
-    TextColor3=COLORS.muted,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,
-    Position=UDim2.fromOffset(16,tall-35),Size=UDim2.new(1,-30,0,22)},window)
-local function notify(message,success)
-    if stopped then return end
-    status.Text=tostring(message)
-    status.TextColor3=success==false and COLORS.danger or COLORS.good
-end
-local function pageFrame(name)
-    local frame=new("ScrollingFrame",{Name=name,Visible=false,BackgroundTransparency=1,BorderSizePixel=0,
-        Size=UDim2.new(1,0,1,0),ScrollBarThickness=4,ScrollBarImageColor3=COLORS.accent,
-        CanvasSize=UDim2.fromOffset(0,0)},content)
-    new("UIPadding",{PaddingTop=UDim.new(0,13),PaddingLeft=UDim.new(0,12),PaddingRight=UDim.new(0,12),PaddingBottom=UDim.new(0,12)},frame)
-    local layout=new("UIListLayout",{Padding=UDim.new(0,9),SortOrder=Enum.SortOrder.LayoutOrder},frame)
-    connect(layout:GetPropertyChangedSignal("AbsoluteContentSize"),function()
-        frame.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+28)
-    end)
-    return frame
-end
-local pages={}
-for _,name in ipairs({"الحركة","اللاعبون","الرؤية","الأدوات","معلومات"}) do pages[name]=pageFrame(name) end
-local activeTab
-local tabButtons={}
-local function switchTab(name)
-    activeTab=name
-    for key,frame in pairs(pages) do frame.Visible=(key==name) end
-    for key,b in pairs(tabButtons) do b.BackgroundColor3=(key==name) and COLORS.accent or COLORS.button end
-end
-for i,name in ipairs({"الحركة","اللاعبون","الرؤية","الأدوات","معلومات"}) do
-    local b=textButton(nav,"Tab"..i,name,UDim2.new(1,-18,0,43),nil,COLORS.button)
-    b.LayoutOrder=i
-    tabButtons[name]=b
-    connect(b.MouseButton1Click,function() switchTab(name) end)
-end
-local function section(parent,label)
-    local title=new("TextLabel",{Text=label,BackgroundTransparency=1,TextSize=16,Font=Enum.Font.GothamBold,
-        TextColor3=COLORS.accent,TextXAlignment=Enum.TextXAlignment.Left,Size=UDim2.new(1,-7,0,24)},parent)
-    title.LayoutOrder = #parent:GetChildren()
-    return title
-end
-local function itemButton(parent, name, callback)
-    local b=textButton(parent,"Action",name,UDim2.new(1,-7,0,39),nil)
-    b.LayoutOrder = #parent:GetChildren()
-    connect(b.MouseButton1Click,callback)
-    return b
-end
-local function info(parent, message)
-    local label=new("TextLabel",{BackgroundTransparency=1,Text=message,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,
-        TextYAlignment=Enum.TextYAlignment.Top,TextColor3=COLORS.muted,Font=Enum.Font.Gotham,
-        TextSize=13,Size=UDim2.new(1,-10,0,56)},parent)
-    label.LayoutOrder = #parent:GetChildren()
-    return label
-end
-
--- Movement
-section(pages["الحركة"],"التحكم بالحركة")
-local flyBtn
-flyBtn=itemButton(pages["الحركة"],"الطيران: إيقاف",function()
-    if flyEnabled then
-        stopFly();flyBtn.Text="الطيران: إيقاف"
-        notify("تم إيقاف الطيران",true)
     else
-        local ok,reason=startFly()
-        if ok then
-            flyBtn.Text="الطيران: تشغيل"
-            notify("وجّه الكاميرا للأسفل وتحرك للأمام للنزول",true)
-        else
-            notify(reason or "فشل الطيران",false)
+        if FlyConnection then FlyConnection:Disconnect() end
+        if LocalPlayer.Character:FindFirstChild("HumanoidRootPart"):FindFirstChild("BodyVelocity") then
+            LocalPlayer.Character.HumanoidRootPart.BodyVelocity:Destroy()
         end
     end
-end)
-local speedBtn
-speedBtn=itemButton(pages["الحركة"],"السرعة: إيقاف",function()
-    speedEnabled=not speedEnabled
-    applySpeed()
-    speedBtn.Text=(speedEnabled and "السرعة: تشغيل " or "السرعة: إيقاف ")..tostring(speed)
-    notify(speedEnabled and "تم تفعيل السرعة محلياً" or "تم إيقاف السرعة",true)
-end)
-itemButton(pages["الحركة"],"زيادة السرعة +5",function()
-    speed=math.min(speed+5,120); if speedEnabled then applySpeed() end
-    speedBtn.Text=(speedEnabled and "السرعة: تشغيل " or "السرعة: إيقاف ")..tostring(speed)
-    notify("السرعة = "..speed,true)
-end)
-itemButton(pages["الحركة"],"تقليل السرعة -5",function()
-    speed=math.max(speed-5,16); if speedEnabled then applySpeed() end
-    speedBtn.Text=(speedEnabled and "السرعة: تشغيل " or "السرعة: إيقاف ")..tostring(speed)
-    notify("السرعة = "..speed,true)
-end)
-itemButton(pages["الحركة"],"زيادة سرعة الطيران +10",function()
-    flySpeed=math.min(flySpeed+10,170); notify("سرعة الطيران = "..flySpeed,true)
-end)
-itemButton(pages["الحركة"],"تقليل سرعة الطيران -10",function()
-    flySpeed=math.max(flySpeed-10,15); notify("سرعة الطيران = "..flySpeed,true)
-end)
-info(pages["الحركة"],"اضغط F لتشغيل/إيقاف الطيران، V لإخفاء القائمة. W للأمام، A/D يمين ويسار؛ انظر لأسفل واضغط W لتنزل بدون زر خاص. بعض السيرفرات تمنع الحركة.")
-
--- Optional buttons for touchscreen; descending requires no special button.
--- Camera pitch + forward movement controls ascent/descent.
-local controls=new("Frame",{Name="FlightControls",BackgroundTransparency=1,Visible=false,
-    Size=UDim2.fromOffset(156,148),Position=UDim2.new(1,-166,1,-160)},gui)
-local directions={
-    {"↑",UDim2.fromOffset(54,0),"f"},{"↓",UDim2.fromOffset(54,100),"b"},
-    {"←",UDim2.fromOffset(2,50),"l"},{"→",UDim2.fromOffset(106,50),"r"}
-}
-for _,entry in ipairs(directions) do
-    local b=textButton(controls,"Control"..entry[3],entry[1],UDim2.fromOffset(48,45),entry[2],COLORS.accent)
-    b.TextColor3=COLORS.bg
-    connect(b.InputBegan,function(input)
-        if input.UserInputType==Enum.UserInputType.Touch or input.UserInputType==Enum.UserInputType.MouseButton1 then
-            held[entry[3]]=true
-        end
-    end)
-    connect(b.InputEnded,function(input)
-        if input.UserInputType==Enum.UserInputType.Touch or input.UserInputType==Enum.UserInputType.MouseButton1 then
-            held[entry[3]]=false
-        end
-    end)
 end
 
--- Player selection and local teleport only. The game server remains authoritative.
-section(pages["اللاعبون"],"اختر لاعبًا")
-local selectedLabel=info(pages["اللاعبون"],"لم يتم تحديد لاعب")
-selectedLabel.Size=UDim2.new(1,-10,0,24)
-local search=new("TextBox",{Name="PlayerSearch",Text="",PlaceholderText="ابحث باسم اللاعب...",ClearTextOnFocus=false,
-    Font=Enum.Font.Gotham,TextSize=14,TextColor3=COLORS.text,PlaceholderColor3=COLORS.muted,
-    BackgroundColor3=COLORS.section,BorderSizePixel=0,Size=UDim2.new(1,-8,0,39)},pages["اللاعبون"])
-corner(search,8)
-search.LayoutOrder = #pages["اللاعبون"]:GetChildren()
-local playerHolder=new("Frame",{BackgroundTransparency=1,Size=UDim2.new(1,-8,0,50)},pages["اللاعبون"])
-playerHolder.LayoutOrder = #pages["اللاعبون"]:GetChildren()
-local pLayout=new("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.Name},playerHolder)
-local function updatePlayerList()
-    for _,child in ipairs(playerHolder:GetChildren()) do
-        if child:IsA("TextButton") then child:Destroy() end
-    end
-    local query=string.lower(search.Text)
-    local n=0
-    for _,p in ipairs(Players:GetPlayers()) do
-        if p~=player and (query=="" or string.find(string.lower(p.Name),query,1,true) or string.find(string.lower(p.DisplayName),query,1,true)) then
-            n=n+1
-            local b=textButton(playerHolder,"User_"..p.Name,p.DisplayName.."  (@"..p.Name..")",UDim2.new(1,-7,0,36),nil,
-                p==selectedPlayer and COLORS.accent or COLORS.button)
-            b.TextSize=12
-            connect(b.MouseButton1Click,function()
-                selectedPlayer=p
-                selectedLabel.Text="المحدد: "..p.DisplayName.." (@"..p.Name..")"
-                updatePlayerList()
-            end)
-        end
-    end
-    playerHolder.Size=UDim2.new(1,-8,0,math.max(n*42,10))
-end
-connect(search:GetPropertyChangedSignal("Text"),updatePlayerList)
-connect(Players.PlayerAdded,updatePlayerList)
-connect(Players.PlayerRemoving,function(p)
-    if selectedPlayer==p then selectedPlayer=nil;selectedLabel.Text="لم يتم تحديد لاعب" end
-    if highlights[p] then highlights[p]:Destroy();highlights[p]=nil end
-    updatePlayerList()
-end)
-itemButton(pages["اللاعبون"],"انتقال إلى اللاعب (محلي)",function()
-    if not selectedPlayer or not selectedPlayer.Parent then return notify("حدد لاعبًا أولاً",false) end
-    local _,root=characterParts()
-    local other=selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not root or not other then return notify("موقع اللاعب غير متاح",false) end
-    local success=pcall(function()
-        player.Character:PivotTo(other.CFrame*CFrame.new(3,0,0))
-    end)
-    if success then notify("تم إرسال حركة الانتقال محليًا (قد يلغيها السيرفر)",true)
-    else notify("تعذر الانتقال",false) end
-end)
-info(pages["اللاعبون"],"سحب لاعب آخر فورًا يحتاج أمرًا مصرحًا به من سيرفر الماب. Xeno وحده لا يعطي صلاحية السحب.")
+-- UI Elements
+Tabs.Main:AddToggle("FlyToggle", {Title="طيران (Flight)", Default=false}):OnChanged(ToggleFlight)
+Tabs.Main:AddSlider("SpeedSlider", {Title="السرعة", Default=16, Min=16, Max=200, Rounding=0, Callback=function(v) LocalPlayer.Character.Humanoid.WalkSpeed = v end})
 
--- Vision helpers, entirely client-side.
-section(pages["الرؤية"],"إعدادات العرض")
-local espBtn
-espBtn=itemButton(pages["الرؤية"],"تحديد اللاعبين: إيقاف",function()
-    espEnabled=not espEnabled
-    espBtn.Text=espEnabled and "تحديد اللاعبين: تشغيل" or "تحديد اللاعبين: إيقاف"
-    if not espEnabled then
-        for p,h in pairs(highlights) do pcall(function() h:Destroy() end);highlights[p]=nil end
+Tabs.Main:AddToggle("InvisToggle", {Title="إخفاء الشخصية", Default=false}):OnChanged(function(state)
+    for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+        if part:IsA("BasePart") then part.Transparency = state and 1 or 0 end
     end
-    notify("هذه الميزة مرئية لك فقط",true)
 end)
-local lightBtn
-lightBtn=itemButton(pages["الرؤية"],"الإضاءة الكاملة: إيقاف",function()
-    lightEnabled=not lightEnabled
-    lightBtn.Text=lightEnabled and "الإضاءة الكاملة: تشغيل" or "الإضاءة الكاملة: إيقاف"
-    if lightEnabled then
-        Lighting.Brightness=3
-        Lighting.ClockTime=14
-        Lighting.FogEnd=100000
-        Lighting.GlobalShadows=false
-        Lighting.Ambient=Color3.fromRGB(185,185,185)
-        Lighting.OutdoorAmbient=Color3.fromRGB(200,200,200)
-    else
-        for property,value in pairs(oldLight) do pcall(function() Lighting[property]=value end) end
-    end
-    notify("تم تحديث الإضاءة المحلية",true)
-end)
-info(pages["الرؤية"],"الإخفاء الحقيقي عن الآخرين لا ينفذه سكربت العميل. يلزمه كود يتحكم فيه سيرفر الماب.")
 
--- Tool list contains only tools legitimately provided to this player's Backpack/Character.
-section(pages["الأدوات"],"أدواتك الممنوحة داخل الماب")
-local refreshTools
-itemButton(pages["الأدوات"],"تحديث قائمة الأدوات",function() if refreshTools then refreshTools() end end)
-local toolHolder=new("Frame",{BackgroundTransparency=1,Size=UDim2.new(1,-8,0,10)},pages["الأدوات"])
-toolHolder.LayoutOrder = #pages["الأدوات"]:GetChildren()
-new("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.Name},toolHolder)
-info(pages["الأدوات"],"تعرض الأدوات الموجودة في حقيبتك أو المجهزة لك؛ لا تنسخ أدوات المتجر المحجوبة أو تتجاوز الشراء.")
-local function getTools()
-    local tools={}
-    local backpack=player:FindFirstChildOfClass("Backpack")
-    for _,parent in ipairs({backpack,player.Character}) do
-        if parent then
-            for _,child in ipairs(parent:GetChildren()) do
-                if child:IsA("Tool") then table.insert(tools,child) end
-            end
-        end
-    end
-    return tools
-end
-refreshTools = function()
-    if stopped then return end
-    for _,child in ipairs(toolHolder:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
-    local tools=getTools()
-    if #tools==0 then
-        local b=textButton(toolHolder,"None","لا توجد أدوات متاحة لك الآن",UDim2.new(1,-7,0,36),nil)
-        b.AutoButtonColor=false
-        b.TextColor3=COLORS.muted
-    else
-        for i,tool in ipairs(tools) do
-            local b=textButton(toolHolder,"Tool_"..i,"استخدم: "..tool.Name,UDim2.new(1,-7,0,36),nil)
-            connect(b.MouseButton1Click,function()
-                local _,_,hum=characterParts()
-                local backpack=player:FindFirstChildOfClass("Backpack")
-                if not hum or not tool.Parent then return notify("الأداة غير متاحة الآن",false) end
-                if backpack and tool.Parent==backpack then
-                    local success=pcall(function() hum:EquipTool(tool) end)
-                    notify(success and "تم تجهيز الأداة: "..tool.Name or "تعذر تجهيز الأداة",success)
-                elseif tool.Parent==player.Character then
-                    pcall(function() tool:Activate() end)
-                    notify("تم إرسال طلب استخدام الأداة: "..tool.Name,true)
-                else
-                    notify("الأداة ليست في حقيبتك",false)
-                end
-            end)
-        end
-    end
-    toolHolder.Size=UDim2.new(1,-8,0,math.max(#tools,1)*42)
-end
+-- Player Interaction
+local SelectedPlayer = nil
+Tabs.Players:AddDropdown("PlayerDrop", {Title="اختر لاعب", Values={}, Multi=false, Callback=function(v) SelectedPlayer = v end})
 
-section(pages["معلومات"],"NOVA PRO v17")
-info(pages["معلومات"],"طيران بالكاميرا: انظر للأعلى وامشِ للأمام لتصعد، وانظر للأسفل وامشِ للأمام لتنزل. التحرك يمين/يسار بـ A/D.")
-info(pages["معلومات"],"حدود التنفيذ: لا يمنح صلاحيات أدمن في سيرفرات الآخرين، ولا يخفيك عنهم، ولا يسحبهم بالقوة، ولا يفتح أدوات متجر غير ممنوحة لك.")
-info(pages["معلومات"],"هذه نسخة مستقلة لا تنفذ الرابط الخارجي المحمي. تشغيلها لا يحتاج مفتاحًا أو إنترنت. إذا فشل انتقال أو طيران في ماب معين، فالسيرفر قد يمنع الحركة.")
-info(pages["معلومات"],"اختصار F للطيران، V لإخفاء القائمة. شاشة الأدوات تعرض ما وصل بالفعل إلى Backpack أو Character فقط.")
+Tabs.Players:AddButton({Title="سحب اللاعب", Callback=function()
+    if SelectedPlayer and Players[SelectedPlayer] then
+        Players[SelectedPlayer].Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+    end
+end})
 
-connect(UIS.InputBegan,function(input, processed)
-    if UIS:GetFocusedTextBox() then return end
-    if input.KeyCode==Enum.KeyCode.F then
-        if flyEnabled then
-            stopFly(); flyBtn.Text="الطيران: إيقاف"; notify("تم إيقاف الطيران",true)
-        else
-            local ok,reason=startFly()
-            flyBtn.Text=ok and "الطيران: تشغيل" or "الطيران: إيقاف"
-            notify(ok and "طيران شغّال | W A S D + الكاميرا" or (reason or "فشل الطيران"),ok)
-        end
-        return
-    elseif input.KeyCode==Enum.KeyCode.V then
-        window.Visible=not window.Visible
-        mini.Visible=not window.Visible
-        return
+Tabs.Players:AddButton({Title="تجميد اللاعب", Callback=function()
+    if SelectedPlayer and Players[SelectedPlayer] then
+        Players[SelectedPlayer].Character.HumanoidRootPart.Anchored = true
     end
-    if processed then return end
-    if input.KeyCode==Enum.KeyCode.W then keyboard.w=true
-    elseif input.KeyCode==Enum.KeyCode.S then keyboard.s=true
-    elseif input.KeyCode==Enum.KeyCode.A then keyboard.a=true
-    elseif input.KeyCode==Enum.KeyCode.D then keyboard.d=true
-    elseif input.KeyCode==Enum.KeyCode.Space then keyboard.up=true
-    elseif input.KeyCode==Enum.KeyCode.LeftControl or input.KeyCode==Enum.KeyCode.RightControl then keyboard.down=true end
-end)
-connect(UIS.InputEnded,function(input)
-    if input.KeyCode==Enum.KeyCode.W then keyboard.w=false
-    elseif input.KeyCode==Enum.KeyCode.S then keyboard.s=false
-    elseif input.KeyCode==Enum.KeyCode.A then keyboard.a=false
-    elseif input.KeyCode==Enum.KeyCode.D then keyboard.d=false
-    elseif input.KeyCode==Enum.KeyCode.Space then keyboard.up=false
-    elseif input.KeyCode==Enum.KeyCode.LeftControl or input.KeyCode==Enum.KeyCode.RightControl then keyboard.down=false end
-end)
-local elapsed=0
-connect(RunService.Heartbeat,function(dt)
-    if stopped then return end
-    controls.Visible=flyEnabled
-    if flyEnabled then
-        local _,root,hum=characterParts()
-        if not root or root~=flyingRoot or not flyVelocity or not flyGyro or flyVelocity.Parent~=root then
-            stopFly();flyBtn.Text="الطيران: إيقاف";notify("توقف الطيران بعد تغيير الشخصية",false)
-        else
-            local cam=Workspace.CurrentCamera
-            if cam then
-                local cf=cam.CFrame
-                local forward=cf.LookVector -- Includes Y: looking downward means descending.
-                local flatForward=Vector3.new(forward.X,0,forward.Z)
-                local right=Vector3.new(cf.RightVector.X,0,cf.RightVector.Z)
-                if flatForward.Magnitude>0.001 then
-                    flatForward=flatForward.Unit
-                else
-                    flatForward=Vector3.new(0,0,-1)
-                end
-                if right.Magnitude>0.001 then
-                    right=right.Unit
-                else
-                    right=Vector3.new(1,0,0)
-                end
-                local fb=(keyboard.w and 1 or 0)-(keyboard.s and 1 or 0)
-                    +(held.f and 1 or 0)-(held.b and 1 or 0)
-                local lr=(keyboard.d and 1 or 0)-(keyboard.a and 1 or 0)
-                    +(held.r and 1 or 0)-(held.l and 1 or 0)
-                local ud=(keyboard.up and 1 or 0)-(keyboard.down and 1 or 0)
-                -- Mobile joystick gives planar input; apply pitch through forward.
-                if math.abs(fb)<0.01 and math.abs(lr)<0.01 and UIS.TouchEnabled then
-                    local md=hum.MoveDirection
-                    fb=md:Dot(flatForward)
-                    lr=md:Dot(right)
-                end
-                local vector=forward*fb+right*lr+Vector3.new(0,ud,0)
-                flyVelocity.VectorVelocity=vector.Magnitude>0.01
-                    and vector.Unit*flySpeed or Vector3.zero
-                flyGyro.CFrame=CFrame.lookAt(Vector3.zero,flatForward)
-            end
-        end
-    end
-    elapsed=elapsed+dt
-    if elapsed>=1.5 then
-        elapsed=0
-        if espEnabled then
-            for _,p in ipairs(Players:GetPlayers()) do
-                if p~=player and p.Character then
-                    local h=highlights[p]
-                    if not h or not h.Parent or h.Adornee~=p.Character then
-                        if h then h:Destroy() end
-                        h=new("Highlight",{
-                            Name="NOVA_LocalHighlight",Adornee=p.Character,FillColor=COLORS.accent,
-                            OutlineColor=Color3.fromRGB(255,255,255),FillTransparency=0.78,
-                            DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
-                        },Workspace)
-                        highlights[p]=h
-                    end
-                end
-            end
-        end
+end})
+
+-- Refresh Player List
+task.spawn(function()
+    while true do
+        local names = {}
+        for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(names, p.Name) end end
+        Fluent.Options.PlayerDrop:SetValues(names)
+        task.wait(5)
     end
 end)
-connect(player.CharacterAdded,function()
-    stopFly();flyBtn.Text="الطيران: إيقاف"
-    savedSpeed=nil
-    if speedEnabled then
-        task.defer(function()
-            if stopped then return end
-            local char=player.Character
-            if char then char:WaitForChild("Humanoid",7);applySpeed() end
-        end)
-    end
-    task.defer(function()
-        if not stopped then refreshTools() end
-    end)
-end)
-local backpack=player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack",5)
-if backpack then
-    connect(backpack.ChildAdded,function() task.defer(refreshTools) end)
-    connect(backpack.ChildRemoved,function() task.defer(refreshTools) end)
-end
-local function setWindow(visible)
-    window.Visible=visible
-    mini.Visible=not visible
-end
-connect(collapse.MouseButton1Click,function() setWindow(false) end)
-connect(mini.MouseButton1Click,function() setWindow(true) end)
-local function close()
-    if stopped then return end
-    stopFly()
-    if speedEnabled then speedEnabled=false;applySpeed() end
-    if lightEnabled then
-        for property,value in pairs(oldLight) do pcall(function() Lighting[property]=value end) end
-    end
-    for _,h in pairs(highlights) do pcall(function() h:Destroy() end) end
-    stopped=true
-    for _,c in ipairs(connections) do pcall(function() c:Disconnect() end) end
-    pcall(function() gui:Destroy() end)
-    if global.NOVA_V17 and global.NOVA_V17.Close==close then global.NOVA_V17=nil end
-end
-connect(exit.MouseButton1Click,close)
-global.NOVA_V17={Close=close}
-updatePlayerList()
-refreshTools()
-switchTab("الحركة")
-notify("القائمة جاهزة: الطيران باتجاه الكاميرا؛ لا توجد صلاحيات سيرفر",true)
-print("[NOVA] v17 standalone Xeno menu loaded")
+
+Fluent:Notify({Title="cCraft Space", Content="تم تحميل السكريبت بنجاح!", Duration=5})
+Window:SelectTab(1)
