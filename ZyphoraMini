@@ -1,77 +1,85 @@
--- Nova Script for cCraft Space
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
-local Window = Fluent:CreateWindow({Title="Nova Hub | cCraft Space", SubTitle="Professional Tools", TabWidth=160, Size=UDim2.fromOffset(580,460), Acrylic=true, Theme="Dark", MinimizeKey=Enum.KeyCode.LeftControl})
-local Tabs = {Main = Window:AddTab({Title="التحكم الأساسي", Icon=""}), Players = Window:AddTab({Title="اللاعبين", Icon=""})}
+local Window = Rayfield:CreateWindow({
+    Name = "Nova Hub | Admin Suite",
+    LoadingTitle = "جاري التحميل...",
+    LoadingSubtitle = "بواسطة Nova",
+    Theme = "Default",
+    ConfigurationSaving = {Enabled = true, FolderName = "NovaHub", FileName = "Config"}
+})
 
 local Player = game.Players.LocalPlayer
 local Mouse = Player:GetMouse()
 local RunService = game:GetService("RunService")
 
--- Fly Logic
-local Flying = false
-local FlySpeed = 50
-local BodyVelocity, BodyGyro
+-- Flight Logic
+local flying = false
+local flySpeed = 50
+local flyConnection
 
-local function ToggleFly(state)
-    Flying = state
-    if Flying then
-        local hrp = Player.Character:WaitForChild("HumanoidRootPart")
-        BodyVelocity = Instance.new("BodyVelocity", hrp)
-        BodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        BodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        BodyGyro = Instance.new("BodyGyro", hrp)
-        BodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-        BodyGyro.CFrame = hrp.CFrame
-    else
-        if BodyVelocity then BodyVelocity:Destroy() end
-        if BodyGyro then BodyGyro:Destroy() end
-    end
+local function startFly()
+    local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local bv = Instance.new("BodyVelocity", hrp)
+    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bv.Velocity = Vector3.new(0, 0, 0)
+    
+    flyConnection = RunService.RenderStepped:Connect(function()
+        if flying then
+            local moveDir = Vector3.new(0,0,0)
+            if Mouse.Hit then moveDir = (Mouse.Hit.Position - hrp.Position).Unit * flySpeed end
+            bv.Velocity = moveDir
+        else
+            bv:Destroy()
+            flyConnection:Disconnect()
+        end
+    end)
 end
 
-RunService.RenderStepped:Connect(function()
-    if Flying and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = Player.Character.HumanoidRootPart
-        local cam = workspace.CurrentCamera
-        BodyGyro.CFrame = cam.CFrame
-        BodyVelocity.Velocity = (cam.CFrame.LookVector * (Mouse.Hit.Position - hrp.Position).Unit * FlySpeed)
-    end
-end)
+-- UI Tabs
+local MainTab = Window:CreateTab("التحكم الأساسي", 4483362458)
+local PlayerTab = Window:CreateTab("إدارة اللاعبين", 4483362458)
 
--- UI Elements
-Tabs.Main:AddToggle("FlyToggle", {Title="طيران (Fly)", Default=false}):OnChanged(function(v) ToggleFly(v) end)
-Tabs.Main:AddSlider("SpeedSlider", {Title="السرعة", Default=16, Min=16, Max=200, Callback=function(v) Player.Character.Humanoid.WalkSpeed = v end})
+-- Main Features
+MainTab:CreateToggle({Name = "طيران حر", CurrentValue = false, Callback = function(Value)
+    flying = Value
+    if flying then startFly() end
+end})
 
-Tabs.Main:AddToggle("InvisToggle", {Title="إخفاء الشخصية", Default=false}):OnChanged(function(v)
+MainTab:CreateSlider({Name = "سرعة المشي", Range = {16, 200}, Increment = 1, CurrentValue = 16, Callback = function(V)
+    Player.Character.Humanoid.WalkSpeed = V
+end})
+
+MainTab:CreateToggle({Name = "إخفاء الشخصية", CurrentValue = false, Callback = function(Value)
     for _, part in pairs(Player.Character:GetDescendants()) do
-        if part:IsA("BasePart") then part.Transparency = v and 1 or 0 end
-    end
-end)
-
--- Player Actions
-local TargetName = ""
-Tabs.Players:AddInput("TargetInput", {Title="اسم اللاعب", Default="", Placeholder="اكتب الاسم هنا", Callback=function(v) TargetName = v end})
-
-Tabs.Players:AddButton({Title="سحب اللاعب (Pull)", Callback=function()
-    local target = game.Players:FindFirstChild(TargetName)
-    if target and target.Character then
-        target.Character:MoveTo(Player.Character.HumanoidRootPart.Position + Vector3.new(5,0,0))
+        if part:IsA("BasePart") then part.LocalTransparencyModifier = Value and 1 or 0 end
     end
 end})
 
-Tabs.Players:AddButton({Title="تجميد اللاعب (Freeze)", Callback=function()
-    local target = game.Players:FindFirstChild(TargetName)
-    if target and target.Character then
-        target.Character.HumanoidRootPart.Anchored = true
+-- Player Management
+local targetPlayer = nil
+PlayerTab:CreateInput({Name = "اسم اللاعب", PlaceholderText = "اكتب الاسم هنا", Callback = function(Text)
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if string.find(string.lower(p.Name), string.lower(Text)) then targetPlayer = p end
     end
 end})
 
-Tabs.Players:AddButton({Title="انتقال للاعب (TP)", Callback=function()
-    local target = game.Players:FindFirstChild(TargetName)
-    if target and target.Character then
-        Player.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+PlayerTab:CreateButton({Name = "انتقال للاعب", Callback = function()
+    if targetPlayer and targetPlayer.Character then
+        Player.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
     end
 end})
 
-Fluent:Notify({Title="Nova Hub", Content="تم تحميل السكريبت بنجاح!", Duration=5})
-Window:SelectTab(1)
+PlayerTab:CreateButton({Name = "سحب اللاعب", Callback = function()
+    if targetPlayer and targetPlayer.Character then
+        targetPlayer.Character.HumanoidRootPart.CFrame = Player.Character.HumanoidRootPart.CFrame
+    end
+end})
+
+PlayerTab:CreateButton({Name = "تجميد اللاعب", Callback = function()
+    if targetPlayer and targetPlayer.Character then
+        targetPlayer.Character.HumanoidRootPart.Anchored = true
+    end
+end})
+
+Rayfield:LoadConfiguration()
