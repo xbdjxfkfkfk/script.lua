@@ -1,6 +1,8 @@
--- NOVA PRO v15 | Roblox client GUI | Xeno-style direct execution
--- Local controls only. Does not grant server admin permissions.
--- Run once inside a joined Roblox game. Run again to reset the menu.
+-- NOVA PRO v16 | Direct client menu (Roblox game / Xeno-style Lua)
+-- Camera-direction flight: aim downward and move forward to descend.
+-- Only controls authorized local movement and tools granted to this player.
+-- Does not override server permissions, make everyone see invisibility, or unlock shop items.
+-- Re-running safely closes the prior v15/v16 panel.
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -17,8 +19,10 @@ local global = _G
 pcall(function()
     if type(getgenv) == "function" then global = getgenv() end
 end)
-if global.NOVA_V15 and type(global.NOVA_V15.Close) == "function" then
-    pcall(function() global.NOVA_V15.Close() end)
+for _, key in ipairs({"NOVA_V15", "NOVA_V16"}) do
+    if global[key] and type(global[key].Close) == "function" then
+        pcall(function() global[key].Close() end)
+    end
 end
 
 local connections = {}
@@ -50,11 +54,10 @@ local stopped = false
 local flyEnabled, speedEnabled, espEnabled, lightEnabled = false, false, false, false
 local speed = 28
 local flySpeed = 55
-local upHeld, downHeld = false, false
 local held = {f=false,b=false,l=false,r=false}
 local keyboard = {w=false,a=false,s=false,d=false,up=false,down=false}
-local flyVelocity, flyGyro
-local originalAutoRotate
+local flyVelocity, flyGyro, flyAttachment, flyingRoot, flyingHumanoid
+local originalAutoRotate, originalPlatformStand
 local savedSpeed
 local selectedPlayer
 local highlights = {}
@@ -72,24 +75,49 @@ local function characterParts()
     return char, root, hum
 end
 local function stopFly()
-    flyEnabled = false
-    if flyVelocity then flyVelocity:Destroy(); flyVelocity=nil end
-    if flyGyro then flyGyro:Destroy(); flyGyro=nil end
-    local _, root, hum = characterParts()
-    if hum then hum.AutoRotate = (originalAutoRotate ~= false) end
-    if root then root.AssemblyLinearVelocity=Vector3.new(0,0,0) end
-    for k in pairs(keyboard) do keyboard[k] = false end
-    for k in pairs(held) do held[k] = false end
-    upHeld=false; downHeld=false
+    flyEnabled=false
+    if flyVelocity then pcall(function() flyVelocity:Destroy() end) end
+    if flyGyro then pcall(function() flyGyro:Destroy() end) end
+    if flyAttachment then pcall(function() flyAttachment:Destroy() end) end
+    flyVelocity, flyGyro, flyAttachment=nil,nil,nil
+    if flyingHumanoid and flyingHumanoid.Parent then
+        pcall(function()
+            flyingHumanoid.PlatformStand=originalPlatformStand==true
+            flyingHumanoid.AutoRotate=originalAutoRotate~=false
+            flyingHumanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+        end)
+    end
+    flyingRoot, flyingHumanoid=nil,nil
+    for k in pairs(keyboard) do keyboard[k]=false end
+    for k in pairs(held) do held[k]=false end
 end
 local function startFly()
-    local _, root, hum = characterParts()
-    if not root then return false end
+    local _,root,hum=characterParts()
+    if not root then return false, "الشخصية غير جاهزة" end
+    if root.Anchored then return false, "الشخصية مثبتة من الماب" end
     stopFly()
-    originalAutoRotate=hum.AutoRotate
-    flyVelocity=new("BodyVelocity", {Name="NOVA_LocalFlight", MaxForce=Vector3.new(1e8,1e8,1e8), Velocity=Vector3.new(0,0,0), P=16000}, root)
-    flyGyro=new("BodyGyro", {Name="NOVA_LocalFacing", MaxTorque=Vector3.new(1e8,1e8,1e8), P=9000, D=2500, CFrame=root.CFrame}, root)
-    hum.AutoRotate=false
+    originalAutoRotate,originalPlatformStand=hum.AutoRotate,hum.PlatformStand
+    flyingRoot,flyingHumanoid=root,hum
+    local ok,err=pcall(function()
+        flyAttachment=new("Attachment",{Name="NOVA_Flight_Attachment"},root)
+        flyVelocity=new("LinearVelocity",{
+            Name="NOVA_Flight_LinearVelocity",Attachment0=flyAttachment,
+            RelativeTo=Enum.ActuatorRelativeTo.World,
+            VelocityConstraintMode=Enum.VelocityConstraintMode.Vector,
+            ForceLimitsEnabled=false,VectorVelocity=Vector3.zero
+        },root)
+        flyGyro=new("AlignOrientation",{
+            Name="NOVA_Flight_Orientation",Attachment0=flyAttachment,
+            Mode=Enum.OrientationAlignmentMode.OneAttachment,
+            RigidityEnabled=false,Responsiveness=30,MaxTorque=1e9
+        },root)
+        hum.AutoRotate=false
+        hum.PlatformStand=true
+    end)
+    if not ok then
+        stopFly()
+        return false,"تعذر تشغيل الطيران: "..tostring(err)
+    end
     flyEnabled=true
     return true
 end
@@ -103,15 +131,16 @@ end
 
 local pg = player:WaitForChild("PlayerGui",10)
 if not pg then warn("[NOVA] PlayerGui not ready"); return end
-local previous = pg:FindFirstChild("NOVA_PRO_V15")
+local previous = pg:FindFirstChild("NOVA_PRO_V16")
 if previous then previous:Destroy() end
 local gui = new("ScreenGui", {
-    Name="NOVA_PRO_V15", ResetOnSpawn=false, DisplayOrder=500,
+    Name="NOVA_PRO_V16", ResetOnSpawn=false, DisplayOrder=500,
     IgnoreGuiInset=true, ZIndexBehavior=Enum.ZIndexBehavior.Sibling
 }, pg)
 local view = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1280,720)
-local wide=math.clamp(view.X-24,390,720)
-local tall=math.clamp(view.Y-65,350,460)
+local wide=math.min(720,math.max(280,view.X-20))
+local tall=math.min(470,math.max(300,view.Y-45))
+local navWidth=wide<440 and 100 or 150
 local window = new("Frame", {
     Name="Window", BackgroundColor3=COLORS.bg, BorderSizePixel=0,
     Position=UDim2.new(0.5,-wide/2,0.5,-tall/2), Size=UDim2.fromOffset(wide,tall),
@@ -120,10 +149,10 @@ local window = new("Frame", {
 corner(window,14); stroke(window,COLORS.accent)
 local top = new("Frame", {Name="Top", BackgroundColor3=COLORS.panel,BorderSizePixel=0,Size=UDim2.new(1,0,0,53),Active=true},window)
 corner(top,12)
-new("TextLabel", {Name="Title", BackgroundTransparency=1,Text="NOVA  PRO   |   XENO", Font=Enum.Font.GothamBold,
+new("TextLabel", {Name="Title", BackgroundTransparency=1,Text="NOVA  PRO   |   v16", Font=Enum.Font.GothamBold,
     TextColor3=COLORS.accent, TextSize=19,TextXAlignment=Enum.TextXAlignment.Left,
     Position=UDim2.fromOffset(18,5),Size=UDim2.new(1,-110,0,27)},top)
-new("TextLabel", {BackgroundTransparency=1,Text="CLIENT CONTROL PANEL",Font=Enum.Font.Gotham,
+new("TextLabel", {BackgroundTransparency=1,Text="CAMERA FLY  /  PLAYER TOOLS",Font=Enum.Font.Gotham,
     TextColor3=COLORS.muted, TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,
     Position=UDim2.fromOffset(19,30),Size=UDim2.new(1,-130,0,15)},top)
 local function textButton(parent, name, label, size, pos, color)
@@ -164,12 +193,12 @@ connect(UIS.InputChanged,function(input)
 end)
 
 local nav=new("Frame", {BackgroundColor3=COLORS.panel,BorderSizePixel=0,
-    Position=UDim2.fromOffset(10,63),Size=UDim2.new(0,150,1,-109)},window)
+    Position=UDim2.fromOffset(10,63),Size=UDim2.new(0,navWidth,1,-109)},window)
 corner(nav,10)
 new("UIListLayout", {Padding=UDim.new(0,8),HorizontalAlignment=Enum.HorizontalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder},nav)
 new("UIPadding", {PaddingTop=UDim.new(0,12)},nav)
 local content =new("Frame", {BackgroundColor3=COLORS.panel,BorderSizePixel=0,
-    Position=UDim2.fromOffset(171,63),Size=UDim2.new(1,-181,1,-109)},window)
+    Position=UDim2.fromOffset(navWidth+21,63),Size=UDim2.new(1,-(navWidth+31),1,-109)},window)
 corner(content,10)
 local status=new("TextLabel", {BackgroundTransparency=1,Text="جاهز | LOCAL CLIENT",Font=Enum.Font.Gotham,
     TextColor3=COLORS.muted,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,
@@ -229,10 +258,17 @@ end
 section(pages["الحركة"],"التحكم بالحركة")
 local flyBtn
 flyBtn=itemButton(pages["الحركة"],"الطيران: إيقاف",function()
-    if flyEnabled then stopFly();flyBtn.Text="الطيران: إيقاف";notify("تم إيقاف الطيران",true)
+    if flyEnabled then
+        stopFly();flyBtn.Text="الطيران: إيقاف"
+        notify("تم إيقاف الطيران",true)
     else
-        if startFly() then flyBtn.Text="الطيران: تشغيل";notify("WASD + Space/Ctrl أو أزرار الشاشة",true)
-        else notify("الشخصية لم تجهز بعد",false) end
+        local ok,reason=startFly()
+        if ok then
+            flyBtn.Text="الطيران: تشغيل"
+            notify("وجّه الكاميرا للأسفل وتحرك للأمام للنزول",true)
+        else
+            notify(reason or "فشل الطيران",false)
+        end
     end
 end)
 local speedBtn
@@ -258,29 +294,28 @@ end)
 itemButton(pages["الحركة"],"تقليل سرعة الطيران -10",function()
     flySpeed=math.max(flySpeed-10,15); notify("سرعة الطيران = "..flySpeed,true)
 end)
-info(pages["الحركة"],"الطيران والسرعة محليان. بعض المابات تعيد ضبط الحركة من السيرفر.")
+info(pages["الحركة"],"الطيران يتبع اتجاه الكاميرا: W للأمام، A/D يمين ويسار. للنزول وجّه الكاميرا للأسفل واضغط W فقط. Space/Ctrl اختياريان. يمكن للسيرفر إلغاء الحركة.")
 
--- On-screen flight directions for touch or mouse.
+-- Optional buttons for touchscreen; descending requires no special button.
+-- Camera pitch + forward movement controls ascent/descent.
 local controls=new("Frame",{Name="FlightControls",BackgroundTransparency=1,Visible=false,
-    Size=UDim2.fromOffset(220,150),Position=UDim2.new(1,-230,1,-166)},gui)
+    Size=UDim2.fromOffset(156,148),Position=UDim2.new(1,-166,1,-160)},gui)
 local directions={
-    {"↑",UDim2.fromOffset(52,0),"f"},{"↓",UDim2.fromOffset(52,104),"b"},
-    {"←",UDim2.fromOffset(0,52),"l"},{"→",UDim2.fromOffset(104,52),"r"},
-    {"UP",UDim2.fromOffset(162,0),"up"},{"DN",UDim2.fromOffset(162,58),"down"}
+    {"↑",UDim2.fromOffset(54,0),"f"},{"↓",UDim2.fromOffset(54,100),"b"},
+    {"←",UDim2.fromOffset(2,50),"l"},{"→",UDim2.fromOffset(106,50),"r"}
 }
 for _,entry in ipairs(directions) do
     local b=textButton(controls,"Control"..entry[3],entry[1],UDim2.fromOffset(48,45),entry[2],COLORS.accent)
     b.TextColor3=COLORS.bg
-    local function setHeld(on)
-        if entry[3]=="up" then upHeld=on
-        elseif entry[3]=="down" then downHeld=on
-        else held[entry[3]]=on end
-    end
     connect(b.InputBegan,function(input)
-        if input.UserInputType==Enum.UserInputType.Touch or input.UserInputType==Enum.UserInputType.MouseButton1 then setHeld(true) end
+        if input.UserInputType==Enum.UserInputType.Touch or input.UserInputType==Enum.UserInputType.MouseButton1 then
+            held[entry[3]]=true
+        end
     end)
     connect(b.InputEnded,function(input)
-        if input.UserInputType==Enum.UserInputType.Touch or input.UserInputType==Enum.UserInputType.MouseButton1 then setHeld(false) end
+        if input.UserInputType==Enum.UserInputType.Touch or input.UserInputType==Enum.UserInputType.MouseButton1 then
+            held[entry[3]]=false
+        end
     end)
 end
 
@@ -416,8 +451,8 @@ refreshTools = function()
     toolHolder.Size=UDim2.new(1,-8,0,math.max(#tools,1)*42)
 end
 
-section(pages["معلومات"],"NOVA PRO v15")
-info(pages["معلومات"],"تشغيل مباشر داخل عميل Roblox. القائمة والطيران المحلي وتحديد اللاعبين والأدوات المتاحة لك لا تحتاج Roblox Studio.")
+section(pages["معلومات"],"NOVA PRO v16")
+info(pages["معلومات"],"طيران بالكاميرا: انظر للأعلى وامشِ للأمام لتصعد، وانظر للأسفل وامشِ للأمام لتنزل. التحرك يمين/يسار بـ A/D.")
 info(pages["معلومات"],"حدود التنفيذ: لا يمنح صلاحيات أدمن في سيرفرات الآخرين، ولا يخفيك عنهم، ولا يسحبهم بالقوة، ولا يفتح أدوات متجر غير ممنوحة لك.")
 info(pages["معلومات"],"إذا لم يستجب الطيران أو الانتقال في ماب معين، فقد يكون الخادم قد أعاد ضبط الحركة. القائمة نفسها مستقلة عن أوامر السيرفر.")
 
@@ -444,27 +479,40 @@ connect(RunService.Heartbeat,function(dt)
     controls.Visible=flyEnabled
     if flyEnabled then
         local _,root,hum=characterParts()
-        if not root or not flyVelocity or not flyGyro or flyVelocity.Parent~=root then
+        if not root or root~=flyingRoot or not flyVelocity or not flyGyro or flyVelocity.Parent~=root then
             stopFly();flyBtn.Text="الطيران: إيقاف";notify("توقف الطيران بعد تغيير الشخصية",false)
         else
             local cam=Workspace.CurrentCamera
             if cam then
                 local cf=cam.CFrame
-                local forward=Vector3.new(cf.LookVector.X,0,cf.LookVector.Z)
+                local forward=cf.LookVector -- Includes Y: looking downward means descending.
+                local flatForward=Vector3.new(forward.X,0,forward.Z)
                 local right=Vector3.new(cf.RightVector.X,0,cf.RightVector.Z)
-                if forward.Magnitude>0.001 then forward=forward.Unit else forward=Vector3.new(0,0,-1) end
-                if right.Magnitude>0.001 then right=right.Unit else right=Vector3.new(1,0,0) end
-                local fb=(keyboard.w and 1 or 0)-(keyboard.s and 1 or 0)+(held.f and 1 or 0)-(held.b and 1 or 0)
-                local lr=(keyboard.d and 1 or 0)-(keyboard.a and 1 or 0)+(held.r and 1 or 0)-(held.l and 1 or 0)
-                local ud=(keyboard.up and 1 or 0)-(keyboard.down and 1 or 0)+(upHeld and 1 or 0)-(downHeld and 1 or 0)
-                -- The joystick can still supply directions where Roblox allows it.
-                if fb==0 and lr==0 and UIS.TouchEnabled then
+                if flatForward.Magnitude>0.001 then
+                    flatForward=flatForward.Unit
+                else
+                    flatForward=Vector3.new(0,0,-1)
+                end
+                if right.Magnitude>0.001 then
+                    right=right.Unit
+                else
+                    right=Vector3.new(1,0,0)
+                end
+                local fb=(keyboard.w and 1 or 0)-(keyboard.s and 1 or 0)
+                    +(held.f and 1 or 0)-(held.b and 1 or 0)
+                local lr=(keyboard.d and 1 or 0)-(keyboard.a and 1 or 0)
+                    +(held.r and 1 or 0)-(held.l and 1 or 0)
+                local ud=(keyboard.up and 1 or 0)-(keyboard.down and 1 or 0)
+                -- Mobile joystick gives planar input; apply pitch through forward.
+                if math.abs(fb)<0.01 and math.abs(lr)<0.01 and UIS.TouchEnabled then
                     local md=hum.MoveDirection
-                    fb=md:Dot(forward);lr=md:Dot(right)
+                    fb=md:Dot(flatForward)
+                    lr=md:Dot(right)
                 end
                 local vector=forward*fb+right*lr+Vector3.new(0,ud,0)
-                flyVelocity.Velocity=vector.Magnitude>0 and vector.Unit*flySpeed or Vector3.new(0,0,0)
-                flyGyro.CFrame=CFrame.lookAt(root.Position,root.Position+forward)
+                flyVelocity.VectorVelocity=vector.Magnitude>0.01
+                    and vector.Unit*flySpeed or Vector3.zero
+                flyGyro.CFrame=CFrame.lookAt(Vector3.zero,flatForward)
             end
         end
     end
@@ -525,12 +573,12 @@ local function close()
     stopped=true
     for _,c in ipairs(connections) do pcall(function() c:Disconnect() end) end
     pcall(function() gui:Destroy() end)
-    if global.NOVA_V15 and global.NOVA_V15.Close==close then global.NOVA_V15=nil end
+    if global.NOVA_V16 and global.NOVA_V16.Close==close then global.NOVA_V16=nil end
 end
 connect(exit.MouseButton1Click,close)
-global.NOVA_V15={Close=close}
+global.NOVA_V16={Close=close}
 updatePlayerList()
 refreshTools()
 switchTab("الحركة")
-notify("قائمة NOVA جاهزة — القائمة محلية ولا تمنح أدمن",true)
-print("[NOVA] v15 client menu loaded")
+notify("القائمة جاهزة: الطيران باتجاه الكاميرا؛ لا توجد صلاحيات سيرفر",true)
+print("[NOVA] v16 camera-flight menu initialized")
