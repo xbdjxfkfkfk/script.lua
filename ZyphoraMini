@@ -1,8 +1,282 @@
--- NOVA PRO v13 | Standalone CLIENT MENU
+-- NOVA PRO v14 - ONE FILE INSTALLER FOR ROBLOX STUDIO
+-- 1. Open YOUR own experience in Roblox Studio in edit mode.
+-- 2. Open View > Command Bar, paste all of this file, and press Enter.
+-- 3. Press Play; use the NOVA launch button to show/hide the menu.
+-- Does not give permissions inside third-party games.
+-- NOVA PRO v14 • ONE FILE INSTALLER
+-- For a Roblox experience YOU own/administer.
+-- Roblox Studio -> View -> Command Bar -> Edit mode -> paste entire file -> Enter -> Play.
+-- Installs one server Script and one LocalScript; neither file needs separate pasting.
+-- These capabilities cannot be granted on third-party Roblox servers by local code.
+local RunService=game:GetService("RunService")
+assert(RunService:IsStudio(),"NOVA v14 installer runs in Roblox Studio only")
+assert(not RunService:IsRunning(),"Run the installer in Edit mode, not during Play")
+local ReplicatedStorage=game:GetService("ReplicatedStorage")
+local ServerStorage=game:GetService("ServerStorage")
+local ServerScriptService=game:GetService("ServerScriptService")
+local StarterPlayer=game:GetService("StarterPlayer")
+local playerScripts=StarterPlayer:WaitForChild("StarterPlayerScripts")
+
+-- Cleanup older NOVA installers to prevent conflicting menus.
+for _, parent in ipairs({ServerScriptService,playerScripts}) do
+    for _, child in ipairs(parent:GetChildren()) do
+        if (child:IsA("Script") or child:IsA("LocalScript"))
+            and (child.Name:match("^NOVA_PRO_v%d+_") or child.Name:match("^NOVA%d+_")) then
+            child:Destroy()
+        end
+    end
+end
+local function replace(parent,name,class)
+    local old=parent:FindFirstChild(name)
+    if old then old:Destroy() end
+    local object=Instance.new(class)
+    object.Name=name
+    object.Parent=parent
+    return object
+end
+replace(ReplicatedStorage,"NOVA14_Request","RemoteFunction")
+replace(ReplicatedStorage,"NOVA14_Notify","RemoteEvent")
+local catalog=ServerStorage:FindFirstChild("NOVA14_ApprovedTools")
+if not catalog then
+    catalog=Instance.new("Folder")
+    catalog.Name="NOVA14_ApprovedTools"
+    catalog.Parent=ServerStorage
+end
+-- Demo tool visible to everyone when equipped. Put YOUR permitted Tools into this folder.
+if not catalog:FindFirstChild("NOVA Glow Wand") then
+    local tool=Instance.new("Tool")
+    tool.Name="NOVA Glow Wand"
+    tool.RequiresHandle=true
+    tool.CanBeDropped=false
+    tool.ToolTip="Click to cast a visible golden light burst"
+    local handle=Instance.new("Part")
+    handle.Name="Handle"
+    handle.Size=Vector3.new(0.45,3.0,0.45)
+    handle.Material=Enum.Material.Neon
+    handle.Color=Color3.fromRGB(250,173,108)
+    handle.CanCollide=false
+    handle.Massless=true
+    handle.Parent=tool
+    local effect=Instance.new("Script")
+    effect.Name="VisibleEffect"
+    effect.Source=[=[
+local tool=script.Parent
+local handle=tool:WaitForChild("Handle")
+local particles=Instance.new("ParticleEmitter")
+particles.Name="NovaPulse"
+particles.Enabled=false
+particles.Rate=0
+particles.Lifetime=NumberRange.new(0.6,0.9)
+particles.Speed=NumberRange.new(4,8)
+particles.SpreadAngle=Vector2.new(180,180)
+particles.LightEmission=1
+particles.Color=ColorSequence.new(Color3.fromRGB(255,187,102))
+particles.Size=NumberSequence.new({NumberSequenceKeypoint.new(0,0.45),NumberSequenceKeypoint.new(1,0)})
+particles.Parent=handle
+local last=0
+tool.Activated:Connect(function()
+    if os.clock()-last<0.7 then return end
+    last=os.clock()
+    particles:Emit(35) -- Created server-side, so other players can see the burst.
+end)
+]=]
+    effect.Parent=tool
+    tool.Parent=catalog
+end
+
+
+local SERVER_SOURCE = [==[
+
+-- Server v14: authoritative admin permissions and replicated changes.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+local RunService = game:GetService("RunService")
+local remote = ReplicatedStorage:WaitForChild("NOVA14_Request")
+local notify = ReplicatedStorage:WaitForChild("NOVA14_Notify")
+local catalog = ServerStorage:WaitForChild("NOVA14_ApprovedTools")
+
+-- Add trusted administrators' numeric UserIds here for group-owned experiences.
+local ADMIN_IDS = {
+    -- [123456789] = true,
+}
+local function isAdmin(player)
+    if RunService:IsStudio() then return true end -- Testing only; never on published servers.
+    if ADMIN_IDS[player.UserId] then return true end
+    return game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId
+end
+local hidden = {}
+local frozen = {}
+local lastCall = {}
+
+local function setHidden(player, enable)
+    local character = player.Character
+    if not character then return false, "الشخصية غير موجودة" end
+    if not enable then
+        local state = hidden[player]
+        if state and state.character == character then
+            for instance, value in pairs(state.props) do
+                if instance and instance.Parent then
+                    if instance:IsA("BasePart") or instance:IsA("Decal") or instance:IsA("Texture") then
+                        instance.Transparency = value
+                    else
+                        instance.Enabled = value
+                    end
+                end
+            end
+        end
+        hidden[player] = nil
+        notify:FireClient(player, "invisibility", false)
+        return true, "رجعت مرئيًا للجميع"
+    end
+    if hidden[player] and hidden[player].character == character then
+        return true, "الاختفاء شغال"
+    end
+    local state = {character = character, props = {}}
+    for _, item in ipairs(character:GetDescendants()) do
+        if item:IsA("BasePart") or item:IsA("Decal") or item:IsA("Texture") then
+            state.props[item] = item.Transparency
+            item.Transparency = 1
+        elseif item:IsA("ParticleEmitter") or item:IsA("Trail") or item:IsA("Beam")
+            or item:IsA("BillboardGui") or item:IsA("Highlight") or item:IsA("PointLight")
+            or item:IsA("SpotLight") or item:IsA("SurfaceLight") then
+            state.props[item] = item.Enabled
+            item.Enabled = false
+        end
+    end
+    hidden[player] = state
+    notify:FireClient(player, "invisibility", true)
+    return true, "مختفٍ عن اللاعبين (قد تكشفك أنظمة مخصصة بالماب)"
+end
+
+local function setFrozen(target, enable)
+    local character = target.Character
+    local hum = character and character:FindFirstChildOfClass("Humanoid")
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    if not (hum and root) then return false, "شخصية اللاعب غير جاهزة" end
+    if enable then
+        if frozen[target] and frozen[target].character == character then return true, "مجمد مسبقًا" end
+        frozen[target] = {character = character, root = root, hum = hum,
+            anchored = root.Anchored, speed = hum.WalkSpeed,
+            jumpPower = hum.JumpPower, jumpHeight = hum.JumpHeight, autoRotate = hum.AutoRotate}
+        root.Anchored = true
+        hum.WalkSpeed = 0
+        hum.JumpPower = 0
+        hum.JumpHeight = 0
+        hum.AutoRotate = false
+        return true, "تم تجميد " .. target.Name
+    end
+    local state = frozen[target]
+    if state and state.character == character and state.root.Parent and state.hum.Parent then
+        state.root.Anchored = state.anchored
+        state.hum.WalkSpeed = state.speed
+        state.hum.JumpPower = state.jumpPower
+        state.hum.JumpHeight = state.jumpHeight
+        state.hum.AutoRotate = state.autoRotate
+    end
+    frozen[target] = nil
+    return true, "تم فك التجميد"
+end
+
+local function getRoot(plr)
+    local char = plr.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not (char and root and hum and hum.Health > 0) then return nil end
+    return char, root, hum
+end
+
+local function resolveTarget(userId)
+    if type(userId) ~= "number" then return nil end
+    if userId ~= math.floor(userId) then return nil end
+    return Players:GetPlayerByUserId(userId)
+end
+
+remote.OnServerInvoke = function(player, action, data)
+    if type(action) ~= "string" or #action > 35 then return {ok=false, msg="أمر غير صالح"} end
+    if action == "status" then return {ok=true, admin=isAdmin(player), msg=isAdmin(player) and "الأدمن مفعل" or "لا توجد صلاحية إدارة"} end
+    if not isAdmin(player) then return {ok=false, msg="هذه الأوامر تتطلب صلاحية سيرفر"} end
+    local now = os.clock()
+    if lastCall[player] and now - lastCall[player] < 0.13 then return {ok=false, msg="خفف سرعة الضغط"} end
+    lastCall[player] = now
+
+    if action == "hide" then
+        local ok, msg = setHidden(player, data == true)
+        return {ok=ok, msg=msg, value=data == true}
+    elseif action == "tools" then
+        local names = {}
+        for _, tool in ipairs(catalog:GetChildren()) do
+            if tool:IsA("Tool") then table.insert(names, tool.Name) end
+        end
+        table.sort(names)
+        return {ok=true, items=names, msg="أدوات الماب المصرح بها"}
+    elseif action == "tool" then
+        if type(data) ~= "string" or #data > 90 then return {ok=false, msg="اسم غير صالح"} end
+        local found = catalog:FindFirstChild(data)
+        local backpack = player:FindFirstChildOfClass("Backpack")
+        if not found or not found:IsA("Tool") or not backpack then return {ok=false, msg="الأداة غير متاحة"} end
+        local tool = found:Clone()
+        tool.Parent = backpack
+        return {ok=true, msg="تمت إضافة " .. found.Name .. " للحقيبة"}
+    elseif action == "speed" then
+        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        local number = tonumber(data)
+        if not hum or not number or number < 8 or number > 100 then return {ok=false, msg="اختر سرعة بين 8 و100"} end
+        hum.WalkSpeed = number
+        return {ok=true, msg="السرعة: " .. number}
+    elseif action == "jump" then
+        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        local number = tonumber(data)
+        if not hum or not number or number < 20 or number > 150 then return {ok=false, msg="اختر قفزًا بين 20 و150"} end
+        hum.UseJumpPower = true
+        hum.JumpPower = number
+        return {ok=true, msg="القفز: " .. number}
+    end
+
+    local target = resolveTarget(data)
+    if not target then return {ok=false, msg="حدد لاعبًا موجودًا أولًا"} end
+    if action == "teleport" then
+        local myChar, _, myHum = getRoot(player)
+        local _, targetRoot = getRoot(target)
+        if not (myChar and targetRoot) then return {ok=false, msg="أحد اللاعبين لم يجهز بعد"} end
+        myHum.Sit = false
+        myChar:PivotTo(targetRoot.CFrame * CFrame.new(0, 2, 4))
+        return {ok=true, msg="انتقلت إلى " .. target.DisplayName}
+    elseif action == "bring" then
+        local _, ownRoot = getRoot(player)
+        local targetChar, _, targetHum = getRoot(target)
+        if not (ownRoot and targetChar) then return {ok=false, msg="أحد اللاعبين لم يجهز بعد"} end
+        targetHum.Sit = false
+        targetChar:PivotTo(ownRoot.CFrame * CFrame.new(3, 1, -3))
+        return {ok=true, msg="تم سحب " .. target.DisplayName .. " قربك"}
+    elseif action == "freeze" or action == "unfreeze" then
+        local ok, msg = setFrozen(target, action == "freeze")
+        return {ok=ok, msg=msg}
+    elseif action == "givefly" then
+        notify:FireClient(target, "flygrant", true)
+        return {ok=true, msg="تم إرسال صلاحية الطيران للاعب"}
+    end
+    return {ok=false, msg="الأمر غير معروف"}
+end
+
+local function onPlayer(player)
+    player.CharacterAdded:Connect(function()
+        hidden[player] = nil
+        frozen[player] = nil
+        notify:FireClient(player, "invisibility", false)
+    end)
+end
+Players.PlayerAdded:Connect(onPlayer)
+for _, player in ipairs(Players:GetPlayers()) do onPlayer(player) end
+Players.PlayerRemoving:Connect(function(player)
+    hidden[player], frozen[player], lastCall[player] = nil, nil, nil
+end)
+]==]
+local CLIENT_SOURCE = [==[
+-- NOVA PRO v14 | PULL + FLIGHT CLIENT MENU
 -- In your own Roblox experience, insert as a LocalScript in StarterPlayer > StarterPlayerScripts.
 -- This file is a CLIENT menu, not a Command Bar installer. Run by pressing Play.
--- Optional: when the trusted NOVA12_Server from v12 is installed, the admin buttons
--- use ReplicatedStorage.NOVA12_Request. The client does not grant server permissions.
+-- Installed with NOVA PRO v14 in Roblox Studio. Server commands need authorized admin access.
 -- No loadstring, executor APIs, or server permission bypass.
 
 local Players = game:GetService("Players")
@@ -14,9 +288,9 @@ local Lighting = game:GetService("Lighting")
 local me = Players.LocalPlayer
 if not me then return end -- A LocalScript must run in a player context.
 local guiParent = me:WaitForChild("PlayerGui", 15)
-if not guiParent then warn("NOVA v13: PlayerGui did not appear") return end
+if not guiParent then warn("NOVA v14: PlayerGui did not appear") return end
 -- Remove known older menus that would otherwise cover the fixed one.
-for _, oldName in ipairs({"NOVA_PRO_v13", "NOVA12_UI", "NOVA11_UI", "NOVA_PRO_v11"}) do
+for _, oldName in ipairs({"NOVA_PRO_v14", "NOVA_PRO_v13", "NOVA12_UI", "NOVA14_UI", "NOVA11_UI", "NOVA_PRO_v11"}) do
     local previous=guiParent:FindFirstChild(oldName)
     if previous and previous:IsA("ScreenGui") then previous:Destroy() end
 end
@@ -82,7 +356,7 @@ end
 
 -- Build the launch button BEFORE any remote connection or game-dependent actions.
 local gui=make("ScreenGui",guiParent,{
-    Name="NOVA_PRO_v13",ResetOnSpawn=false,IgnoreGuiInset=false,
+    Name="NOVA_PRO_v14",ResetOnSpawn=false,IgnoreGuiInset=false,
     ZIndexBehavior=Enum.ZIndexBehavior.Sibling, DisplayOrder=2000,
 })
 local launcher=button(gui,"NOVA",14,90,80,43)
@@ -121,7 +395,7 @@ local header=make("Frame",main,{
     BackgroundColor3=C.panel,BorderSizePixel=0,Active=true,
 })
 round(header,12)
-text(header,"NOVA PRO  |  v13",18,6,465,40,21,true).TextColor3=C.accent
+text(header,"NOVA PRO  |  v14",18,6,465,40,21,true).TextColor3=C.accent
 button(header,"—",731,9,42,35,function() main.Visible=false end)
 
 local sidebar=make("Frame",main,{
@@ -144,7 +418,7 @@ local tabPages={}
 local tabButtons={}
 local changeTab
 local tabNames={
-    {"الرئيسية","home"},{"اللاعبون","players"},{"المشاهدة","watch"},
+    {"الرئيسية","home"},{"اللاعبون","players"},{"السحب والطيران","actions"},
     {"الأدوات","tools"},{"الإعدادات","settings"},
 }
 for i, desc in ipairs(tabNames) do
@@ -158,7 +432,6 @@ for i, desc in ipairs(tabNames) do
 end
 
 local selected=nil
-local watching=nil
 local serverRemote=nil
 local isAdmin=false
 local selfHidden=false
@@ -201,27 +474,6 @@ local function targetAction(action)
     serverCall(action,selected.UserId)
 end
 
-local function stopWatch()
-    watching=nil
-    local hum=getHum(me)
-    local cam=workspace.CurrentCamera
-    if cam and hum then
-        cam.CameraType=Enum.CameraType.Custom
-        cam.CameraSubject=hum
-    end
-    message("تمت إعادة الكاميرا لشخصيتك",true)
-end
-local function watchPlayer()
-    if not selected or not selected.Parent then message("اختر لاعبًا من القائمة",false);return end
-    local hum=getHum(selected)
-    local cam=workspace.CurrentCamera
-    if not hum or not cam then message("الكاميرا أو شخصية اللاعب غير جاهزة",false); return end
-    watching=selected
-    cam.CameraType=Enum.CameraType.Custom
-    cam.CameraSubject=hum
-    message("تشاهد: "..selected.DisplayName.." | الصوت لا ينتقل مع الكاميرا",true)
-end
-
 -- Server visibility affects other clients. Local-only replicas retain your view of yourself.
 local function clearLocalCopy()
     if cloneFolder then cloneFolder:Destroy();cloneFolder=nil end
@@ -239,7 +491,7 @@ local function takeSnapshot()
 end
 local function localCopy(snapshot)
     clearLocalCopy()
-    local folder=make("Folder",workspace,{Name="NOVA_v13_LocalAppearance"})
+    local folder=make("Folder",workspace,{Name="NOVA_v14_LocalAppearance"})
     cloneFolder=folder
     for part,alpha in pairs(snapshot) do
         if part and part.Parent then
@@ -295,7 +547,8 @@ local function toggleFlight()
     if not (root and hum) then message("انتظر تحميل شخصيتك",false);return end
     stopFlight()
     flight=true
-    hum.PlatformStand=true
+    -- Keep Humanoid movement input active on touch and keyboard.
+    hum.PlatformStand=false
     hum.AutoRotate=false
     local a=make("Attachment",root,{Name="NOVAFlightAttachment"})
     local lv=make("LinearVelocity",root,{
@@ -392,9 +645,9 @@ make("UIPadding",roster,{
     PaddingTop=UDim.new(0,7),PaddingLeft=UDim.new(0,7),PaddingRight=UDim.new(0,7),
 })
 make("UIListLayout",roster,{SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,6)})
-button(playerPage,"مشاهدة اللاعب",331,102,258,44,watchPlayer)
+button(playerPage,"اسحب اللاعب عندي (أدمن)",331,102,258,44,function() targetAction("bring") end)
 button(playerPage,"انتقل إليه (أدمن)",331,154,258,44,function() targetAction("teleport") end)
-button(playerPage,"اسحبه عندي (أدمن)",331,206,258,44,function() targetAction("bring") end)
+button(playerPage,"طيران لي تشغيل / إيقاف",331,206,258,44,toggleFlight)
 button(playerPage,"تجميد (أدمن)",331,258,123,44,function() targetAction("freeze") end)
 button(playerPage,"فك التجميد",466,258,123,44,function() targetAction("unfreeze") end)
 button(playerPage,"أعطه طيرانًا (أدمن)",331,311,258,44,function() targetAction("givefly") end)
@@ -420,20 +673,22 @@ end
 search:GetPropertyChangedSignal("Text"):Connect(updateRoster)
 Players.PlayerAdded:Connect(function() task.defer(updateRoster) end)
 Players.PlayerRemoving:Connect(function(p)
-    if watching==p then stopWatch() end
     if selected==p then selected=nil;chosen.Text="المحدد: لا يوجد" end
     task.defer(updateRoster)
 end)
 updateRoster()
 
--- WATCH
-local watch=tabPages.watch
-text(watch,"المشاهدة",18,12,564,43,22,true).TextColor3=C.accent
-text(watch,"حدد لاعبًا من القائمة. المشاهدة تحرك الكاميرا، ولا تنقل الصوت أو أدوات التحكم.",18,62,567,60,14,false).TextColor3=C.muted
-button(watch,"بدء مشاهدة اللاعب",17,145,275,55,watchPlayer)
-button(watch,"إيقاف المشاهدة",308,145,278,55,stopWatch)
-button(watch,"انتقال مصرح من السيرفر",17,217,569,55,function() targetAction("teleport") end)
-text(watch,"سماع اللاعب يتطلب الصوت المفعّل في Roblox، وإعدادات القرب والتواصل في التجربة.",18,293,562,75,14,false).TextColor3=C.muted
+-- PULL + FLIGHT. All remote player movement is authorized and executed by your server.
+local actions=tabPages.actions
+text(actions,"السحب والطيران",18,12,564,43,22,true).TextColor3=C.accent
+text(actions,"حدد لاعبًا من قائمة اللاعبين، ثم اسحبه أو انتقل إليه. الطيران متاح لشخصيتك.",18,62,570,60,14,false).TextColor3=C.muted
+button(actions,"اسحب اللاعب عندي (أدمن)",17,140,275,55,function() targetAction("bring") end)
+button(actions,"انتقل إلى اللاعب (أدمن)",308,140,278,55,function() targetAction("teleport") end)
+button(actions,"طيران لي تشغيل / إيقاف",17,215,569,55,toggleFlight)
+button(actions,"إيقاف الطيران",17,286,569,49,function()
+    stopFlight()
+    message("تم إيقاف الطيران",true)
+end)
 
 -- TOOLS: actual owned tools equip locally; approved catalog fetched from the server.
 local toolsPage=tabPages.tools
@@ -511,8 +766,8 @@ button(setting,"إضاءة كاملة تشغيل / إيقاف",18,81,567,51,func
     end
     message(fullbright and "الإضاءة الكاملة مفعلة عندك" or "تمت إعادة الإضاءة",true)
 end)
-button(setting,"إيقاف الطيران والمشاهدة",18,151,567,51,function()
-    stopFlight();stopWatch()
+button(setting,"إيقاف الطيران",18,151,567,51,function()
+    stopFlight();message("الطيران متوقف",true)
 end)
 button(setting,"إخفاء القائمة (زر NOVA يرجعها)",18,221,567,51,function()
     main.Visible=false
@@ -557,24 +812,21 @@ me.CharacterAdded:Connect(function()
     stopFlight()
     clearLocalCopy()
     selfHidden=false
-    task.delay(0.7,function()
-        if not watching then stopWatch() end
-    end)
 end)
 
 -- Optional trusted v12 server support. UI is fully created even if the remote is absent.
 task.spawn(function()
-    local remote=ReplicatedStorage:FindFirstChild("NOVA12_Request")
+    local remote=ReplicatedStorage:WaitForChild("NOVA14_Request",8)
     if not remote then
         message("القائمة جاهزة | وضع محلي: ماب بدون سيرفر NOVA",true)
         return
     end
     if not remote:IsA("RemoteFunction") then
-        message("خطأ: NOVA12_Request ليس RemoteFunction",false)
+        message("خطأ: NOVA14_Request ليس RemoteFunction",false)
         return
     end
     serverRemote=remote
-    local notify=ReplicatedStorage:FindFirstChild("NOVA12_Notify")
+    local notify=ReplicatedStorage:FindFirstChild("NOVA14_Notify")
     if notify and notify:IsA("RemoteEvent") then
         notify.OnClientEvent:Connect(function(event,val)
             if event=="flygrant" and val==true and not flight then toggleFlight() end
@@ -589,3 +841,11 @@ task.spawn(function()
 end)
 
 print("[NOVA PRO v13] GUI visible in PlayerGui; press the NOVA button to restore it")
+
+]==]
+
+local serverScript = replace(ServerScriptService, "NOVA14_Server", "Script")
+serverScript.Source = SERVER_SOURCE
+local clientScript = replace(playerScripts, "NOVA14_Client", "LocalScript")
+clientScript.Source = CLIENT_SOURCE
+print("NOVA v14 installed. Press Play and select a player for Pull; flight has its own toggle.")
