@@ -1,531 +1,736 @@
--- NOVA PRO v9 | One file Studio installer | Run in Edit-mode Command Bar
--- This cannot grant admin rights in other people's Roblox experiences.
+-- NOVA PRO v10 | ONE-FILE INSTALLER
+-- Install ONLY in a Roblox experience you own or administer.
+-- Roblox Studio > View > Command Bar > EDIT MODE > paste entire installer > Enter > Play.
+-- Server permissions cannot be obtained from third-party games by a client script.
 local RunService = game:GetService("RunService")
-assert(RunService:IsStudio(), "NOVA v9 must be installed from Roblox Studio")
-assert(not RunService:IsRunning(), "Stop Play/Test, then run in Edit mode")
-local ServerScriptService = game:GetService("ServerScriptService")
-local StarterPlayer = game:GetService("StarterPlayer")
-local container = StarterPlayer:WaitForChild("StarterPlayerScripts")
-local SERVER_SOURCE = [======[
--- NOVA PRO v9 | ServerScriptService
+assert(RunService:IsStudio(), "NOVA PRO installer only runs in Roblox Studio")
+assert(not RunService:IsRunning(), "Stop Play/Test; run installer from Edit mode")
+local SSS = game:GetService("ServerScriptService")
+local SP = game:GetService("StarterPlayer")
+local SStorage = game:GetService("ServerStorage")
+-- Prevent old versions from creating competing menus or remotes.
+for _, parent in ipairs({SSS, SP:WaitForChild("StarterPlayerScripts")}) do
+    for _, item in ipairs(parent:GetChildren()) do
+        if item.Name:match("^NOVA_PRO_v%d+_") and (item:IsA("Script") or item:IsA("LocalScript")) then
+            item:Destroy()
+        end
+    end
+end
+local function install(parent, class, name, source)
+    local existing = parent:FindFirstChild(name)
+    if existing then existing:Destroy() end
+    local x = Instance.new(class)
+    x.Name = name
+    x.Source = source
+    x.Parent = parent
+end
+local tools = SStorage:FindFirstChild("NOVA_ApprovedTools")
+if not tools then
+    tools = Instance.new("Folder")
+    tools.Name = "NOVA_ApprovedTools"
+    tools.Parent = SStorage
+end
+-- One visible example item; replace it with your own Tools in the approved folder.
+if #tools:GetChildren() == 0 then
+    local demo = Instance.new("Tool")
+    demo.Name = "NOVA Glow Staff"
+    demo.RequiresHandle = true
+    demo.CanBeDropped = false
+    demo.ToolTip = "Demo tool visible when equipped"
+    local handle = Instance.new("Part")
+    handle.Name = "Handle"
+    handle.Size = Vector3.new(0.3, 3, 0.3)
+    handle.Material = Enum.Material.Neon
+    handle.Color = Color3.fromRGB(255, 160, 110)
+    handle.CanCollide = false
+    handle.Parent = demo
+    local light = Instance.new("PointLight")
+    light.Color = handle.Color
+    light.Range = 13
+    light.Brightness = 1.8
+    light.Parent = handle
+    demo.Parent = tools
+end
+local SERVER = [========[
+-- NOVA PRO v10 / Server authority
 local Players = game:GetService("Players")
-local Storage = game:GetService("ReplicatedStorage")
-local ServerStorage = game:GetService("ServerStorage")
+local RS = game:GetService("ReplicatedStorage")
+local SStorage = game:GetService("ServerStorage")
 local RunService = game:GetService("RunService")
-local ADMIN_IDS = { -- Put additional trusted Roblox UserIds here
+
+-- EDIT THIS if your place is group-owned; use actual numeric UserIds.
+local ADMIN_IDS = {
     -- [123456789] = true,
 }
-local function isAdmin(p)
-    return (RunService:IsStudio() and game.CreatorId == 0)
-        or ADMIN_IDS[p.UserId] == true
+local function admin(p)
+    return ADMIN_IDS[p.UserId] == true
         or (game.CreatorType == Enum.CreatorType.User and p.UserId == game.CreatorId)
+        or (RunService:IsStudio() and game.CreatorId == 0)
 end
-local folder = Storage:FindFirstChild("NOVA_PRO_v9")
-if not folder then
-    folder = Instance.new("Folder")
-    folder.Name = "NOVA_PRO_v9"
-    folder.Parent = Storage
-end
-for _, name in ipairs({"Request", "Reply"}) do
-    local found = folder:FindFirstChild(name)
-    if found then found:Destroy() end
-    local event = Instance.new("RemoteEvent")
-    event.Name = name
-    event.Parent = folder
-end
-local Request = folder.Request
-local Reply = folder.Reply
+
+local old = RS:FindFirstChild("NOVA_PRO_v10")
+if old then old:Destroy() end
+local folder = Instance.new("Folder")
+folder.Name = "NOVA_PRO_v10"
+folder.Parent = RS
+local req = Instance.new("RemoteEvent")
+req.Name = "Request"
+req.Parent = folder
+local reply = Instance.new("RemoteEvent")
+reply.Name = "Reply"
+reply.Parent = folder
 local hidden = {}
-local originals = setmetatable({}, {__mode = "k"})
-local requests = {}
-local cooldowns = {}
-local approved = ServerStorage:FindFirstChild("NOVA_ApprovedTools")
-if not approved then
-    approved = Instance.new("Folder")
-    approved.Name = "NOVA_ApprovedTools"
-    approved.Parent = ServerStorage
+local freezeState = {}
+local original = setmetatable({}, {__mode = "k"})
+local cooldown = {}
+local approved = SStorage:WaitForChild("NOVA_ApprovedTools")
+
+local function tell(p, kind, payload)
+    if p and p.Parent == Players then reply:FireClient(p, kind, payload) end
 end
-local function send(p, tag, data)
-    if p and p.Parent == Players then Reply:FireClient(p, tag, data) end
+local function notice(p, msg) tell(p, "Notice", msg) end
+local function targetOf(uid)
+    if type(uid) ~= "number" or uid ~= uid or uid ~= math.floor(uid) then return nil end
+    return Players:GetPlayerByUserId(uid)
 end
-local function notify(p, s) send(p, "Notice", s) end
-local function targetOf(id)
-    if type(id) ~= "number" or id ~= math.floor(id) then return nil end
-    return Players:GetPlayerByUserId(id)
-end
-local function getRoot(p)
-    local char = p and p.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if char and hum and root and hum.Health > 0 then return char, root, hum end
+local function alive(p)
+    local c = p and p.Character
+    local h = c and c:FindFirstChildOfClass("Humanoid")
+    local r = c and c:FindFirstChild("HumanoidRootPart")
+    if c and h and r and h.Health > 0 then return c, h, r end
     return nil
 end
-local function setVisual(obj, makeHidden)
-    if makeHidden then
-        if originals[obj] == nil then
-            if obj:IsA("BasePart") then
-                originals[obj] = {obj.Transparency, obj.CastShadow}
-            elseif obj:IsA("Decal") or obj:IsA("Texture") then
-                originals[obj] = {obj.Transparency}
-            elseif obj:IsA("ParticleEmitter") or obj:IsA("Beam") or obj:IsA("Trail")
-                or obj:IsA("Highlight") or obj:IsA("BillboardGui") then
-                originals[obj] = {obj.Enabled}
-            elseif obj:IsA("Humanoid") then
-                originals[obj] = {obj.DisplayDistanceType}
+local function hideVisual(inst, yes)
+    if yes then
+        if original[inst] == nil then
+            if inst:IsA("BasePart") then
+                original[inst] = {inst.Transparency, inst.CastShadow}
+            elseif inst:IsA("Decal") or inst:IsA("Texture") then
+                original[inst] = {inst.Transparency}
+            elseif inst:IsA("ParticleEmitter") or inst:IsA("Beam") or inst:IsA("Trail")
+                or inst:IsA("Highlight") or inst:IsA("BillboardGui") then
+                original[inst] = {inst.Enabled}
+            elseif inst:IsA("Humanoid") then
+                original[inst] = {inst.DisplayDistanceType}
             end
         end
-        if obj:IsA("BasePart") then
-            obj.Transparency = 1
-            obj.CastShadow = false
-        elseif obj:IsA("Decal") or obj:IsA("Texture") then
-            obj.Transparency = 1
-        elseif obj:IsA("ParticleEmitter") or obj:IsA("Beam") or obj:IsA("Trail")
-            or obj:IsA("Highlight") or obj:IsA("BillboardGui") then
-            obj.Enabled = false
-        elseif obj:IsA("Humanoid") then
-            obj.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+        if inst:IsA("BasePart") then
+            inst.Transparency = 1
+            inst.CastShadow = false
+        elseif inst:IsA("Decal") or inst:IsA("Texture") then
+            inst.Transparency = 1
+        elseif inst:IsA("ParticleEmitter") or inst:IsA("Beam") or inst:IsA("Trail")
+            or inst:IsA("Highlight") or inst:IsA("BillboardGui") then
+            inst.Enabled = false
+        elseif inst:IsA("Humanoid") then
+            inst.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
         end
     else
-        local old = originals[obj]
-        if not old then return end
-        if obj:IsA("BasePart") then
-            obj.Transparency = old[1]
-            obj.CastShadow = old[2]
-        elseif obj:IsA("Decal") or obj:IsA("Texture") then
-            obj.Transparency = old[1]
-        elseif obj:IsA("ParticleEmitter") or obj:IsA("Beam") or obj:IsA("Trail")
-            or obj:IsA("Highlight") or obj:IsA("BillboardGui") then
-            obj.Enabled = old[1]
-        elseif obj:IsA("Humanoid") then
-            obj.DisplayDistanceType = old[1]
+        local val = original[inst]
+        if not val then return end
+        if inst:IsA("BasePart") then
+            inst.Transparency, inst.CastShadow = val[1], val[2]
+        elseif inst:IsA("Decal") or inst:IsA("Texture") then
+            inst.Transparency = val[1]
+        elseif inst:IsA("ParticleEmitter") or inst:IsA("Beam") or inst:IsA("Trail")
+            or inst:IsA("Highlight") or inst:IsA("BillboardGui") then
+            inst.Enabled = val[1]
+        elseif inst:IsA("Humanoid") then
+            inst.DisplayDistanceType = val[1]
         end
-        originals[obj] = nil
+        original[inst] = nil
     end
 end
 local function applyHidden(p)
-    local char = p.Character
-    if not char then return end
-    for _, obj in ipairs(char:GetDescendants()) do
-        setVisual(obj, hidden[p.UserId] == true)
+    local c = p.Character
+    if not c then return end
+    c:SetAttribute("NOVA_Hidden", hidden[p.UserId] == true)
+    for _, inst in ipairs(c:GetDescendants()) do
+        hideVisual(inst, hidden[p.UserId] == true)
     end
 end
-local function bindPlayer(p)
-    p.CharacterAdded:Connect(function(char)
-        char.DescendantAdded:Connect(function(obj)
+local function applyFreeze(p, shouldFreeze)
+    local _, h, r = alive(p)
+    if not h or not r then return false end
+    if shouldFreeze then
+        if not freezeState[p.UserId] then
+            freezeState[p.UserId] = {walk=h.WalkSpeed, jump=h.JumpPower, jumpHeight=h.JumpHeight, auto=h.AutoRotate, anchored=r.Anchored}
+        end
+        h.WalkSpeed = 0
+        h.JumpPower = 0
+        h.JumpHeight = 0
+        h.AutoRotate = false
+        r.Anchored = true
+    else
+        local old = freezeState[p.UserId]
+        if old then
+            h.WalkSpeed, h.JumpPower, h.JumpHeight = old.walk, old.jump, old.jumpHeight
+            h.AutoRotate, r.Anchored = old.auto, old.anchored
+        end
+        freezeState[p.UserId] = nil
+    end
+    return true
+end
+local function bind(p)
+    p.CharacterAdded:Connect(function(c)
+        freezeState[p.UserId] = nil
+        c.DescendantAdded:Connect(function(inst)
             if hidden[p.UserId] then
                 task.defer(function()
-                    if obj.Parent and hidden[p.UserId] then setVisual(obj, true) end
+                    if inst.Parent and hidden[p.UserId] then hideVisual(inst, true) end
                 end)
             end
         end)
         task.defer(function()
-            char:WaitForChild("HumanoidRootPart", 10)
-            if p.Character == char then applyHidden(p) end
+            c:WaitForChild("HumanoidRootPart", 10)
+            if p.Character == c then applyHidden(p) end
         end)
     end)
 end
-Players.PlayerAdded:Connect(bindPlayer)
-for _, p in ipairs(Players:GetPlayers()) do bindPlayer(p) end
+Players.PlayerAdded:Connect(bind)
+for _, p in ipairs(Players:GetPlayers()) do bind(p) end
 Players.PlayerRemoving:Connect(function(p)
     hidden[p.UserId] = nil
-    requests[p.UserId] = nil
-    cooldowns[p] = nil
+    freezeState[p.UserId] = nil
+    cooldown[p] = nil
 end)
-local function listTools()
-    local result = {}
-    for _, obj in ipairs(approved:GetChildren()) do
-        if obj:IsA("Tool") then table.insert(result, obj.Name) end
+local function toolNames()
+    local names = {}
+    for _, t in ipairs(approved:GetChildren()) do
+        if t:IsA("Tool") then table.insert(names, t.Name) end
     end
-    table.sort(result)
-    return result
+    table.sort(names)
+    return names
 end
-Request.OnServerEvent:Connect(function(actor, action, id, arg)
-    if type(action) ~= "string" or #action > 32 then return end
+
+req.OnServerEvent:Connect(function(p, action, uid, value)
+    if type(action) ~= "string" or #action > 30 then return end
     if action == "Hello" then
-        send(actor, "Welcome", {admin = isAdmin(actor), tools = isAdmin(actor) and listTools() or {}})
+        tell(p, "Welcome", {admin=admin(p), tools=admin(p) and toolNames() or {}, hidden=hidden[p.UserId] == true})
+        return
+    end
+    if not admin(p) then
+        if action=="Invisible" then tell(p,"InvisibleStatus",false) end
+        notice(p, "هذه الأدوات الإدارية متاحة لمشرفي الماب فقط")
         return
     end
     local now = os.clock()
-    if now - (cooldowns[actor] or -100) < 0.18 then return end
-    cooldowns[actor] = now
-    if action == "BringReply" then
-        local pending = requests[actor.UserId]
-        requests[actor.UserId] = nil
-        if not pending or now - pending.at > 20 then return end
-        local requester = targetOf(pending.from)
-        if not requester or not isAdmin(requester) then return end
-        if arg ~= true then
-            notify(requester, "اللاعب رفض طلب الانتقال")
-            return
-        end
-        local ownChar = getRoot(actor)
-        local _, adminRoot = getRoot(requester)
-        if not ownChar or not adminRoot then return end
-        ownChar:PivotTo(adminRoot.CFrame * CFrame.new(4, 0, -4))
-        notify(actor, "تم الانتقال بعد موافقتك")
-        notify(requester, "وافق اللاعب وانتقل إليك")
-        return
-    end
-    if not isAdmin(actor) then
-        notify(actor, "هذه الميزة خاصة بمشرفي هذه التجربة")
-        return
-    end
+    if now - (cooldown[p] or -100) < 0.12 then return end
+    cooldown[p] = now
     if action == "Invisible" then
-        hidden[actor.UserId] = not hidden[actor.UserId]
-        applyHidden(actor)
-        send(actor, "InvisibleStatus", hidden[actor.UserId])
-        notify(actor, hidden[actor.UserId] and "تم إخفاء الشخصية من الخادم" or "تمت إعادة إظهار الشخصية")
-    elseif action == "Teleport" then
-        local target = targetOf(id)
-        if not target or target == actor then notify(actor, "اختر لاعبًا آخر موجودًا") return end
-        local char = getRoot(actor)
-        local _, targetRoot = getRoot(target)
-        if not char or not targetRoot then notify(actor, "شخصية اللاعب غير جاهزة") return end
-        char:PivotTo(targetRoot.CFrame * CFrame.new(4, 0, 2))
-        notify(actor, "تم الانتقال إلى " .. target.DisplayName)
-    elseif action == "BringInvite" then
-        local target = targetOf(id)
-        if not target or target == actor then notify(actor, "اختر لاعبًا آخر") return end
-        requests[target.UserId] = {from = actor.UserId, at = now}
-        send(target, "BringInvite", {from = actor.UserId, name = actor.DisplayName})
-        notify(actor, "أُرسل طلب انتقال إلى " .. target.DisplayName)
-    elseif action == "Speed" then
-        local _, _, hum = getRoot(actor)
-        local n = tonumber(arg)
-        if not hum or not n or n ~= n then notify(actor, "قيمة السرعة غير صالحة") return end
-        hum.WalkSpeed = math.clamp(n, 8, 70)
-        notify(actor, "تم تطبيق السرعة")
-    elseif action == "GiveTool" then
-        if type(arg) ~= "string" or #arg > 80 then return end
-        local tool = approved:FindFirstChild(arg)
-        local bag = actor:FindFirstChildOfClass("Backpack")
-        if not tool or not tool:IsA("Tool") or not bag then
-            notify(actor, "الأداة غير موجودة في المخزن المعتمد")
-            return
+        hidden[p.UserId] = not hidden[p.UserId]
+        applyHidden(p)
+        tell(p, "InvisibleStatus", hidden[p.UserId])
+        notice(p, hidden[p.UserId] and "اختفاء السيرفر مفعّل؛ صورتك المحلية ظاهرة" or "تمت إعادة الظهور")
+    elseif action == "Teleport" or action == "Bring" or action == "Freeze" or action == "Unfreeze" then
+        local t = targetOf(uid)
+        if not t or t == p then notice(p, "اختر لاعبًا آخر متصلًا") return end
+        local tc, _, tr = alive(t)
+        local pc, _, pr = alive(p)
+        if not tc or not pc then notice(p, "شخصية اللاعب غير جاهزة") return end
+        if action == "Teleport" then
+            pc:PivotTo(tr.CFrame * CFrame.new(3, 0, 4))
+            notice(p, "تم الانتقال إلى " .. t.DisplayName)
+        elseif action == "Bring" then
+            tc:PivotTo(pr.CFrame * CFrame.new(4, 0, -4))
+            notice(p, "تم سحب " .. t.DisplayName .. " داخل مابك")
+        elseif action == "Freeze" or action == "Unfreeze" then
+            if applyFreeze(t, action == "Freeze") then
+                notice(p, action == "Freeze" and "تم تجميد اللاعب" or "تم فك التجميد")
+            else
+                notice(p, "تعذّر تنفيذ التجميد")
+            end
         end
-        tool:Clone().Parent = bag
-        notify(actor, "تم تسليم الأداة: " .. tool.Name)
+    elseif action == "Speed" or action == "Jump" then
+        local _, h = alive(p)
+        local n = tonumber(value)
+        if not h or not n or n ~= n then notice(p, "قيمة غير صالحة") return end
+        if action == "Speed" then
+            h.WalkSpeed = math.clamp(n, 8, 75)
+        else
+            h.UseJumpPower = true
+            h.JumpPower = math.clamp(n, 30, 130)
+        end
+        notice(p, "تم تطبيق إعداد الشخصية")
+    elseif action == "GiveTool" then
+        if type(value) ~= "string" or #value > 90 then return end
+        local source = approved:FindFirstChild(value)
+        local bag = p:FindFirstChildOfClass("Backpack")
+        if not source or not source:IsA("Tool") or not bag then notice(p, "الأداة غير موجودة بالمخزن المعتمد") return end
+        if bag:FindFirstChild(value) or (p.Character and p.Character:FindFirstChild(value)) then
+            notice(p, "الأداة موجودة لديك") return
+        end
+        source:Clone().Parent = bag
+        notice(p, "تمت إضافة الأداة: " .. value)
     end
 end)
-print("[NOVA v9] Server loaded")
-
-]======]
-local CLIENT_SOURCE = [======[
--- NOVA PRO v9 | StarterPlayerScripts
+print("[NOVA v10] server online")
+]========]
+local CLIENT = [========[
+-- NOVA PRO v10 | Client UX + first-person local ghost
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
-local Input = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local me = Players.LocalPlayer
 local pg = me:WaitForChild("PlayerGui")
-local old = pg:FindFirstChild("NOVA_PRO_v9_GUI")
+local old = pg:FindFirstChild("NOVA_PRO_v10_UI")
 if old then old:Destroy() end
-local remote = RS:WaitForChild("NOVA_PRO_v9", 15)
-if not remote then warn("NOVA v9: server not installed") return end
+local remote = RS:WaitForChild("NOVA_PRO_v10", 15)
+if not remote then warn("NOVA v10: missing server; install with Studio Command Bar") return end
 local Request = remote:WaitForChild("Request", 10)
 local Reply = remote:WaitForChild("Reply", 10)
-if not Request or not Reply then warn("NOVA v9: missing remote events") return end
-local C = {
-    bg=Color3.fromRGB(18,17,18), panel=Color3.fromRGB(29,28,30),
-    sidebar=Color3.fromRGB(24,23,24), tile=Color3.fromRGB(59,45,42),
-    active=Color3.fromRGB(109,72,56), bronze=Color3.fromRGB(250,169,125),
-    white=Color3.fromRGB(248,240,235), muted=Color3.fromRGB(170,157,152)
+if not Request or not Reply then warn("NOVA v10: missing remotes") return end
+
+local theme={
+    bg=Color3.fromRGB(17,16,19), panel=Color3.fromRGB(30,27,28),
+    sidebar=Color3.fromRGB(22,20,22), button=Color3.fromRGB(65,46,42),
+    focus=Color3.fromRGB(115,67,54), accent=Color3.fromRGB(255,172,123),
+    fg=Color3.fromRGB(245,239,236), dim=Color3.fromRGB(181,165,157),
+    good=Color3.fromRGB(90,188,125)
 }
-local function make(class, parent, fields)
-    local o = Instance.new(class)
-    for k, v in pairs(fields or {}) do o[k] = v end
-    o.Parent = parent
-    return o
+local function new(kind,parent,props)
+    local i=Instance.new(kind)
+    for k,v in pairs(props or {}) do i[k]=v end
+    i.Parent=parent
+    return i
 end
-local function curve(p, radius)
-    make("UICorner", p, {CornerRadius=UDim.new(0,radius or 8)})
-end
-local function label(parent, text, pos, size, fontSize, color, bold)
-    return make("TextLabel",parent,{
-        BackgroundTransparency=1, Text=text, TextColor3=color or C.white,
-        Font=bold and Enum.Font.GothamBold or Enum.Font.Gotham,
-        TextSize=fontSize or 14, TextWrapped=true,
-        Position=pos, Size=size, TextXAlignment=Enum.TextXAlignment.Center
+local function corner(obj,r) new("UICorner",obj,{CornerRadius=UDim.new(0,r or 8)}) end
+local function label(parent,txt,pos,size,textsize,color,strong)
+    return new("TextLabel",parent,{
+        BackgroundTransparency=1,Position=pos,Size=size,Text=txt,
+        Font=strong and Enum.Font.GothamBold or Enum.Font.Gotham,
+        TextColor3=color or theme.fg,TextSize=textsize or 14,
+        TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Center
     })
 end
-local function button(parent, text, pos, size, fn, bg)
-    local b=make("TextButton", parent, {
-        Text=text, TextColor3=C.white, TextSize=14,
-        Font=Enum.Font.GothamBold, TextWrapped=true,
-        BackgroundColor3=bg or C.tile, BorderSizePixel=0,
-        Position=pos, Size=size
+local function button(parent,txt,pos,size,fn,bg)
+    local b=new("TextButton",parent,{
+        BackgroundColor3=bg or theme.button,BorderSizePixel=0,
+        Position=pos,Size=size,Text=txt,TextColor3=theme.fg,
+        Font=Enum.Font.GothamBold,TextSize=14,TextWrapped=true,
+        AutoButtonColor=true
     })
-    curve(b)
+    corner(b)
     b.Activated:Connect(fn)
     return b
 end
-local gui=make("ScreenGui",pg,{
-    Name="NOVA_PRO_v9_GUI", ResetOnSpawn=false, DisplayOrder=500,
-    IgnoreGuiInset=true, ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+local gui=new("ScreenGui",pg,{Name="NOVA_PRO_v10_UI",ResetOnSpawn=false,
+    ZIndexBehavior=Enum.ZIndexBehavior.Sibling,DisplayOrder=800,IgnoreGuiInset=true})
+local main=new("Frame",gui,{
+    AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),
+    Size=UDim2.fromOffset(855,520),BackgroundColor3=theme.bg,
+    BorderSizePixel=0,Active=true
 })
-local main=make("Frame",gui,{
-    BackgroundColor3=C.bg, BorderSizePixel=0, Active=true,
-    AnchorPoint=Vector2.new(.5,.5), Position=UDim2.fromScale(.5,.5),
-    Size=UDim2.fromOffset(830,505)
-})
-curve(main, 12)
-make("UIStroke", main, {Color=C.bronze, Transparency=.2, Thickness=1.3})
-local scaling=make("UIScale",main,{Scale=1})
-local function fit()
-    local camera=workspace.CurrentCamera
-    local viewport=camera and camera.ViewportSize or Vector2.new(900,600)
-    scaling.Scale=math.clamp(math.min(viewport.X/865, viewport.Y/545),.38,1)
-end
-fit()
-local vpConnect
-local function trackCamera()
-    if vpConnect then vpConnect:Disconnect() end
+corner(main,12)
+new("UIStroke",main,{Color=theme.accent,Transparency=.15,Thickness=1.5})
+local scale=new("UIScale",main,{Scale=1})
+local function resize()
     local cam=workspace.CurrentCamera
-    if cam then vpConnect=cam:GetPropertyChangedSignal("ViewportSize"):Connect(fit) end
-    fit()
+    local vp=cam and cam.ViewportSize or Vector2.new(960,620)
+    scale.Scale=math.clamp(math.min(vp.X/875,vp.Y/550),.35,1)
 end
-workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(trackCamera)
-trackCamera()
-local header=make("Frame",main,{Size=UDim2.new(1,0,0,58), BackgroundColor3=C.sidebar, BorderSizePixel=0,Active=true})
-curve(header,12)
-label(header,"NOVA PRO  |  MERCY STYLE",UDim2.fromOffset(18,8),UDim2.fromOffset(410,30),23,C.bronze,true).TextXAlignment=Enum.TextXAlignment.Left
-label(header,"v9  •  ADMIN CONTROL",UDim2.fromOffset(19,36),UDim2.fromOffset(315,17),11,C.muted).TextXAlignment=Enum.TextXAlignment.Left
-local reopen
-local function show() main.Visible=true; reopen.Visible=false end
-reopen=button(gui,"NOVA ☰",UDim2.fromOffset(16,160),UDim2.fromOffset(125,46),show,C.active)
-reopen.Visible=false
-local function hide() main.Visible=false; reopen.Visible=true end
-button(header,"—",UDim2.fromOffset(730,11),UDim2.fromOffset(38,35),hide)
-button(header,"×",UDim2.fromOffset(776,11),UDim2.fromOffset(38,35),hide)
-local dragging, beginPos, basePos
-header.InputBegan:Connect(function(i)
-    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-        dragging=i
-        beginPos=i.Position
-        basePos=main.Position
-    end
+resize()
+local vpLink
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    if vpLink then vpLink:Disconnect() end
+    local c=workspace.CurrentCamera
+    if c then vpLink=c:GetPropertyChangedSignal("ViewportSize"):Connect(resize) end
+    resize()
 end)
-Input.InputChanged:Connect(function(i)
+if workspace.CurrentCamera then
+    vpLink=workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(resize)
+end
+local top=new("Frame",main,{Size=UDim2.new(1,0,0,58),BackgroundColor3=theme.sidebar,BorderSizePixel=0,Active=true})
+corner(top,12)
+local heading=label(top,"NOVA PRO  |  CONTROL",UDim2.fromOffset(19,6),UDim2.fromOffset(530,30),24,theme.accent,true)
+heading.TextXAlignment=Enum.TextXAlignment.Left
+local subtitle=label(top,"v10  •  SERVER ADMIN  •  BRONZE EDITION",UDim2.fromOffset(20,35),UDim2.fromOffset(450,16),11,theme.dim)
+subtitle.TextXAlignment=Enum.TextXAlignment.Left
+local reopen
+reopen=button(gui,"NOVA ☰",UDim2.fromOffset(15,150),UDim2.fromOffset(118,48),function()
+    main.Visible=true
+    reopen.Visible=false
+end,theme.focus)
+reopen.Visible=false
+local function hideMenu() main.Visible=false; reopen.Visible=true end
+button(top,"—",UDim2.fromOffset(752,12),UDim2.fromOffset(40,34),hideMenu)
+button(top,"×",UDim2.fromOffset(801,12),UDim2.fromOffset(40,34),hideMenu)
+local dragStart, base, dragging
+local function setDrag(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        dragging=i; dragStart=i.Position; base=main.Position
+    end
+end
+top.InputBegan:Connect(setDrag)
+UIS.InputChanged:Connect(function(i)
     if not dragging then return end
     if i.UserInputType~=Enum.UserInputType.MouseMovement and i~=dragging then return end
-    local d=i.Position-beginPos
-    main.Position=UDim2.new(basePos.X.Scale,basePos.X.Offset+d.X,basePos.Y.Scale,basePos.Y.Offset+d.Y)
+    local d=i.Position-dragStart
+    main.Position=UDim2.new(base.X.Scale,base.X.Offset+d.X,base.Y.Scale,base.Y.Offset+d.Y)
 end)
-Input.InputEnded:Connect(function(i)
+UIS.InputEnded:Connect(function(i)
     if dragging==i or (dragging and i.UserInputType==Enum.UserInputType.MouseButton1) then dragging=nil end
 end)
-local side=make("Frame",main,{BackgroundColor3=C.sidebar,BorderSizePixel=0,
-    Position=UDim2.fromOffset(0,58), Size=UDim2.new(0,166,1,-58)})
-local area=make("Frame",main,{BackgroundColor3=C.panel,BorderSizePixel=0,
-    Position=UDim2.fromOffset(174,67), Size=UDim2.new(1,-185,1,-100)})
-curve(area)
+local side=new("Frame",main,{Position=UDim2.fromOffset(0,58),Size=UDim2.new(0,174,1,-58),
+    BackgroundColor3=theme.sidebar,BorderSizePixel=0})
+local view=new("Frame",main,{Position=UDim2.fromOffset(183,68),Size=UDim2.new(1,-195,1,-109),
+    BackgroundColor3=theme.panel,BorderSizePixel=0})
+corner(view,9)
+local status=label(main,"جاري الاتصال بالسيرفر...",UDim2.fromOffset(192,486),UDim2.fromOffset(639,25),13,theme.accent)
+status.TextXAlignment=Enum.TextXAlignment.Left
+local function note(s) status.Text=tostring(s) end
 local pages,tabs={},{}
-local function page(name)
-    local p=make("Frame",area,{Name=name,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Visible=false})
-    pages[name]=p
-    return p
+local pageNames={"الرئيسية","اللاعبون","الشخصية","الأدوات","الإعدادات"}
+for _,n in ipairs(pageNames) do
+    pages[n]=new("Frame",view,{Name=n,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false})
 end
-local home=page("الرئيسية")
-local playersPage=page("اللاعبون")
-local charPage=page("الشخصية")
-local toolsPage=page("الأدوات")
-local function switch(name)
-    for k,p in pairs(pages) do p.Visible=k==name end
-    for k,b in pairs(tabs) do b.BackgroundColor3=k==name and C.active or C.sidebar end
+local function showPage(n)
+    for k,v in pairs(pages) do v.Visible=(k==n) end
+    for k,b in pairs(tabs) do b.BackgroundColor3=(k==n) and theme.focus or theme.sidebar end
 end
-for i,name in ipairs({"الرئيسية","اللاعبون","الشخصية","الأدوات"}) do
-    tabs[name]=button(side,name,UDim2.fromOffset(10,14+(i-1)*75),UDim2.fromOffset(145,57),function()switch(name)end,C.sidebar)
+for i,n in ipairs(pageNames) do
+    tabs[n]=button(side,n,UDim2.fromOffset(12,12+(i-1)*72),UDim2.fromOffset(148,56),function()showPage(n)end,theme.sidebar)
 end
-label(side,"NOVA  •  VERIFIED",UDim2.fromOffset(10,373),UDim2.fromOffset(145,24),11,C.muted)
-local message=label(main,"جاهز",UDim2.fromOffset(182,473),UDim2.fromOffset(627,22),13,C.bronze)
-message.TextXAlignment=Enum.TextXAlignment.Left
-local function note(text) message.Text=tostring(text) end
-switch("الرئيسية")
-local function heading(parent, title)
-    label(parent,title,UDim2.fromOffset(18,12),UDim2.fromOffset(550,42),22,C.bronze,true)
+label(side,"NOVA  •  v10",UDim2.fromOffset(12,411),UDim2.fromOffset(148,30),12,theme.dim,true)
+showPage("الرئيسية")
+local function title(page,text)
+    local l=label(page,text,UDim2.fromOffset(17,10),UDim2.fromOffset(605,45),22,theme.accent,true)
+    l.TextXAlignment=Enum.TextXAlignment.Left
 end
-local selectedId
-local watchedId
-local function getTarget()
-    return selectedId and Players:GetPlayerByUserId(selectedId) or nil
-end
+local selectedId, watchedId
+local function selected() return selectedId and Players:GetPlayerByUserId(selectedId) end
 local function stopWatch()
     watchedId=nil
-    local cam=workspace.CurrentCamera
-    local hum=me.Character and me.Character:FindFirstChildOfClass("Humanoid")
-    if cam and hum then cam.CameraType=Enum.CameraType.Custom; cam.CameraSubject=hum end
+    local c=workspace.CurrentCamera
+    local h=me.Character and me.Character:FindFirstChildOfClass("Humanoid")
+    if c and h then c.CameraSubject=h; c.CameraType=Enum.CameraType.Custom end
     note("تم إيقاف المشاهدة")
 end
-local function doWatch()
-    local target=getTarget()
-    if not target or target==me then note("حدد لاعبًا آخر") return end
-    local hum=target.Character and target.Character:FindFirstChildOfClass("Humanoid")
-    local cam=workspace.CurrentCamera
-    if not hum or not cam then note("شخصية اللاعب غير محمّلة لديك") return end
-    watchedId=target.UserId
-    cam.CameraType=Enum.CameraType.Custom
-    cam.CameraSubject=hum
-    note("المشاهدة تعمل؛ سماع الصوت يعتمد على إعدادات Roblox")
+local function watch()
+    local p=selected()
+    if not p or p==me then note("حدد لاعبًا أولًا") return end
+    local h=p.Character and p.Character:FindFirstChildOfClass("Humanoid")
+    local c=workspace.CurrentCamera
+    if not c or not h then note("شخصية اللاعب غير جاهزة") return end
+    watchedId=p.UserId
+    c.CameraType=Enum.CameraType.Custom
+    c.CameraSubject=h
+    note("مشاهدة فعّالة؛ الصوت يعتمد على إعدادات Roblox، وليس الكاميرا")
 end
-me.CharacterAdded:Connect(function()
-    task.delay(.3,function()
-        if not watchedId then stopWatch() end
-    end)
-end)
 workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
     if watchedId then
-        task.defer(doWatch)
+        task.defer(function()
+            local p=Players:GetPlayerByUserId(watchedId)
+            local h=p and p.Character and p.Character:FindFirstChildOfClass("Humanoid")
+            if workspace.CurrentCamera and h then workspace.CurrentCamera.CameraSubject=h end
+        end)
     end
 end)
-heading(home,"لوحة التحكم")
-label(home,"NOVA PRO | إدارة موثوقة داخل تجربتك",UDim2.fromOffset(18,68),UDim2.fromOffset(590,45),17,C.white,true)
-label(home,"المشاهدة = كاميرا فقط. القرب والصوت يتبعان نظام المحادثة الصوتية في Roblox.",
-    UDim2.fromOffset(20,131),UDim2.fromOffset(588,75),14,C.muted)
-button(home,"اللاعبون والمشاهدة",UDim2.fromOffset(22,237),UDim2.fromOffset(282,59),function()switch("اللاعبون")end,C.active)
-button(home,"الشخصية والاختفاء",UDim2.fromOffset(319,237),UDim2.fromOffset(280,59),function()switch("الشخصية")end)
-heading(playersPage,"اللاعبون")
-local search=make("TextBox",playersPage,{
-    Position=UDim2.fromOffset(18,59),Size=UDim2.fromOffset(275,39),
-    Text="",PlaceholderText="ابحث عن لاعب...",ClearTextOnFocus=false,
-    TextColor3=C.white,PlaceholderColor3=C.muted,Font=Enum.Font.Gotham,
-    TextSize=14,BackgroundColor3=C.tile,BorderSizePixel=0
-})
-curve(search)
-local list=make("ScrollingFrame",playersPage,{
-    Position=UDim2.fromOffset(18,107),Size=UDim2.fromOffset(275,261),
-    CanvasSize=UDim2.fromOffset(0,0),ScrollBarThickness=5,
-    BackgroundColor3=C.sidebar,BorderSizePixel=0
-})
-curve(list)
-make("UIListLayout",list,{Padding=UDim.new(0,5), SortOrder=Enum.SortOrder.LayoutOrder})
-local chosen=label(playersPage,"اختر لاعبًا",UDim2.fromOffset(303,60),UDim2.fromOffset(301,37),16,C.bronze,true)
-local function rebuild()
-    for _,ch in ipairs(list:GetChildren()) do
-        if ch:IsA("TextButton") then ch:Destroy() end
+-- Create a local-only visual clone BEFORE the server hides the real character.
+-- Server hides the actual replicated avatar, while only this client renders the proxy.
+local ghost, ghostConn, localHidden=false,nil,false
+local function clearGhost()
+    if ghostConn then ghostConn:Disconnect(); ghostConn=nil end
+    if ghost then ghost:Destroy(); ghost=nil end
+end
+local function relpath(root,obj)
+    local parts={}
+    local n=obj
+    while n and n~=root do
+        table.insert(parts,1,n.Name .. ":" .. n.ClassName)
+        n=n.Parent
     end
-    local query=search.Text:lower()
-    local count=0
-    local sorted=Players:GetPlayers()
-    table.sort(sorted,function(a,b) return a.Name:lower()<b.Name:lower() end)
-    for _,p in ipairs(sorted) do
-        if p~=me and (query=="" or p.Name:lower():find(query,1,true) or p.DisplayName:lower():find(query,1,true)) then
-            count+=1
-            local b=button(list,p.DisplayName.." (@"..p.Name..")",
-                UDim2.new(),UDim2.new(1,-10,0,48),function()
-                    selectedId=p.UserId
-                    chosen.Text="المحدد: "..p.DisplayName
-                    rebuild()
-                end,p.UserId==selectedId and C.active or C.tile)
-            b.TextSize=12
-            b.LayoutOrder=count
+    return table.concat(parts,"/")
+end
+local function buildGhost()
+    clearGhost()
+    local c=me.Character
+    if not c then return end
+    local previous=c.Archivable
+    c.Archivable=true
+    local success, copy=pcall(function() return c:Clone() end)
+    c.Archivable=previous
+    if not success or not copy then return end
+    copy.Name="NOVA_ONLY_I_CAN_SEE"
+    local originalParts={}
+    for _,p in ipairs(c:GetDescendants()) do
+        if p:IsA("BasePart") then originalParts[relpath(c,p)]=p end
+    end
+    local pairsList={}
+    for _,o in ipairs(copy:GetDescendants()) do
+        if o:IsA("Script") or o:IsA("LocalScript") or o:IsA("ModuleScript")
+            or o:IsA("Sound") or o:IsA("ParticleEmitter") or o:IsA("Beam")
+            or o:IsA("Trail") then
+            o:Destroy()
+        elseif o:IsA("BasePart") then
+            local source=originalParts[relpath(copy,o)]
+            if source then table.insert(pairsList,{from=source,to=o}) end
+            o.Anchored=true
+            o.CanCollide=false
+            o.CanTouch=false
+            o.CanQuery=false
+            o.CastShadow=false
+            o.LocalTransparencyModifier=0
+            if o.Name=="HumanoidRootPart" then o.Transparency=1
+            elseif o.Transparency>=.98 then o.Transparency=0 end
+        elseif o:IsA("Decal") or o:IsA("Texture") then
+            if o.Transparency>=.98 then o.Transparency=0 end
+        elseif o:IsA("Humanoid") then
+            o.DisplayDistanceType=Enum.HumanoidDisplayDistanceType.None
         end
     end
-    list.CanvasSize=UDim2.fromOffset(0,count*53+6)
+    ghost=copy
+    ghost.Parent=workspace.CurrentCamera or workspace
+    ghostConn=RunService.RenderStepped:Connect(function()
+        if not ghost or me.Character~=c then clearGhost(); return end
+        for _,item in ipairs(pairsList) do
+            if item.from.Parent and item.to.Parent then
+                item.to.CFrame=item.from.CFrame
+            end
+        end
+    end)
 end
-search:GetPropertyChangedSignal("Text"):Connect(rebuild)
-Players.PlayerAdded:Connect(rebuild)
-Players.PlayerRemoving:Connect(function(p)
-    if p.UserId==selectedId then selectedId=nil; chosen.Text="اختر لاعبًا" end
-    if p.UserId==watchedId then stopWatch() end
-    task.defer(rebuild)
-end)
-rebuild()
-button(playersPage,"مشاهدة",UDim2.fromOffset(305,111),UDim2.fromOffset(142,48),doWatch,C.active)
-button(playersPage,"إيقاف المشاهدة",UDim2.fromOffset(459,111),UDim2.fromOffset(144,48),stopWatch)
-button(playersPage,"انتقال إليه",UDim2.fromOffset(305,171),UDim2.fromOffset(297,49),function()
-    local t=getTarget()
-    if t then Request:FireServer("Teleport",t.UserId) else note("اختر لاعبًا أولًا") end
-end,C.active)
-button(playersPage,"طلب انتقاله إليّ",UDim2.fromOffset(305,231),UDim2.fromOffset(297,49),function()
-    local t=getTarget()
-    if t then Request:FireServer("BringInvite",t.UserId) else note("اختر لاعبًا أولًا") end
-end)
-label(playersPage,"الانتقال الحقيقي يحتاج صلاحيات هذا السيرفر. طلب السحب يتطلب موافقة اللاعب.",
-    UDim2.fromOffset(303,293),UDim2.fromOffset(302,72),12,C.muted)
-heading(charPage,"الشخصية")
-local invisibleBtn
-invisibleBtn=button(charPage,"اختفاء كامل: تشغيل",UDim2.fromOffset(21,77),UDim2.fromOffset(584,57),function()
-    Request:FireServer("Invisible")
-end,C.active)
-local speedBox=make("TextBox",charPage,{
-    Position=UDim2.fromOffset(21,169),Size=UDim2.fromOffset(143,46),
-    Text="24",ClearTextOnFocus=false,TextColor3=C.white,Font=Enum.Font.Gotham,
-    TextSize=18,BackgroundColor3=C.tile,BorderSizePixel=0
-})
-curve(speedBox)
-button(charPage,"تطبيق السرعة",UDim2.fromOffset(177,169),UDim2.fromOffset(425,46),function()
-    local n=tonumber(speedBox.Text)
-    if n and n==n then Request:FireServer("Speed",nil,n) else note("أدخل سرعة صحيحة") end
-end)
-label(charPage,"إخفاء الخادم يطبّق على الأفاتار وملحقاته؛ مؤشرات الصوت أو آثار اللعبة الأخرى قد تبقى مرئية.",
-    UDim2.fromOffset(21,244),UDim2.fromOffset(584,90),14,C.muted)
-heading(toolsPage,"الأدوات المعتمدة")
-local toolList=make("ScrollingFrame",toolsPage,{
-    Position=UDim2.fromOffset(19,66),Size=UDim2.fromOffset(581,261),
-    BackgroundColor3=C.sidebar,BorderSizePixel=0,
-    ScrollBarThickness=5,CanvasSize=UDim2.fromOffset(0,0)
-})
-curve(toolList)
-make("UIListLayout",toolList,{Padding=UDim.new(0,7),SortOrder=Enum.SortOrder.LayoutOrder})
-local function fillTools(names)
-    for _,obj in ipairs(toolList:GetChildren()) do
-        if obj:IsA("TextButton") or obj:IsA("TextLabel") then obj:Destroy() end
+me.CharacterAdded:Connect(function()
+    clearGhost()
+    if localHidden then
+        task.delay(.75,function()
+            if localHidden then buildGhost() end
+        end)
+    elseif not watchedId then
+        task.delay(.2,stopWatch)
     end
-    for i,name in ipairs(names) do
-        local b=button(toolList,"الحصول على: "..name,UDim2.new(),UDim2.new(1,-9,0,47),function()
-            Request:FireServer("GiveTool",nil,name)
-        end,C.tile)
-        b.LayoutOrder=i
+end)
+local home=pages["الرئيسية"]
+title(home,"لوحة التحكم")
+local role=label(home,"التحقق من صلاحيات الماب...",UDim2.fromOffset(22,72),UDim2.fromOffset(602,46),19,theme.good,true)
+label(home,"أوامر التحكم في اللاعبين يصدّقها سيرفر الماب فقط. عند تفعيل الاختفاء، تراها أنت من نسخة محلية لا يراها اللاعبون.",
+    UDim2.fromOffset(22,124),UDim2.fromOffset(604,95),15,theme.dim)
+button(home,"قائمة اللاعبين",UDim2.fromOffset(22,254),UDim2.fromOffset(288,61),function()showPage("اللاعبون")end,theme.focus)
+button(home,"الاختفاء والحركة",UDim2.fromOffset(326,254),UDim2.fromOffset(297,61),function()showPage("الشخصية")end)
+
+local players=pages["اللاعبون"]
+title(players,"اللاعبون والتحكم")
+local search=new("TextBox",players,{Position=UDim2.fromOffset(16,60),Size=UDim2.fromOffset(281,43),
+    BackgroundColor3=theme.button,BorderSizePixel=0,Text="",PlaceholderText="ابحث بالاسم...",
+    TextColor3=theme.fg,PlaceholderColor3=theme.dim,Font=Enum.Font.Gotham,
+    TextSize=15,ClearTextOnFocus=false})
+corner(search)
+local list=new("ScrollingFrame",players,{Position=UDim2.fromOffset(16,112),Size=UDim2.fromOffset(282,278),
+    BackgroundColor3=theme.sidebar,BorderSizePixel=0,ScrollBarThickness=5,
+    CanvasSize=UDim2.fromOffset(0,0),AutomaticCanvasSize=Enum.AutomaticSize.None})
+corner(list)
+new("UIListLayout",list,{Padding=UDim.new(0,4),SortOrder=Enum.SortOrder.LayoutOrder})
+local chosen=label(players,"حدد لاعبًا",UDim2.fromOffset(307,58),UDim2.fromOffset(326,46),16,theme.accent,true)
+local function refresh()
+    for _,x in ipairs(list:GetChildren()) do if x:IsA("TextButton") then x:Destroy() end end
+    local query=search.Text:lower()
+    local names=Players:GetPlayers()
+    table.sort(names,function(a,b) return a.Name:lower()<b.Name:lower() end)
+    local count=0
+    for _,p in ipairs(names) do
+        if p~=me and (query=="" or p.Name:lower():find(query,1,true) or p.DisplayName:lower():find(query,1,true)) then
+            count+=1
+            local b=button(list,p.DisplayName.."  (@"..p.Name..")",UDim2.fromOffset(0,0),
+                UDim2.new(1,-11,0,46),function()
+                    selectedId=p.UserId
+                    chosen.Text="المحدد: "..p.DisplayName
+                    refresh()
+                end,selectedId==p.UserId and theme.focus or theme.button)
+            b.LayoutOrder=count
+            b.TextSize=12
+        end
+    end
+    list.CanvasSize=UDim2.fromOffset(0,math.max(3,count*50+8))
+end
+search:GetPropertyChangedSignal("Text"):Connect(refresh)
+Players.PlayerAdded:Connect(refresh)
+Players.PlayerRemoving:Connect(function(p)
+    if selectedId==p.UserId then selectedId=nil; chosen.Text="حدد لاعبًا" end
+    if watchedId==p.UserId then stopWatch() end
+    task.defer(refresh)
+end)
+refresh()
+local function command(action)
+    local p=selected()
+    if not p then note("اختر لاعبًا من القائمة") return end
+    Request:FireServer(action,p.UserId)
+end
+button(players,"مشاهدة",UDim2.fromOffset(309,115),UDim2.fromOffset(150,44),watch,theme.focus)
+button(players,"إيقاف المشاهدة",UDim2.fromOffset(473,115),UDim2.fromOffset(155,44),stopWatch)
+button(players,"انتقل إليه",UDim2.fromOffset(309,171),UDim2.fromOffset(150,44),function()command("Teleport")end)
+button(players,"اسحبه عندي",UDim2.fromOffset(473,171),UDim2.fromOffset(155,44),function()command("Bring")end,theme.focus)
+button(players,"تجميد إداري",UDim2.fromOffset(309,227),UDim2.fromOffset(150,44),function()command("Freeze")end)
+button(players,"إلغاء التجميد",UDim2.fromOffset(473,227),UDim2.fromOffset(155,44),function()command("Unfreeze")end)
+label(players,"الصوت يحتاج دردشة Roblox الصوتية وتوافق المسافة وإعدادات السيرفر. المشاهدة ليست نقلًا للصوت.",
+    UDim2.fromOffset(310,286),UDim2.fromOffset(316,92),12,theme.dim)
+
+local self=pages["الشخصية"]
+title(self,"الاختفاء والتحكم")
+local invisibleButton
+invisibleButton=button(self,"اختفاء السيرفر (أنت تشوف نفسك): تشغيل",UDim2.fromOffset(20,65),UDim2.fromOffset(611,53),function()
+    if not localHidden then buildGhost() end
+    Request:FireServer("Invisible")
+end,theme.focus)
+local speed=new("TextBox",self,{Position=UDim2.fromOffset(20,141),Size=UDim2.fromOffset(130,44),
+    Text="26",Font=Enum.Font.GothamBold,TextSize=16,TextColor3=theme.fg,
+    BackgroundColor3=theme.button,BorderSizePixel=0,ClearTextOnFocus=false})
+corner(speed)
+button(self,"تطبيق السرعة",UDim2.fromOffset(164,141),UDim2.fromOffset(186,44),function()
+    Request:FireServer("Speed",nil,tonumber(speed.Text))
+end)
+local jump=new("TextBox",self,{Position=UDim2.fromOffset(367,141),Size=UDim2.fromOffset(110,44),
+    Text="70",Font=Enum.Font.GothamBold,TextSize=16,TextColor3=theme.fg,
+    BackgroundColor3=theme.button,BorderSizePixel=0,ClearTextOnFocus=false})
+corner(jump)
+button(self,"قفز",UDim2.fromOffset(490,141),UDim2.fromOffset(139,44),function()
+    Request:FireServer("Jump",nil,tonumber(jump.Text))
+end)
+local flying=false
+local flyConnection,flyAttachment,flyVelocity,flyAlign
+local upHeld,downHeld=false,false
+local function stopFly()
+    flying=false
+    if flyConnection then flyConnection:Disconnect(); flyConnection=nil end
+    if flyVelocity then flyVelocity:Destroy(); flyVelocity=nil end
+    if flyAlign then flyAlign:Destroy(); flyAlign=nil end
+    if flyAttachment then flyAttachment:Destroy(); flyAttachment=nil end
+    local h=me.Character and me.Character:FindFirstChildOfClass("Humanoid")
+    if h then h.PlatformStand=false; h.AutoRotate=true end
+end
+local flyBtn
+local function startFly()
+    local c=me.Character
+    local h=c and c:FindFirstChildOfClass("Humanoid")
+    local root=c and c:FindFirstChild("HumanoidRootPart")
+    if not h or not root then note("الشخصية غير جاهزة للطيران") return end
+    if flying then return end
+    flying=true
+    flyAttachment=new("Attachment",root,{Name="NOVA_FlyPoint"})
+    flyVelocity=new("LinearVelocity",root,{
+        Attachment0=flyAttachment,RelativeTo=Enum.ActuatorRelativeTo.World,
+        MaxForce=math.huge,ForceLimitsEnabled=false,VectorVelocity=Vector3.zero
+    })
+    flyAlign=new("AlignOrientation",root,{
+        Attachment0=flyAttachment,Mode=Enum.OrientationAlignmentMode.OneAttachment,
+        MaxTorque=math.huge,Responsiveness=15
+    })
+    h.PlatformStand=true
+    flyConnection=RunService.Heartbeat:Connect(function()
+        if not root.Parent or not h.Parent then stopFly(); return end
+        local camera=workspace.CurrentCamera
+        if not camera then return end
+        local motion=h.MoveDirection
+        local vertical=0
+        if UIS:IsKeyDown(Enum.KeyCode.Space) or upHeld then vertical+=1 end
+        if UIS:IsKeyDown(Enum.KeyCode.LeftControl) or downHeld then vertical-=1 end
+        local direction=motion+Vector3.new(0,vertical,0)
+        if direction.Magnitude>1 then direction=direction.Unit end
+        flyVelocity.VectorVelocity=direction*65
+        local flat=Vector3.new(camera.CFrame.LookVector.X,0,camera.CFrame.LookVector.Z)
+        if flat.Magnitude>.02 then
+            flyAlign.CFrame=CFrame.lookAt(Vector3.zero,flat)
+        end
+    end)
+end
+flyBtn=button(self,"الطيران: تشغيل",UDim2.fromOffset(20,206),UDim2.fromOffset(270,49),function()
+    if flying then stopFly() else startFly() end
+    flyBtn.Text=flying and "الطيران: إيقاف" or "الطيران: تشغيل"
+end,theme.focus)
+local upButton=button(self,"↑ صعود",UDim2.fromOffset(308,206),UDim2.fromOffset(151,49),function()end)
+local downButton=button(self,"↓ نزول",UDim2.fromOffset(475,206),UDim2.fromOffset(152,49),function()end)
+local function hold(btn,which)
+    btn.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then
+            if which=="up" then upHeld=true else downHeld=true end
+        end
+    end)
+    btn.InputEnded:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then
+            if which=="up" then upHeld=false else downHeld=false end
+        end
+    end)
+end
+hold(upButton,"up")
+hold(downButton,"down")
+me.CharacterAdded:Connect(function()
+    stopFly()
+    if flyBtn then flyBtn.Text="الطيران: تشغيل" end
+end)
+label(self,"WASD / عصا الحركة للتوجيه • Space للصعود • Ctrl للنزول • أزرار صعود ونزول للجوال. الطيران يعتمد على فيزياء وتجربة الماب.",
+    UDim2.fromOffset(20,280),UDim2.fromOffset(609,92),13,theme.dim)
+
+local itemPage=pages["الأدوات"]
+title(itemPage,"متجر أدوات الماب المعتمدة")
+local toolList=new("ScrollingFrame",itemPage,{Position=UDim2.fromOffset(18,71),Size=UDim2.fromOffset(603,294),
+    BackgroundColor3=theme.sidebar,BorderSizePixel=0,ScrollBarThickness=5,
+    CanvasSize=UDim2.fromOffset(0,0)})
+corner(toolList)
+new("UIListLayout",toolList,{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder})
+local function fillTools(names)
+    for _,child in ipairs(toolList:GetChildren()) do
+        if child:IsA("TextButton") or child:IsA("TextLabel") then child:Destroy() end
     end
     if #names==0 then
-        label(toolList,"أضف أدوات إلى ServerStorage / NOVA_ApprovedTools داخل مابك.",
-            UDim2.new(),UDim2.new(1,-12,0,85),14,C.muted)
+        label(toolList,"ما فيه أدوات معتمدة بعد. أضف Tools داخل ServerStorage/NOVA_ApprovedTools في مابك.",
+            UDim2.new(),UDim2.new(1,-10,0,95),14,theme.dim)
     end
-    toolList.CanvasSize=UDim2.fromOffset(0,math.max(85,#names*54))
+    for i,name in ipairs(names) do
+        local b=button(toolList,"الحصول على أداة: "..name,UDim2.new(),UDim2.new(1,-11,0,50),function()
+            Request:FireServer("GiveTool",nil,name)
+        end)
+        b.LayoutOrder=i
+    end
+    toolList.CanvasSize=UDim2.fromOffset(0,math.max(95,#names*56+8))
 end
 fillTools({})
-local invite=make("Frame",gui,{
-    AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),
-    Size=UDim2.fromOffset(410,196),BackgroundColor3=C.panel,
-    BorderSizePixel=0,Visible=false
-})
-curve(invite,12)
-make("UIStroke",invite,{Color=C.bronze,Thickness=1.2})
-local inviteTitle=label(invite,"طلب انتقال",UDim2.fromOffset(22,20),UDim2.fromOffset(365,85),18,C.white,true)
-button(invite,"موافقة",UDim2.fromOffset(20,119),UDim2.fromOffset(178,48),function()
-    invite.Visible=false
-    Request:FireServer("BringReply",nil,true)
-end,C.active)
-button(invite,"رفض",UDim2.fromOffset(211,119),UDim2.fromOffset(178,48),function()
-    invite.Visible=false
-    Request:FireServer("BringReply",nil,false)
+
+local settings=pages["الإعدادات"]
+title(settings,"إعدادات العرض")
+local lightOn=false
+local saved={Brightness=Lighting.Brightness,Ambient=Lighting.Ambient,
+    OutdoorAmbient=Lighting.OutdoorAmbient,FogEnd=Lighting.FogEnd,ClockTime=Lighting.ClockTime}
+local lightButton
+lightButton=button(settings,"إضاءة كاملة: تشغيل",UDim2.fromOffset(19,72),UDim2.fromOffset(608,55),function()
+    lightOn=not lightOn
+    if lightOn then
+        Lighting.Brightness=3; Lighting.Ambient=Color3.fromRGB(230,230,230)
+        Lighting.OutdoorAmbient=Color3.fromRGB(230,230,230); Lighting.FogEnd=100000
+        Lighting.ClockTime=12
+    else
+        for key,v in pairs(saved) do Lighting[key]=v end
+    end
+    lightButton.Text=lightOn and "إضاءة كاملة: إيقاف" or "إضاءة كاملة: تشغيل"
 end)
-Reply.OnClientEvent:Connect(function(tag,data)
-    if tag=="Notice" then
-        note(data)
-    elseif tag=="Welcome" and type(data)=="table" then
-        fillTools(type(data.tools)=="table" and data.tools or {})
-        note(data.admin and "الصلاحيات الإدارية مفعّلة" or "واجهة مشاهدة فقط: لا تملك صلاحيات الإدارة")
-    elseif tag=="InvisibleStatus" then
-        invisibleBtn.Text=data and "اختفاء كامل: إيقاف" or "اختفاء كامل: تشغيل"
-    elseif tag=="BringInvite" and type(data)=="table" then
-        inviteTitle.Text=tostring(data.name).." يطلب منك الانتقال إليه. هل توافق؟"
-        invite.Visible=true
+button(settings,"تصغير القائمة",UDim2.fromOffset(19,151),UDim2.fromOffset(608,55),hideMenu,theme.focus)
+label(settings,"الأدوات التي يحملها اللاعب من المخزن المعتمد تتكرر من الخادم ويمكن للآخرين رؤيتها عندما تُجهّز بالشخصية.",
+    UDim2.fromOffset(19,245),UDim2.fromOffset(608,97),14,theme.dim)
+
+Reply.OnClientEvent:Connect(function(kind,payload)
+    if kind=="Welcome" and type(payload)=="table" then
+        role.Text=payload.admin and "صلاحيات إدارة الماب: مفعّلة" or "ليس لديك صلاحيات إدارة هذا الماب"
+        role.TextColor3=payload.admin and theme.good or theme.accent
+        fillTools(type(payload.tools)=="table" and payload.tools or {})
+        localHidden=payload.hidden==true
+        if localHidden then buildGhost() else clearGhost() end
+        invisibleButton.Text=localHidden and "اختفاء السيرفر: إيقاف" or "اختفاء السيرفر (أنت تشوف نفسك): تشغيل"
+        note(payload.admin and "القائمة جاهزة؛ أوامر الإدارة مفعّلة" or "القائمة جاهزة؛ أوامر الإدارة تحتاج تفويض")
+    elseif kind=="InvisibleStatus" then
+        localHidden=payload==true
+        if localHidden then
+            if not ghost then buildGhost() end
+        else
+            clearGhost()
+        end
+        invisibleButton.Text=localHidden and "اختفاء السيرفر: إيقاف" or "اختفاء السيرفر (أنت تشوف نفسك): تشغيل"
+    elseif kind=="Notice" then
+        note(payload)
     end
 end)
 Request:FireServer("Hello")
-print("[NOVA v9] Client loaded")
-
-]======]
-local function setScript(parent, className, name, source)
-    local previous = parent:FindFirstChild(name)
-    if previous then previous:Destroy() end
-    local script = Instance.new(className)
-    script.Name = name
-    script.Source = source
-    script.Parent = parent
-    return script
-end
-setScript(ServerScriptService, "Script", "NOVA_PRO_v9_Server", SERVER_SOURCE)
-setScript(container, "LocalScript", "NOVA_PRO_v9_Client", CLIENT_SOURCE)
-print("[NOVA v9] Installed server+client. Configure ADMIN_IDS in ServerScriptService, then Play.")
+print("[NOVA v10] client UI loaded")
+]========]
+install(SSS, "Script", "NOVA_PRO_v10_Server", SERVER)
+install(SP:WaitForChild("StarterPlayerScripts"), "LocalScript", "NOVA_PRO_v10_Client", CLIENT)
+print("[NOVA PRO v10] INSTALLED. Add approved Tool objects in ServerStorage/NOVA_ApprovedTools; Play to test.")
