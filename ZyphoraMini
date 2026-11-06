@@ -1,70 +1,77 @@
+-- Nova Script for cCraft Space
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-local Players = game:GetService("Players")
+
+local Window = Fluent:CreateWindow({Title="Nova Hub | cCraft Space", SubTitle="Professional Tools", TabWidth=160, Size=UDim2.fromOffset(580,460), Acrylic=true, Theme="Dark", MinimizeKey=Enum.KeyCode.LeftControl})
+local Tabs = {Main = Window:AddTab({Title="التحكم الأساسي", Icon=""}), Players = Window:AddTab({Title="اللاعبين", Icon=""})}
+
+local Player = game.Players.LocalPlayer
+local Mouse = Player:GetMouse()
 local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
 
-local Window = Fluent:CreateWindow({Title="cCraft Space | Pro Script", SubTitle="by Nova", TabWidth=160, Size=UDim2.fromOffset(580, 460), Acrylic=true, Theme="Dark", MinimizeKey=Enum.KeyCode.LeftControl})
-local Tabs = {Main = Window:AddTab({Title="التحكم", Icon=""}), Players = Window:AddTab({Title="اللاعبين", Icon=""})}
-
--- Flight Logic
-local FlightSpeed = 50
+-- Fly Logic
 local Flying = false
-local FlyConnection
+local FlySpeed = 50
+local BodyVelocity, BodyGyro
 
-local function ToggleFlight(state)
+local function ToggleFly(state)
     Flying = state
     if Flying then
-        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local bv = Instance.new("BodyVelocity", hrp)
-        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bv.Velocity = Vector3.new(0, 0, 0)
-        FlyConnection = RunService.RenderStepped:Connect(function()
-            local cam = workspace.CurrentCamera
-            bv.Velocity = cam.CFrame.LookVector * FlightSpeed
-        end)
+        local hrp = Player.Character:WaitForChild("HumanoidRootPart")
+        BodyVelocity = Instance.new("BodyVelocity", hrp)
+        BodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        BodyGyro = Instance.new("BodyGyro", hrp)
+        BodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        BodyGyro.CFrame = hrp.CFrame
     else
-        if FlyConnection then FlyConnection:Disconnect() end
-        if LocalPlayer.Character:FindFirstChild("HumanoidRootPart"):FindFirstChild("BodyVelocity") then
-            LocalPlayer.Character.HumanoidRootPart.BodyVelocity:Destroy()
-        end
+        if BodyVelocity then BodyVelocity:Destroy() end
+        if BodyGyro then BodyGyro:Destroy() end
     end
 end
 
+RunService.RenderStepped:Connect(function()
+    if Flying and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = Player.Character.HumanoidRootPart
+        local cam = workspace.CurrentCamera
+        BodyGyro.CFrame = cam.CFrame
+        BodyVelocity.Velocity = (cam.CFrame.LookVector * (Mouse.Hit.Position - hrp.Position).Unit * FlySpeed)
+    end
+end)
+
 -- UI Elements
-Tabs.Main:AddToggle("FlyToggle", {Title="طيران (Flight)", Default=false}):OnChanged(ToggleFlight)
-Tabs.Main:AddSlider("SpeedSlider", {Title="السرعة", Default=16, Min=16, Max=200, Rounding=0, Callback=function(v) LocalPlayer.Character.Humanoid.WalkSpeed = v end})
+Tabs.Main:AddToggle("FlyToggle", {Title="طيران (Fly)", Default=false}):OnChanged(function(v) ToggleFly(v) end)
+Tabs.Main:AddSlider("SpeedSlider", {Title="السرعة", Default=16, Min=16, Max=200, Callback=function(v) Player.Character.Humanoid.WalkSpeed = v end})
 
-Tabs.Main:AddToggle("InvisToggle", {Title="إخفاء الشخصية", Default=false}):OnChanged(function(state)
-    for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-        if part:IsA("BasePart") then part.Transparency = state and 1 or 0 end
+Tabs.Main:AddToggle("InvisToggle", {Title="إخفاء الشخصية", Default=false}):OnChanged(function(v)
+    for _, part in pairs(Player.Character:GetDescendants()) do
+        if part:IsA("BasePart") then part.Transparency = v and 1 or 0 end
     end
 end)
 
--- Player Interaction
-local SelectedPlayer = nil
-Tabs.Players:AddDropdown("PlayerDrop", {Title="اختر لاعب", Values={}, Multi=false, Callback=function(v) SelectedPlayer = v end})
+-- Player Actions
+local TargetName = ""
+Tabs.Players:AddInput("TargetInput", {Title="اسم اللاعب", Default="", Placeholder="اكتب الاسم هنا", Callback=function(v) TargetName = v end})
 
-Tabs.Players:AddButton({Title="سحب اللاعب", Callback=function()
-    if SelectedPlayer and Players[SelectedPlayer] then
-        Players[SelectedPlayer].Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+Tabs.Players:AddButton({Title="سحب اللاعب (Pull)", Callback=function()
+    local target = game.Players:FindFirstChild(TargetName)
+    if target and target.Character then
+        target.Character:MoveTo(Player.Character.HumanoidRootPart.Position + Vector3.new(5,0,0))
     end
 end})
 
-Tabs.Players:AddButton({Title="تجميد اللاعب", Callback=function()
-    if SelectedPlayer and Players[SelectedPlayer] then
-        Players[SelectedPlayer].Character.HumanoidRootPart.Anchored = true
+Tabs.Players:AddButton({Title="تجميد اللاعب (Freeze)", Callback=function()
+    local target = game.Players:FindFirstChild(TargetName)
+    if target and target.Character then
+        target.Character.HumanoidRootPart.Anchored = true
     end
 end})
 
--- Refresh Player List
-task.spawn(function()
-    while true do
-        local names = {}
-        for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(names, p.Name) end end
-        Fluent.Options.PlayerDrop:SetValues(names)
-        task.wait(5)
+Tabs.Players:AddButton({Title="انتقال للاعب (TP)", Callback=function()
+    local target = game.Players:FindFirstChild(TargetName)
+    if target and target.Character then
+        Player.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
     end
-end)
+end})
 
-Fluent:Notify({Title="cCraft Space", Content="تم تحميل السكريبت بنجاح!", Duration=5})
+Fluent:Notify({Title="Nova Hub", Content="تم تحميل السكريبت بنجاح!", Duration=5})
 Window:SelectTab(1)
