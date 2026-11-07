@@ -1,20 +1,21 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║           السكربت الشامل v2.0                             ║
-    ║          كل المميزات — محلي                                ║
+    ║           السكربت الفخم v3.0                              ║
+    ║          خلفية احترافية — كل الأنماط                       ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui", 12)
 
 if not PG then return end
 
 -- تنظيف
-for _, name in ipairs({"السكربت_الشامل"}) do
+for _, name in ipairs({"السكربت_الفخم"}) do
     local old = PG:FindFirstChild(name)
     if old then old:Destroy() end
 end
@@ -65,77 +66,376 @@ local function root()
 end
 
 -- واجهة
-local gui = inst("ScreenGui", {Name = "السكربت_الشامل", ResetOnSpawn = false, DisplayOrder = 90}, PG)
+local gui = inst("ScreenGui", {Name = "السكربت_الفخم", ResetOnSpawn = false, DisplayOrder = 90}, PG)
 
+-- الإطار الرئيسي
 local main = inst("Frame", {
-    Size = UDim2.fromOffset(450, 550),
-    Position = UDim2.new(0.5, -225, 0.5, -275),
-    BackgroundColor3 = Color3.fromRGB(10, 10, 15),
+    Size = UDim2.fromOffset(480, 620),
+    Position = UDim2.new(0.5, -240, 0.5, -310),
+    BackgroundColor3 = Color3.fromRGB(8, 8, 12),
     BorderSizePixel = 0,
     Active = true,
     Draggable = true
 }, gui)
-round(main, 14)
-inst("UIStroke", {Color = Color3.fromRGB(200, 0, 255), Thickness = 2}, main)
+round(main, 18)
+inst("UIStroke", {Color = Color3.fromRGB(180, 100, 255), Thickness = 2.5}, main)
 
--- ترويسة
-local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 45), BackgroundColor3 = Color3.fromRGB(20, 12, 35), BorderSizePixel = 0}, main)
-round(head, 14)
+-- ========================================
+-- خلفية فخمة — كل الأنماط
+-- ========================================
 
-inst("TextLabel", {Size = UDim2.new(1, -50, 1, 0), Position = UDim2.fromOffset(15, 0), BackgroundTransparency = 1, Text = "⚡ السكربت الشامل", TextColor3 = Color3.fromRGB(255, 180, 255), Font = Enum.Font.GothamBold, TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left}, head)
+-- 1. تدرج لوني أساسي
+local bgGradient = inst("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 5, 45)),
+        ColorSequenceKeypoint.new(0.3, Color3.fromRGB(15, 5, 30)),
+        ColorSequenceKeypoint.new(0.7, Color3.fromRGB(10, 5, 20)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 12))
+    }),
+    Rotation = 135
+}, main)
 
-local close = inst("TextButton", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, -33, 0, 8), BackgroundColor3 = Color3.fromRGB(255, 80, 80), Text = "×", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 18}, head)
-round(close, 6)
+-- 2. توهج خارجي
+local outerGlow = inst("ImageLabel", {
+    Size = UDim2.new(1, 80, 1, 80),
+    Position = UDim2.new(0, -40, 0, -40),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://5028857084",
+    ImageColor3 = Color3.fromRGB(150, 80, 255),
+    ImageTransparency = 0.85,
+    ScaleType = Enum.ScaleType.Slice,
+    SliceCenter = Rect.new(24, 24, 276, 276)
+}, main)
 
--- محتوى
-local content = inst("ScrollingFrame", {Size = UDim2.new(1, -12, 1, -55), Position = UDim2.fromOffset(6, 50), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, main)
-inst("UIListLayout", {Padding = UDim.new(0, 6)}, content)
+-- 3. توهج داخلي
+local innerGlow = inst("ImageLabel", {
+    Size = UDim2.new(1, -20, 1, -20),
+    Position = UDim2.new(0, 10, 0, 10),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://5028857084",
+    ImageColor3 = Color3.fromRGB(100, 50, 200),
+    ImageTransparency = 0.92,
+    ScaleType = Enum.ScaleType.Slice,
+    SliceCenter = Rect.new(24, 24, 276, 276)
+}, main)
 
--- زر
+-- 4. خطوط زخرفية
+local lineTop = inst("Frame", {
+    Size = UDim2.new(1, -30, 0, 1),
+    Position = UDim2.new(0, 15, 0, 55),
+    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
+    BackgroundTransparency = 0.5,
+    BorderSizePixel = 0
+}, main)
+
+local lineBottom = inst("Frame", {
+    Size = UDim2.new(1, -30, 0, 1),
+    Position = UDim2.new(0, 15, 1, -10),
+    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
+    BackgroundTransparency = 0.5,
+    BorderSizePixel = 0
+}, main)
+
+-- 5. زخارف زاوية
+local cornerTL = inst("Frame", {
+    Size = UDim2.fromOffset(30, 30),
+    Position = UDim2.new(0, 5, 0, 5),
+    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
+    BackgroundTransparency = 0.7,
+    BorderSizePixel = 0
+}, main)
+round(cornerTL, 8)
+
+local cornerTR = inst("Frame", {
+    Size = UDim2.fromOffset(30, 30),
+    Position = UDim2.new(1, -35, 0, 5),
+    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
+    BackgroundTransparency = 0.7,
+    BorderSizePixel = 0
+}, main)
+round(cornerTR, 8)
+
+local cornerBL = inst("Frame", {
+    Size = UDim2.fromOffset(30, 30),
+    Position = UDim2.new(0, 5, 1, -35),
+    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
+    BackgroundTransparency = 0.7,
+    BorderSizePixel = 0
+}, main)
+round(cornerBL, 8)
+
+local cornerBR = inst("Frame", {
+    Size = UDim2.fromOffset(30, 30),
+    Position = UDim2.new(1, -35, 1, -35),
+    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
+    BackgroundTransparency = 0.7,
+    BorderSizePixel = 0
+}, main)
+round(cornerBR, 8)
+
+-- 6. نقاط زخرفية
+for i = 1, 5 do
+    local dot = inst("Frame", {
+        Size = UDim2.fromOffset(4, 4),
+        Position = UDim2.new(0, 20 + (i-1) * 15, 0, 62),
+        BackgroundColor3 = Color3.fromRGB(180, 100, 255),
+        BackgroundTransparency = 0.4,
+        BorderSizePixel = 0
+    }, main)
+    round(dot, 2)
+end
+
+-- ========================================
+-- الترويسة الفخمة
+-- ========================================
+
+local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = Color3.fromRGB(20, 10, 35), BorderSizePixel = 0}, main)
+round(head, 18)
+
+-- تدرج الترويسة
+local headGradient = inst("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 40, 150)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(50, 25, 100)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 15, 60))
+    }),
+    Rotation = 90
+}, head)
+
+-- خط الترويسة
+local headLine = inst("Frame", {
+    Size = UDim2.new(1, -20, 0, 2),
+    Position = UDim2.new(0, 10, 1, -2),
+    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
+    BorderSizePixel = 0
+}, head)
+
+inst("TextLabel", {
+    Size = UDim2.new(1, -100, 1, 0),
+    Position = UDim2.fromOffset(20, 0),
+    BackgroundTransparency = 1,
+    Text = "👑 السكربت الفخم",
+    TextColor3 = Color3.fromRGB(220, 180, 255),
+    Font = Enum.Font.GothamBold,
+    TextSize = 22,
+    TextXAlignment = Enum.TextXAlignment.Left
+}, head)
+
+local close = inst("TextButton", {
+    Size = UDim2.fromOffset(32, 32),
+    Position = UDim2.new(1, -40, 0, 9),
+    BackgroundColor3 = Color3.fromRGB(200, 50, 80),
+    Text = "×",
+    TextColor3 = Color3.new(1,1,1),
+    Font = Enum.Font.GothamBold,
+    TextSize = 20
+}, head)
+round(close, 8)
+
+-- توهج زر الإغلاق
+local closeGlow = inst("ImageLabel", {
+    Size = UDim2.new(1, 10, 1, 10),
+    Position = UDim2.new(0, -5, 0, -5),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://5028857084",
+    ImageColor3 = Color3.fromRGB(255, 50, 80),
+    ImageTransparency = 0.7,
+    ScaleType = Enum.ScaleType.Slice,
+    SliceCenter = Rect.new(24, 24, 276, 276)
+}, close)
+
+-- ========================================
+-- المحتوى
+-- ========================================
+
+local content = inst("ScrollingFrame", {
+    Size = UDim2.new(1, -20, 1, -65),
+    Position = UDim2.fromOffset(10, 58),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 4,
+    ScrollBarImageColor3 = Color3.fromRGB(180, 100, 255),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    CanvasSize = UDim2.new()
+}, main)
+
+inst("UIListLayout", {Padding = UDim.new(0, 8)}, content)
+inst("UIPadding", {PaddingRight = UDim.new(0, 5)}, content)
+
+-- زر فخم
 local function btn(title, icon, key, color)
-    local b = inst("TextButton", {Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = Color3.fromRGB(30, 25, 45), BorderSizePixel = 0, Text = ""}, content)
-    round(b, 10)
+    local b = inst("TextButton", {
+        Size = UDim2.new(1, 0, 0, 55),
+        BackgroundColor3 = Color3.fromRGB(25, 20, 40),
+        BorderSizePixel = 0,
+        Text = "",
+        AutoButtonColor = false
+    }, content)
+    round(b, 12)
     
-    inst("TextLabel", {Size = UDim2.fromOffset(38, 38), Position = UDim2.fromOffset(8, 6), BackgroundTransparency = 1, Text = icon, Font = Enum.Font.Gotham, TextSize = 22, TextColor3 = Color3.new(1,1,1)}, b)
-    inst("TextLabel", {Size = UDim2.new(1, -50, 0, 22), Position = UDim2.fromOffset(50, 6), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, b)
+    -- تدرج الزر
+    local btnGradient = inst("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 30, 60)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 15, 35))
+        }),
+        Rotation = 90
+    }, b)
     
-    local state = inst("TextLabel", {Size = UDim2.new(1, -50, 0, 16), Position = UDim2.fromOffset(50, 28), BackgroundTransparency = 1, Text = "مطفأ", TextColor3 = Color3.fromRGB(170, 170, 170), Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, b)
+    -- خط جانبي
+    local sideLine = inst("Frame", {
+        Size = UDim2.fromOffset(3, 30),
+        Position = UDim2.new(0, 0, 0.5, -15),
+        BackgroundColor3 = color or Color3.fromRGB(150, 80, 255),
+        BorderSizePixel = 0
+    }, b)
+    round(sideLine, 2)
+    
+    inst("TextLabel", {
+        Size = UDim2.fromOffset(40, 40),
+        Position = UDim2.fromOffset(12, 7),
+        BackgroundTransparency = 1,
+        Text = icon,
+        Font = Enum.Font.Gotham,
+        TextSize = 24,
+        TextColor3 = Color3.new(1,1,1)
+    }, b)
+    
+    inst("TextLabel", {
+        Size = UDim2.new(1, -60, 0, 24),
+        Position = UDim2.fromOffset(58, 8),
+        BackgroundTransparency = 1,
+        Text = title,
+        TextColor3 = Color3.new(1,1,1),
+        Font = Enum.Font.GothamBold,
+        TextSize = 15,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, b)
+    
+    local state = inst("TextLabel", {
+        Size = UDim2.new(1, -60, 0, 18),
+        Position = UDim2.fromOffset(58, 32),
+        BackgroundTransparency = 1,
+        Text = "مطفأ",
+        TextColor3 = Color3.fromRGB(160, 160, 160),
+        Font = Enum.Font.GothamBold,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, b)
     
     local on = false
     conn(b.MouseButton1Click, function()
         on = not on
         S[key] = on
         state.Text = on and "مشغّل ✓" or "مطفأ"
-        state.TextColor3 = on and Color3.fromRGB(140, 255, 180) or Color3.fromRGB(170, 170, 170)
-        b.BackgroundColor3 = on and (color or Color3.fromRGB(100, 50, 150)) or Color3.fromRGB(30, 25, 45)
+        state.TextColor3 = on and Color3.fromRGB(140, 255, 180) or Color3.fromRGB(160, 160, 160)
+        
+        if on then
+            btnGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, color or Color3.fromRGB(100, 50, 180)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 25, 90))
+            })
+        else
+            btnGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 30, 60)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 15, 35))
+            })
+        end
     end)
     
     return b
 end
 
--- قسم
+-- قسم فخم
 local function section(text)
-    local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1}, content)
-    inst("TextLabel", {Size = UDim2.new(1, -10, 1, 0), Position = UDim2.fromOffset(8, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(255, 180, 255), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, s)
+    local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1}, content)
+    
+    -- خط القسم
+    local line = inst("Frame", {
+        Size = UDim2.new(1, -10, 0, 1),
+        Position = UDim2.new(0, 5, 1, -5),
+        BackgroundColor3 = Color3.fromRGB(150, 80, 255),
+        BackgroundTransparency = 0.6,
+        BorderSizePixel = 0
+    }, s)
+    
+    inst("TextLabel", {
+        Size = UDim2.new(1, -10, 1, 0),
+        Position = UDim2.fromOffset(10, 0),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = Color3.fromRGB(200, 150, 255),
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, s)
 end
 
--- منزلق
+-- منزلق فخم
 local function slider(title, key, min, max, default)
-    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = Color3.fromRGB(30, 25, 45), BorderSizePixel = 0}, content)
-    round(f, 10)
+    local f = inst("Frame", {
+        Size = UDim2.new(1, 0, 0, 55),
+        BackgroundColor3 = Color3.fromRGB(25, 20, 40),
+        BorderSizePixel = 0
+    }, content)
+    round(f, 12)
     
-    inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 18), Position = UDim2.fromOffset(12, 4), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, f)
+    inst("TextLabel", {
+        Size = UDim2.new(0.6, 0, 0, 20),
+        Position = UDim2.fromOffset(14, 6),
+        BackgroundTransparency = 1,
+        Text = title,
+        TextColor3 = Color3.new(1,1,1),
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, f)
     
-    local val = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 18), Position = UDim2.new(0.7, -8, 0, 4), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = Color3.fromRGB(255, 180, 255), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right}, f)
+    local val = inst("TextLabel", {
+        Size = UDim2.new(0.3, 0, 0, 20),
+        Position = UDim2.new(0.7, -10, 0, 6),
+        BackgroundTransparency = 1,
+        Text = tostring(default),
+        TextColor3 = Color3.fromRGB(200, 150, 255),
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Right
+    }, f)
     
-    local bg = inst("Frame", {Size = UDim2.new(1, -24, 0, 6), Position = UDim2.fromOffset(12, 32), BackgroundColor3 = Color3.fromRGB(45, 40, 60), BorderSizePixel = 0}, f)
+    local bg = inst("Frame", {
+        Size = UDim2.new(1, -28, 0, 6),
+        Position = UDim2.fromOffset(14, 36),
+        BackgroundColor3 = Color3.fromRGB(40, 35, 55),
+        BorderSizePixel = 0
+    }, f)
     round(bg, 3)
     
-    local fill = inst("Frame", {Size = UDim2.new((default - min) / (max - min), 0, 1, 0), BackgroundColor3 = Color3.fromRGB(255, 180, 255), BorderSizePixel = 0}, bg)
+    local fill = inst("Frame", {
+        Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
+        BackgroundColor3 = Color3.fromRGB(180, 100, 255),
+        BorderSizePixel = 0
+    }, bg)
     round(fill, 3)
     
-    local handle = inst("Frame", {Size = UDim2.fromOffset(16, 16), Position = UDim2.new((default - min) / (max - min), -8, 0.5, -8), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, bg)
-    round(handle, 8)
+    local handle = inst("Frame", {
+        Size = UDim2.fromOffset(18, 18),
+        Position = UDim2.new((default - min) / (max - min), -9, 0.5, -9),
+        BackgroundColor3 = Color3.new(1,1,1),
+        BorderSizePixel = 0
+    }, bg)
+    round(handle, 9)
+    
+    -- توهج المقبض
+    local handleGlow = inst("ImageLabel", {
+        Size = UDim2.new(1, 8, 1, 8),
+        Position = UDim2.new(0, -4, 0, -4),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://5028857084",
+        ImageColor3 = Color3.fromRGB(180, 100, 255),
+        ImageTransparency = 0.6,
+        ScaleType = Enum.ScaleType.Slice,
+        SliceCenter = Rect.new(24, 24, 276, 276)
+    }, handle)
     
     S[key] = default
     local dragging = false
@@ -146,7 +446,7 @@ local function slider(title, key, min, max, default)
         S[key] = v
         val.Text = tostring(v)
         fill.Size = UDim2.new(rel, 0, 1, 0)
-        handle.Position = UDim2.new(rel, -8, 0.5, -8)
+        handle.Position = UDim2.new(rel, -9, 0.5, -9)
     end
     
     conn(handle.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end end)
@@ -183,8 +483,15 @@ slider("مضاعف الحجم", "SizeMultiplier", 1, 20, 2)
 
 section("🎒 الأدوات")
 
-local grabAllBtn = inst("TextButton", {Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = Color3.fromRGB(0, 150, 100), Text = "🎒 جلب كل الأدوات", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 14}, content)
-round(grabAllBtn, 8)
+local grabAllBtn = inst("TextButton", {
+    Size = UDim2.new(1, 0, 0, 45),
+    BackgroundColor3 = Color3.fromRGB(0, 150, 100),
+    Text = "🎒 جلب كل الأدوات",
+    TextColor3 = Color3.new(1,1,1),
+    Font = Enum.Font.GothamBold,
+    TextSize = 15
+}, content)
+round(grabAllBtn, 10)
 
 conn(grabAllBtn.MouseButton1Click, function()
     local count = 0
@@ -201,13 +508,45 @@ end)
 section("❄️ إدارة اللاعبين")
 
 -- قائمة اللاعبين
-local playerFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 180), BackgroundColor3 = Color3.fromRGB(20, 18, 35), BorderSizePixel = 0}, content)
-round(playerFrame, 10)
+local playerFrame = inst("Frame", {
+    Size = UDim2.new(1, 0, 0, 200),
+    BackgroundColor3 = Color3.fromRGB(20, 15, 35),
+    BorderSizePixel = 0
+}, content)
+round(playerFrame, 12)
 
-inst("TextLabel", {Size = UDim2.new(1, -12, 0, 22), Position = UDim2.fromOffset(10, 6), BackgroundTransparency = 1, Text = "📋 اللاعبون", TextColor3 = Color3.fromRGB(170, 220, 255), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, playerFrame)
+-- تدرج قائمة اللاعبين
+local playerGradient = inst("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 20, 50)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 10, 30))
+    }),
+    Rotation = 90
+}, playerFrame)
 
-local playerScroll = inst("ScrollingFrame", {Size = UDim2.new(1, -12, 1, -32), Position = UDim2.fromOffset(6, 30), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, playerFrame)
-inst("UIListLayout", {Padding = UDim.new(0, 4)}, playerScroll)
+inst("TextLabel", {
+    Size = UDim2.new(1, -14, 0, 24),
+    Position = UDim2.fromOffset(12, 8),
+    BackgroundTransparency = 1,
+    Text = "📋 اللاعبون",
+    TextColor3 = Color3.fromRGB(180, 220, 255),
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    TextXAlignment = Enum.TextXAlignment.Left
+}, playerFrame)
+
+local playerScroll = inst("ScrollingFrame", {
+    Size = UDim2.new(1, -14, 1, -36),
+    Position = UDim2.fromOffset(7, 34),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 3,
+    ScrollBarImageColor3 = Color3.fromRGB(180, 220, 255),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    CanvasSize = UDim2.new()
+}, playerFrame)
+
+inst("UIListLayout", {Padding = UDim.new(0, 5)}, playerScroll)
 
 local function freezePlayer(p)
     frozenPlayers[p] = true
@@ -256,14 +595,27 @@ local function refreshPlayers()
             local isFrozen = frozenPlayers[p] == true
             local isFlying = flyingPlayers[p] ~= nil
             
-            local pf = inst("Frame", {Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = isFrozen and Color3.fromRGB(60, 80, 100) or Color3.fromRGB(40, 35, 55), BorderSizePixel = 0}, playerScroll)
-            round(pf, 8)
+            local pf = inst("Frame", {
+                Size = UDim2.new(1, 0, 0, 45),
+                BackgroundColor3 = isFrozen and Color3.fromRGB(60, 80, 110) or Color3.fromRGB(35, 30, 55),
+                BorderSizePixel = 0
+            }, playerScroll)
+            round(pf, 10)
             
             local nameText = p.DisplayName
             if isFrozen then nameText = "❄️ " .. nameText end
             if isFlying then nameText = "🚀 " .. nameText end
             
-            inst("TextLabel", {Size = UDim2.new(0.32, 0, 1, 0), Position = UDim2.fromOffset(10, 0), BackgroundTransparency = 1, Text = nameText, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, pf)
+            inst("TextLabel", {
+                Size = UDim2.new(0.32, 0, 1, 0),
+                Position = UDim2.fromOffset(12, 0),
+                BackgroundTransparency = 1,
+                Text = nameText,
+                TextColor3 = Color3.new(1,1,1),
+                Font = Enum.Font.GothamBold,
+                TextSize = 13,
+                TextXAlignment = Enum.TextXAlignment.Left
+            }, pf)
             
             local btns = {
                 {icon = "🧲", color = Color3.fromRGB(230, 160, 0), action = "drag"},
@@ -274,8 +626,16 @@ local function refreshPlayers()
             }
             
             for i, data in ipairs(btns) do
-                local b = inst("TextButton", {Size = UDim2.fromOffset(38, 30), Position = UDim2.new(1, -200 + (i-1) * 40, 0.5, -15), BackgroundColor3 = data.color, Text = data.icon, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, pf)
-                round(b, 6)
+                local b = inst("TextButton", {
+                    Size = UDim2.fromOffset(40, 32),
+                    Position = UDim2.new(1, -215 + (i-1) * 42, 0.5, -16),
+                    BackgroundColor3 = data.color,
+                    Text = data.icon,
+                    TextColor3 = Color3.new(1,1,1),
+                    Font = Enum.Font.GothamBold,
+                    TextSize = 16
+                }, pf)
+                round(b, 8)
                 
                 if data.action == "drag" then
                     conn(b.MouseButton1Click, function() draggedPlayer = p S.DragPlayers = true end)
@@ -308,13 +668,28 @@ conn(Players.PlayerAdded, function(p) task.wait(1) refreshPlayers() end)
 conn(Players.PlayerRemoving, function(p) frozenPlayers[p] = nil flyingPlayers[p] = nil refreshPlayers() end)
 
 -- أزرار سريعة
-local quickFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 35), BackgroundTransparency = 1}, content)
+local quickFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1}, content)
 
-local unfreezeBtn = inst("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(200, 100, 50), Text = "🔥 فك الكل", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 12}, quickFrame)
-round(unfreezeBtn, 8)
+local unfreezeBtn = inst("TextButton", {
+    Size = UDim2.new(0.48, 0, 1, 0),
+    BackgroundColor3 = Color3.fromRGB(200, 100, 50),
+    Text = "🔥 فك الكل",
+    TextColor3 = Color3.new(1,1,1),
+    Font = Enum.Font.GothamBold,
+    TextSize = 13
+}, quickFrame)
+round(unfreezeBtn, 10)
 
-local unflyBtn = inst("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), Position = UDim2.new(0.52, 0, 0, 0), BackgroundColor3 = Color3.fromRGB(70, 110, 180), Text = "🛬 إيقاف الطيران", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 12}, quickFrame)
-round(unflyBtn, 8)
+local unflyBtn = inst("TextButton", {
+    Size = UDim2.new(0.48, 0, 1, 0),
+    Position = UDim2.new(0.52, 0, 0, 0),
+    BackgroundColor3 = Color3.fromRGB(70, 110, 180),
+    Text = "🛬 إيقاف الطيران",
+    TextColor3 = Color3.new(1,1,1),
+    Font = Enum.Font.GothamBold,
+    TextSize = 13
+}, quickFrame)
+round(unflyBtn, 10)
 
 conn(unfreezeBtn.MouseButton1Click, function()
     for p, _ in pairs(frozenPlayers) do unfreezePlayer(p) end
@@ -496,7 +871,7 @@ end
 
 conn(close.MouseButton1Click, cleanup)
 
-print("✅ السكربت الشامل v2.0")
+print("✅ السكربت الفخم v3.0")
 print("⚠️ كل شي محلي — أنت بس تشوف")
 print("👻 اختفاء | ⚡ سرعة | 🚀 طيران | 👻 تجاوز | ⬆️ قفز")
 print("🧲 سحب | 🤗 حمل | 📍 انتقال | 👁️ رؤية | 🔍 تكبير")
