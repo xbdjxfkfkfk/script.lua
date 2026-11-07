@@ -1,14 +1,13 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║           السكربت الفخم v3.0                              ║
-    ║          خلفية احترافية — كل الأنماط                       ║
+    ║           السكربت الفخم v3.1                              ║
+    ║          + كشف الأدمن                                     ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui", 12)
 
@@ -28,6 +27,7 @@ local carriedPlayer = nil
 local espHighlights = {}
 local frozenPlayers = {}
 local flyingPlayers = {}
+local adminHighlights = {}
 
 -- الإعدادات
 local S = {
@@ -42,6 +42,7 @@ local S = {
     PlayerESP = false,
     PlayerSize = false,
     SizeMultiplier = 2,
+    AdminDetect = false,
 }
 
 -- دوال
@@ -68,10 +69,9 @@ end
 -- واجهة
 local gui = inst("ScreenGui", {Name = "السكربت_الفخم", ResetOnSpawn = false, DisplayOrder = 90}, PG)
 
--- الإطار الرئيسي
 local main = inst("Frame", {
-    Size = UDim2.fromOffset(480, 620),
-    Position = UDim2.new(0.5, -240, 0.5, -310),
+    Size = UDim2.fromOffset(480, 650),
+    Position = UDim2.new(0.5, -240, 0.5, -325),
     BackgroundColor3 = Color3.fromRGB(8, 8, 12),
     BorderSizePixel = 0,
     Active = true,
@@ -80,22 +80,16 @@ local main = inst("Frame", {
 round(main, 18)
 inst("UIStroke", {Color = Color3.fromRGB(180, 100, 255), Thickness = 2.5}, main)
 
--- ========================================
--- خلفية فخمة — كل الأنماط
--- ========================================
-
--- 1. تدرج لوني أساسي
+-- خلفية فخمة
 local bgGradient = inst("UIGradient", {
     Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 5, 45)),
-        ColorSequenceKeypoint.new(0.3, Color3.fromRGB(15, 5, 30)),
-        ColorSequenceKeypoint.new(0.7, Color3.fromRGB(10, 5, 20)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(12, 5, 25)),
         ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 12))
     }),
     Rotation = 135
 }, main)
 
--- 2. توهج خارجي
 local outerGlow = inst("ImageLabel", {
     Size = UDim2.new(1, 80, 1, 80),
     Position = UDim2.new(0, -40, 0, -40),
@@ -107,173 +101,33 @@ local outerGlow = inst("ImageLabel", {
     SliceCenter = Rect.new(24, 24, 276, 276)
 }, main)
 
--- 3. توهج داخلي
-local innerGlow = inst("ImageLabel", {
-    Size = UDim2.new(1, -20, 1, -20),
-    Position = UDim2.new(0, 10, 0, 10),
-    BackgroundTransparency = 1,
-    Image = "rbxassetid://5028857084",
-    ImageColor3 = Color3.fromRGB(100, 50, 200),
-    ImageTransparency = 0.92,
-    ScaleType = Enum.ScaleType.Slice,
-    SliceCenter = Rect.new(24, 24, 276, 276)
-}, main)
-
--- 4. خطوط زخرفية
-local lineTop = inst("Frame", {
-    Size = UDim2.new(1, -30, 0, 1),
-    Position = UDim2.new(0, 15, 0, 55),
-    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
-    BackgroundTransparency = 0.5,
-    BorderSizePixel = 0
-}, main)
-
-local lineBottom = inst("Frame", {
-    Size = UDim2.new(1, -30, 0, 1),
-    Position = UDim2.new(0, 15, 1, -10),
-    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
-    BackgroundTransparency = 0.5,
-    BorderSizePixel = 0
-}, main)
-
--- 5. زخارف زاوية
-local cornerTL = inst("Frame", {
-    Size = UDim2.fromOffset(30, 30),
-    Position = UDim2.new(0, 5, 0, 5),
-    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
-    BackgroundTransparency = 0.7,
-    BorderSizePixel = 0
-}, main)
-round(cornerTL, 8)
-
-local cornerTR = inst("Frame", {
-    Size = UDim2.fromOffset(30, 30),
-    Position = UDim2.new(1, -35, 0, 5),
-    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
-    BackgroundTransparency = 0.7,
-    BorderSizePixel = 0
-}, main)
-round(cornerTR, 8)
-
-local cornerBL = inst("Frame", {
-    Size = UDim2.fromOffset(30, 30),
-    Position = UDim2.new(0, 5, 1, -35),
-    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
-    BackgroundTransparency = 0.7,
-    BorderSizePixel = 0
-}, main)
-round(cornerBL, 8)
-
-local cornerBR = inst("Frame", {
-    Size = UDim2.fromOffset(30, 30),
-    Position = UDim2.new(1, -35, 1, -35),
-    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
-    BackgroundTransparency = 0.7,
-    BorderSizePixel = 0
-}, main)
-round(cornerBR, 8)
-
--- 6. نقاط زخرفية
-for i = 1, 5 do
-    local dot = inst("Frame", {
-        Size = UDim2.fromOffset(4, 4),
-        Position = UDim2.new(0, 20 + (i-1) * 15, 0, 62),
-        BackgroundColor3 = Color3.fromRGB(180, 100, 255),
-        BackgroundTransparency = 0.4,
-        BorderSizePixel = 0
-    }, main)
-    round(dot, 2)
-end
-
--- ========================================
--- الترويسة الفخمة
--- ========================================
-
+-- ترويسة
 local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = Color3.fromRGB(20, 10, 35), BorderSizePixel = 0}, main)
 round(head, 18)
 
--- تدرج الترويسة
 local headGradient = inst("UIGradient", {
     Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 40, 150)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(50, 25, 100)),
         ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 15, 60))
     }),
     Rotation = 90
 }, head)
 
--- خط الترويسة
-local headLine = inst("Frame", {
-    Size = UDim2.new(1, -20, 0, 2),
-    Position = UDim2.new(0, 10, 1, -2),
-    BackgroundColor3 = Color3.fromRGB(180, 100, 255),
-    BorderSizePixel = 0
-}, head)
+inst("TextLabel", {Size = UDim2.new(1, -100, 1, 0), Position = UDim2.fromOffset(20, 0), BackgroundTransparency = 1, Text = "👑 السكربت الفخم", TextColor3 = Color3.fromRGB(220, 180, 255), Font = Enum.Font.GothamBold, TextSize = 22, TextXAlignment = Enum.TextXAlignment.Left}, head)
 
-inst("TextLabel", {
-    Size = UDim2.new(1, -100, 1, 0),
-    Position = UDim2.fromOffset(20, 0),
-    BackgroundTransparency = 1,
-    Text = "👑 السكربت الفخم",
-    TextColor3 = Color3.fromRGB(220, 180, 255),
-    Font = Enum.Font.GothamBold,
-    TextSize = 22,
-    TextXAlignment = Enum.TextXAlignment.Left
-}, head)
-
-local close = inst("TextButton", {
-    Size = UDim2.fromOffset(32, 32),
-    Position = UDim2.new(1, -40, 0, 9),
-    BackgroundColor3 = Color3.fromRGB(200, 50, 80),
-    Text = "×",
-    TextColor3 = Color3.new(1,1,1),
-    Font = Enum.Font.GothamBold,
-    TextSize = 20
-}, head)
+local close = inst("TextButton", {Size = UDim2.fromOffset(32, 32), Position = UDim2.new(1, -40, 0, 9), BackgroundColor3 = Color3.fromRGB(200, 50, 80), Text = "×", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 20}, head)
 round(close, 8)
 
--- توهج زر الإغلاق
-local closeGlow = inst("ImageLabel", {
-    Size = UDim2.new(1, 10, 1, 10),
-    Position = UDim2.new(0, -5, 0, -5),
-    BackgroundTransparency = 1,
-    Image = "rbxassetid://5028857084",
-    ImageColor3 = Color3.fromRGB(255, 50, 80),
-    ImageTransparency = 0.7,
-    ScaleType = Enum.ScaleType.Slice,
-    SliceCenter = Rect.new(24, 24, 276, 276)
-}, close)
-
--- ========================================
--- المحتوى
--- ========================================
-
-local content = inst("ScrollingFrame", {
-    Size = UDim2.new(1, -20, 1, -65),
-    Position = UDim2.fromOffset(10, 58),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 4,
-    ScrollBarImageColor3 = Color3.fromRGB(180, 100, 255),
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-    CanvasSize = UDim2.new()
-}, main)
-
+-- محتوى
+local content = inst("ScrollingFrame", {Size = UDim2.new(1, -20, 1, -65), Position = UDim2.fromOffset(10, 58), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = Color3.fromRGB(180, 100, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, main)
 inst("UIListLayout", {Padding = UDim.new(0, 8)}, content)
 inst("UIPadding", {PaddingRight = UDim.new(0, 5)}, content)
 
--- زر فخم
+-- زر
 local function btn(title, icon, key, color)
-    local b = inst("TextButton", {
-        Size = UDim2.new(1, 0, 0, 55),
-        BackgroundColor3 = Color3.fromRGB(25, 20, 40),
-        BorderSizePixel = 0,
-        Text = "",
-        AutoButtonColor = false
-    }, content)
+    local b = inst("TextButton", {Size = UDim2.new(1, 0, 0, 55), BackgroundColor3 = Color3.fromRGB(25, 20, 40), BorderSizePixel = 0, Text = "", AutoButtonColor = false}, content)
     round(b, 12)
     
-    -- تدرج الزر
     local btnGradient = inst("UIGradient", {
         Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 30, 60)),
@@ -282,46 +136,13 @@ local function btn(title, icon, key, color)
         Rotation = 90
     }, b)
     
-    -- خط جانبي
-    local sideLine = inst("Frame", {
-        Size = UDim2.fromOffset(3, 30),
-        Position = UDim2.new(0, 0, 0.5, -15),
-        BackgroundColor3 = color or Color3.fromRGB(150, 80, 255),
-        BorderSizePixel = 0
-    }, b)
+    local sideLine = inst("Frame", {Size = UDim2.fromOffset(3, 30), Position = UDim2.new(0, 0, 0.5, -15), BackgroundColor3 = color or Color3.fromRGB(150, 80, 255), BorderSizePixel = 0}, b)
     round(sideLine, 2)
     
-    inst("TextLabel", {
-        Size = UDim2.fromOffset(40, 40),
-        Position = UDim2.fromOffset(12, 7),
-        BackgroundTransparency = 1,
-        Text = icon,
-        Font = Enum.Font.Gotham,
-        TextSize = 24,
-        TextColor3 = Color3.new(1,1,1)
-    }, b)
+    inst("TextLabel", {Size = UDim2.fromOffset(40, 40), Position = UDim2.fromOffset(12, 7), BackgroundTransparency = 1, Text = icon, Font = Enum.Font.Gotham, TextSize = 24, TextColor3 = Color3.new(1,1,1)}, b)
+    inst("TextLabel", {Size = UDim2.new(1, -60, 0, 24), Position = UDim2.fromOffset(58, 8), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
-    inst("TextLabel", {
-        Size = UDim2.new(1, -60, 0, 24),
-        Position = UDim2.fromOffset(58, 8),
-        BackgroundTransparency = 1,
-        Text = title,
-        TextColor3 = Color3.new(1,1,1),
-        Font = Enum.Font.GothamBold,
-        TextSize = 15,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, b)
-    
-    local state = inst("TextLabel", {
-        Size = UDim2.new(1, -60, 0, 18),
-        Position = UDim2.fromOffset(58, 32),
-        BackgroundTransparency = 1,
-        Text = "مطفأ",
-        TextColor3 = Color3.fromRGB(160, 160, 160),
-        Font = Enum.Font.GothamBold,
-        TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, b)
+    local state = inst("TextLabel", {Size = UDim2.new(1, -60, 0, 18), Position = UDim2.fromOffset(58, 32), BackgroundTransparency = 1, Text = "مطفأ", TextColor3 = Color3.fromRGB(160, 160, 160), Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, b)
     
     local on = false
     conn(b.MouseButton1Click, function()
@@ -346,96 +167,32 @@ local function btn(title, icon, key, color)
     return b
 end
 
--- قسم فخم
+-- قسم
 local function section(text)
     local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1}, content)
     
-    -- خط القسم
-    local line = inst("Frame", {
-        Size = UDim2.new(1, -10, 0, 1),
-        Position = UDim2.new(0, 5, 1, -5),
-        BackgroundColor3 = Color3.fromRGB(150, 80, 255),
-        BackgroundTransparency = 0.6,
-        BorderSizePixel = 0
-    }, s)
+    local line = inst("Frame", {Size = UDim2.new(1, -10, 0, 1), Position = UDim2.new(0, 5, 1, -5), BackgroundColor3 = Color3.fromRGB(150, 80, 255), BackgroundTransparency = 0.6, BorderSizePixel = 0}, s)
     
-    inst("TextLabel", {
-        Size = UDim2.new(1, -10, 1, 0),
-        Position = UDim2.fromOffset(10, 0),
-        BackgroundTransparency = 1,
-        Text = text,
-        TextColor3 = Color3.fromRGB(200, 150, 255),
-        Font = Enum.Font.GothamBold,
-        TextSize = 14,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, s)
+    inst("TextLabel", {Size = UDim2.new(1, -10, 1, 0), Position = UDim2.fromOffset(10, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(200, 150, 255), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, s)
 end
 
--- منزلق فخم
+-- منزلق
 local function slider(title, key, min, max, default)
-    local f = inst("Frame", {
-        Size = UDim2.new(1, 0, 0, 55),
-        BackgroundColor3 = Color3.fromRGB(25, 20, 40),
-        BorderSizePixel = 0
-    }, content)
+    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundColor3 = Color3.fromRGB(25, 20, 40), BorderSizePixel = 0}, content)
     round(f, 12)
     
-    inst("TextLabel", {
-        Size = UDim2.new(0.6, 0, 0, 20),
-        Position = UDim2.fromOffset(14, 6),
-        BackgroundTransparency = 1,
-        Text = title,
-        TextColor3 = Color3.new(1,1,1),
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, f)
+    inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 20), Position = UDim2.fromOffset(14, 6), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, f)
     
-    local val = inst("TextLabel", {
-        Size = UDim2.new(0.3, 0, 0, 20),
-        Position = UDim2.new(0.7, -10, 0, 6),
-        BackgroundTransparency = 1,
-        Text = tostring(default),
-        TextColor3 = Color3.fromRGB(200, 150, 255),
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Right
-    }, f)
+    local val = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 20), Position = UDim2.new(0.7, -10, 0, 6), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = Color3.fromRGB(200, 150, 255), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Right}, f)
     
-    local bg = inst("Frame", {
-        Size = UDim2.new(1, -28, 0, 6),
-        Position = UDim2.fromOffset(14, 36),
-        BackgroundColor3 = Color3.fromRGB(40, 35, 55),
-        BorderSizePixel = 0
-    }, f)
+    local bg = inst("Frame", {Size = UDim2.new(1, -28, 0, 6), Position = UDim2.fromOffset(14, 36), BackgroundColor3 = Color3.fromRGB(40, 35, 55), BorderSizePixel = 0}, f)
     round(bg, 3)
     
-    local fill = inst("Frame", {
-        Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
-        BackgroundColor3 = Color3.fromRGB(180, 100, 255),
-        BorderSizePixel = 0
-    }, bg)
+    local fill = inst("Frame", {Size = UDim2.new((default - min) / (max - min), 0, 1, 0), BackgroundColor3 = Color3.fromRGB(180, 100, 255), BorderSizePixel = 0}, bg)
     round(fill, 3)
     
-    local handle = inst("Frame", {
-        Size = UDim2.fromOffset(18, 18),
-        Position = UDim2.new((default - min) / (max - min), -9, 0.5, -9),
-        BackgroundColor3 = Color3.new(1,1,1),
-        BorderSizePixel = 0
-    }, bg)
+    local handle = inst("Frame", {Size = UDim2.fromOffset(18, 18), Position = UDim2.new((default - min) / (max - min), -9, 0.5, -9), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, bg)
     round(handle, 9)
-    
-    -- توهج المقبض
-    local handleGlow = inst("ImageLabel", {
-        Size = UDim2.new(1, 8, 1, 8),
-        Position = UDim2.new(0, -4, 0, -4),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://5028857084",
-        ImageColor3 = Color3.fromRGB(180, 100, 255),
-        ImageTransparency = 0.6,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(24, 24, 276, 276)
-    }, handle)
     
     S[key] = default
     local dragging = false
@@ -453,6 +210,106 @@ local function slider(title, key, min, max, default)
     conn(bg.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true update(input) end end)
     conn(UIS.InputEnded, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
     conn(UIS.InputChanged, function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end end)
+end
+
+--====================================
+-- كشف الأدمن
+--====================================
+
+local function isAdmin(player)
+    -- التحقق إذا كان صاحب اللعبة
+    if game.CreatorType == Enum.CreatorType.User then
+        if player.UserId == game.CreatorId then
+            return true, "صاحب اللعبة"
+        end
+    elseif game.CreatorType == Enum.CreatorType.Group then
+        -- التحقق من رتبة المجموعة
+        local success, rank = pcall(function()
+            return player:GetRankInGroup(game.CreatorId)
+        end)
+        if success and rank and rank >= 255 then
+            return true, "أدمن المجموعة"
+        end
+        if success and rank and rank >= 100 then
+            return true, "مشرف"
+        end
+    end
+    
+    -- التحقق من أدوات الأدمن
+    local char = player.Character
+    if char then
+        for _, tool in pairs(char:GetChildren()) do
+            if tool:IsA("Tool") then
+                local name = tool.Name:lower()
+                if name:find("admin") or name:find("أدمن") or name:find("mod") or name:find("ban") or name:find("kick") then
+                    return true, "أداة أدمن"
+                end
+            end
+        end
+    end
+    
+    return false, nil
+end
+
+local function updateAdminDetect()
+    if not S.AdminDetect then
+        for p, h in pairs(adminHighlights) do
+            if h then h:Destroy() end
+            adminHighlights[p] = nil
+        end
+        return
+    end
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LP then
+            local isAdminPlayer, adminType = isAdmin(p)
+            
+            if isAdminPlayer and p.Character and not adminHighlights[p] then
+                -- إنشاء هايلايت خاص للأدمن
+                local h = Instance.new("Highlight")
+                h.FillColor = Color3.fromRGB(255, 0, 0)
+                h.OutlineColor = Color3.fromRGB(255, 200, 0)
+                h.FillTransparency = 0.3
+                h.OutlineTransparency = 0
+                h.Adornee = p.Character
+                h.Parent = gui
+                
+                -- إضافة اسم فوق الرأس
+                local head = p.Character:FindFirstChild("Head")
+                if head then
+                    local billboard = Instance.new("BillboardGui")
+                    billboard.Size = UDim2.fromOffset(200, 50)
+                    billboard.StudsOffset = Vector3.new(0, 3, 0)
+                    billboard.Adornee = head
+                    billboard.AlwaysOnTop = true
+                    billboard.Parent = gui
+                    
+                    local label = Instance.new("TextLabel")
+                    label.Size = UDim2.fromScale(1, 1)
+                    label.BackgroundTransparency = 1
+                    label.Text = "⚠️ " .. (adminType or "أدمن") .. " ⚠️"
+                    label.TextColor3 = Color3.fromRGB(255, 50, 50)
+                    label.Font = Enum.Font.GothamBold
+                    label.TextSize = 14
+                    label.TextStrokeTransparency = 0.5
+                    label.Parent = billboard
+                    
+                    adminHighlights[p] = {highlight = h, billboard = billboard}
+                else
+                    adminHighlights[p] = {highlight = h, billboard = nil}
+                end
+                
+            elseif not isAdminPlayer and adminHighlights[p] then
+                if adminHighlights[p].highlight then
+                    adminHighlights[p].highlight:Destroy()
+                end
+                if adminHighlights[p].billboard then
+                    adminHighlights[p].billboard:Destroy()
+                end
+                adminHighlights[p] = nil
+            end
+        end
+    end
 end
 
 --====================================
@@ -481,16 +338,13 @@ btn("تكبير اللاعبين", "🔍", "PlayerSize", Color3.fromRGB(220, 80,
 
 slider("مضاعف الحجم", "SizeMultiplier", 1, 20, 2)
 
+section("🛡️ الحماية والكشف")
+
+btn("كشف الأدمن", "🛡️", "AdminDetect", Color3.fromRGB(255, 50, 50))
+
 section("🎒 الأدوات")
 
-local grabAllBtn = inst("TextButton", {
-    Size = UDim2.new(1, 0, 0, 45),
-    BackgroundColor3 = Color3.fromRGB(0, 150, 100),
-    Text = "🎒 جلب كل الأدوات",
-    TextColor3 = Color3.new(1,1,1),
-    Font = Enum.Font.GothamBold,
-    TextSize = 15
-}, content)
+local grabAllBtn = inst("TextButton", {Size = UDim2.new(1, 0, 0, 45), BackgroundColor3 = Color3.fromRGB(0, 150, 100), Text = "🎒 جلب كل الأدوات", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 15}, content)
 round(grabAllBtn, 10)
 
 conn(grabAllBtn.MouseButton1Click, function()
@@ -508,14 +362,9 @@ end)
 section("❄️ إدارة اللاعبين")
 
 -- قائمة اللاعبين
-local playerFrame = inst("Frame", {
-    Size = UDim2.new(1, 0, 0, 200),
-    BackgroundColor3 = Color3.fromRGB(20, 15, 35),
-    BorderSizePixel = 0
-}, content)
+local playerFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 200), BackgroundColor3 = Color3.fromRGB(20, 15, 35), BorderSizePixel = 0}, content)
 round(playerFrame, 12)
 
--- تدرج قائمة اللاعبين
 local playerGradient = inst("UIGradient", {
     Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 20, 50)),
@@ -524,28 +373,9 @@ local playerGradient = inst("UIGradient", {
     Rotation = 90
 }, playerFrame)
 
-inst("TextLabel", {
-    Size = UDim2.new(1, -14, 0, 24),
-    Position = UDim2.fromOffset(12, 8),
-    BackgroundTransparency = 1,
-    Text = "📋 اللاعبون",
-    TextColor3 = Color3.fromRGB(180, 220, 255),
-    Font = Enum.Font.GothamBold,
-    TextSize = 14,
-    TextXAlignment = Enum.TextXAlignment.Left
-}, playerFrame)
+inst("TextLabel", {Size = UDim2.new(1, -14, 0, 24), Position = UDim2.fromOffset(12, 8), BackgroundTransparency = 1, Text = "📋 اللاعبون", TextColor3 = Color3.fromRGB(180, 220, 255), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, playerFrame)
 
-local playerScroll = inst("ScrollingFrame", {
-    Size = UDim2.new(1, -14, 1, -36),
-    Position = UDim2.fromOffset(7, 34),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 3,
-    ScrollBarImageColor3 = Color3.fromRGB(180, 220, 255),
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-    CanvasSize = UDim2.new()
-}, playerFrame)
-
+local playerScroll = inst("ScrollingFrame", {Size = UDim2.new(1, -14, 1, -36), Position = UDim2.fromOffset(7, 34), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(180, 220, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, playerFrame)
 inst("UIListLayout", {Padding = UDim.new(0, 5)}, playerScroll)
 
 local function freezePlayer(p)
@@ -594,28 +424,28 @@ local function refreshPlayers()
         if p ~= LP then
             local isFrozen = frozenPlayers[p] == true
             local isFlying = flyingPlayers[p] ~= nil
+            local isAdminPlayer = isAdmin(p)
             
-            local pf = inst("Frame", {
-                Size = UDim2.new(1, 0, 0, 45),
-                BackgroundColor3 = isFrozen and Color3.fromRGB(60, 80, 110) or Color3.fromRGB(35, 30, 55),
-                BorderSizePixel = 0
-            }, playerScroll)
+            local bgColor = Color3.fromRGB(35, 30, 55)
+            if isAdminPlayer then
+                bgColor = Color3.fromRGB(80, 20, 20)
+            elseif isFrozen then
+                bgColor = Color3.fromRGB(60, 80, 110)
+            end
+            
+            local pf = inst("Frame", {Size = UDim2.new(1, 0, 0, 45), BackgroundColor3 = bgColor, BorderSizePixel = 0}, playerScroll)
             round(pf, 10)
             
             local nameText = p.DisplayName
-            if isFrozen then nameText = "❄️ " .. nameText end
-            if isFlying then nameText = "🚀 " .. nameText end
+            if isAdminPlayer then
+                nameText = "🛡️ " .. nameText
+            elseif isFrozen then
+                nameText = "❄️ " .. nameText
+            elseif isFlying then
+                nameText = "🚀 " .. nameText
+            end
             
-            inst("TextLabel", {
-                Size = UDim2.new(0.32, 0, 1, 0),
-                Position = UDim2.fromOffset(12, 0),
-                BackgroundTransparency = 1,
-                Text = nameText,
-                TextColor3 = Color3.new(1,1,1),
-                Font = Enum.Font.GothamBold,
-                TextSize = 13,
-                TextXAlignment = Enum.TextXAlignment.Left
-            }, pf)
+            inst("TextLabel", {Size = UDim2.new(0.32, 0, 1, 0), Position = UDim2.fromOffset(12, 0), BackgroundTransparency = 1, Text = nameText, TextColor3 = isAdminPlayer and Color3.fromRGB(255, 100, 100) or Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, pf)
             
             local btns = {
                 {icon = "🧲", color = Color3.fromRGB(230, 160, 0), action = "drag"},
@@ -626,15 +456,7 @@ local function refreshPlayers()
             }
             
             for i, data in ipairs(btns) do
-                local b = inst("TextButton", {
-                    Size = UDim2.fromOffset(40, 32),
-                    Position = UDim2.new(1, -215 + (i-1) * 42, 0.5, -16),
-                    BackgroundColor3 = data.color,
-                    Text = data.icon,
-                    TextColor3 = Color3.new(1,1,1),
-                    Font = Enum.Font.GothamBold,
-                    TextSize = 16
-                }, pf)
+                local b = inst("TextButton", {Size = UDim2.fromOffset(40, 32), Position = UDim2.new(1, -215 + (i-1) * 42, 0.5, -16), BackgroundColor3 = data.color, Text = data.icon, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, pf)
                 round(b, 8)
                 
                 if data.action == "drag" then
@@ -665,30 +487,24 @@ end
 
 refreshPlayers()
 conn(Players.PlayerAdded, function(p) task.wait(1) refreshPlayers() end)
-conn(Players.PlayerRemoving, function(p) frozenPlayers[p] = nil flyingPlayers[p] = nil refreshPlayers() end)
+conn(Players.PlayerRemoving, function(p) 
+    frozenPlayers[p] = nil 
+    flyingPlayers[p] = nil 
+    if adminHighlights[p] then
+        if adminHighlights[p].highlight then adminHighlights[p].highlight:Destroy() end
+        if adminHighlights[p].billboard then adminHighlights[p].billboard:Destroy() end
+        adminHighlights[p] = nil
+    end
+    refreshPlayers() 
+end)
 
 -- أزرار سريعة
 local quickFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1}, content)
 
-local unfreezeBtn = inst("TextButton", {
-    Size = UDim2.new(0.48, 0, 1, 0),
-    BackgroundColor3 = Color3.fromRGB(200, 100, 50),
-    Text = "🔥 فك الكل",
-    TextColor3 = Color3.new(1,1,1),
-    Font = Enum.Font.GothamBold,
-    TextSize = 13
-}, quickFrame)
+local unfreezeBtn = inst("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(200, 100, 50), Text = "🔥 فك الكل", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13}, quickFrame)
 round(unfreezeBtn, 10)
 
-local unflyBtn = inst("TextButton", {
-    Size = UDim2.new(0.48, 0, 1, 0),
-    Position = UDim2.new(0.52, 0, 0, 0),
-    BackgroundColor3 = Color3.fromRGB(70, 110, 180),
-    Text = "🛬 إيقاف الطيران",
-    TextColor3 = Color3.new(1,1,1),
-    Font = Enum.Font.GothamBold,
-    TextSize = 13
-}, quickFrame)
+local unflyBtn = inst("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), Position = UDim2.new(0.52, 0, 0, 0), BackgroundColor3 = Color3.fromRGB(70, 110, 180), Text = "🛬 إيقاف الطيران", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13}, quickFrame)
 round(unflyBtn, 10)
 
 conn(unfreezeBtn.MouseButton1Click, function()
@@ -846,8 +662,16 @@ conn(UIS.InputBegan, function(input, gp)
 end)
 
 -- الحلقة الرئيسية
-conn(RunService.Heartbeat, function()
+local adminTimer = 0
+conn(RunService.Heartbeat, function(dt)
     if not alive then return end
+    
+    adminTimer = adminTimer + dt
+    if adminTimer >= 2 then
+        adminTimer = 0
+        updateAdminDetect()
+    end
+    
     updateInvisible()
     updateSpeed()
     updateNoclip()
@@ -865,14 +689,16 @@ local function cleanup()
     for p, _ in pairs(frozenPlayers) do unfreezePlayer(p) end
     for p, _ in pairs(flyingPlayers) do removeFly(p) end
     for p, h in pairs(espHighlights) do if h then h:Destroy() end end
+    for p, data in pairs(adminHighlights) do
+        if data.highlight then data.highlight:Destroy() end
+        if data.billboard then data.billboard:Destroy() end
+    end
     for _, c in pairs(conns) do c:Disconnect() end
     gui:Destroy()
 end
 
 conn(close.MouseButton1Click, cleanup)
 
-print("✅ السكربت الفخم v3.0")
+print("✅ السكربت الفخم v3.1 — مع كشف الأدمن")
+print("🛡️ كشف الأدمن: يكشف صاحب اللعبة والمشرفين")
 print("⚠️ كل شي محلي — أنت بس تشوف")
-print("👻 اختفاء | ⚡ سرعة | 🚀 طيران | 👻 تجاوز | ⬆️ قفز")
-print("🧲 سحب | 🤗 حمل | 📍 انتقال | 👁️ رؤية | 🔍 تكبير")
-print("🎒 أدوات | ❄️ تجميد | 🚀 طيران للاعبين")
