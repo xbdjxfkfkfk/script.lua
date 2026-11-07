@@ -1,7 +1,7 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║           السكربت الفخم v3.1                              ║
-    ║          + كشف الأدمن                                     ║
+    ║           السكربت الفخم v3.2                              ║
+    ║          كشف أدمن محسّن — كل الطرق الممكنة                ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
@@ -28,6 +28,7 @@ local espHighlights = {}
 local frozenPlayers = {}
 local flyingPlayers = {}
 local adminHighlights = {}
+local adminLog = {}
 
 -- الإعدادات
 local S = {
@@ -170,9 +171,7 @@ end
 -- قسم
 local function section(text)
     local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1}, content)
-    
     local line = inst("Frame", {Size = UDim2.new(1, -10, 0, 1), Position = UDim2.new(0, 5, 1, -5), BackgroundColor3 = Color3.fromRGB(150, 80, 255), BackgroundTransparency = 0.6, BorderSizePixel = 0}, s)
-    
     inst("TextLabel", {Size = UDim2.new(1, -10, 1, 0), Position = UDim2.fromOffset(10, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(200, 150, 255), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, s)
 end
 
@@ -213,100 +212,136 @@ local function slider(title, key, min, max, default)
 end
 
 --====================================
--- كشف الأدمن
+-- كشف الأدمن المحسّن
 --====================================
 
 local function isAdmin(player)
-    -- التحقق إذا كان صاحب اللعبة
+    local char = player.Character
+    if not char then return false, nil end
+    
+    -- 1. فحص صاحب اللعبة
     if game.CreatorType == Enum.CreatorType.User then
         if player.UserId == game.CreatorId then
-            return true, "صاحب اللعبة"
-        end
-    elseif game.CreatorType == Enum.CreatorType.Group then
-        -- التحقق من رتبة المجموعة
-        local success, rank = pcall(function()
-            return player:GetRankInGroup(game.CreatorId)
-        end)
-        if success and rank and rank >= 255 then
-            return true, "أدمن المجموعة"
-        end
-        if success and rank and rank >= 100 then
-            return true, "مشرف"
+            return true, "👑 صاحب اللعبة"
         end
     end
     
-    -- التحقق من أدوات الأدمن
-    local char = player.Character
-    if char then
-        for _, tool in pairs(char:GetChildren()) do
+    -- 2. فحص رتبة المجموعة
+    if game.CreatorType == Enum.CreatorType.Group then
+        local success, rank = pcall(function()
+            return player:GetRankInGroup(game.CreatorId)
+        end)
+        if success and rank then
+            if rank >= 255 then return true, "👑 مالك المجموعة" end
+            if rank >= 200 then return true, "🛡️ أدمن عالي" end
+            if rank >= 100 then return true, "🛡️ مشرف" end
+        end
+    end
+    
+    -- 3. فحص أدوات الأدمن في اليد
+    for _, tool in pairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            local name = tool.Name:lower()
+            if name:find("admin") or name:find("ban") or name:find("kick") or 
+               name:find("mod") or name:find("أدمن") or name:find("بان") or 
+               name:find("كيك") or name:find("طرد") or name:find("سجن") then
+                return true, "🎫 أداة: " .. tool.Name
+            end
+        end
+    end
+    
+    -- 4. فحص الـ Backpack
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack then
+        for _, tool in pairs(backpack:GetChildren()) do
             if tool:IsA("Tool") then
                 local name = tool.Name:lower()
-                if name:find("admin") or name:find("أدمن") or name:find("mod") or name:find("ban") or name:find("kick") then
-                    return true, "أداة أدمن"
+                if name:find("admin") or name:find("ban") or name:find("kick") or 
+                   name:find("mod") or name:find("أدمن") or name:find("بان") then
+                    return true, "🎫 يملك: " .. tool.Name
                 end
             end
         end
+    end
+    
+    -- 5. فحص السرعة الغير طبيعية
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid and humanoid.WalkSpeed > 50 then
+        return true, "⚡ سرعة مشبوهة"
+    end
+    
+    -- 6. فحص الأسماء المشبوهة
+    local username = player.Name:lower()
+    local displayName = player.DisplayName:lower()
+    if username:find("admin") or username:find("mod") or username:find("owner") or
+       displayName:find("أدمن") or displayName:find("مشرف") or displayName:find("owner") then
+        return true, "👤 اسم مشبوه"
     end
     
     return false, nil
 end
 
 local function updateAdminDetect()
-    if not S.AdminDetect then
-        for p, h in pairs(adminHighlights) do
-            if h then h:Destroy() end
+    if not S.AdminDetect then 
+        for p, data in pairs(adminHighlights) do
+            if data.highlight then data.highlight:Destroy() end
+            if data.billboard then data.billboard:Destroy() end
             adminHighlights[p] = nil
         end
-        return
+        return 
     end
     
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP then
             local isAdminPlayer, adminType = isAdmin(p)
             
-            if isAdminPlayer and p.Character and not adminHighlights[p] then
-                -- إنشاء هايلايت خاص للأدمن
-                local h = Instance.new("Highlight")
-                h.FillColor = Color3.fromRGB(255, 0, 0)
-                h.OutlineColor = Color3.fromRGB(255, 200, 0)
-                h.FillTransparency = 0.3
-                h.OutlineTransparency = 0
-                h.Adornee = p.Character
-                h.Parent = gui
-                
-                -- إضافة اسم فوق الرأس
-                local head = p.Character:FindFirstChild("Head")
-                if head then
-                    local billboard = Instance.new("BillboardGui")
-                    billboard.Size = UDim2.fromOffset(200, 50)
-                    billboard.StudsOffset = Vector3.new(0, 3, 0)
-                    billboard.Adornee = head
-                    billboard.AlwaysOnTop = true
-                    billboard.Parent = gui
+            if isAdminPlayer then
+                if not adminHighlights[p] then
+                    -- تسجيل
+                    if not adminLog[p] then
+                        adminLog[p] = adminType
+                        print("🚨 أدمن جديد: " .. p.Name .. " | " .. adminType)
+                    end
                     
-                    local label = Instance.new("TextLabel")
-                    label.Size = UDim2.fromScale(1, 1)
-                    label.BackgroundTransparency = 1
-                    label.Text = "⚠️ " .. (adminType or "أدمن") .. " ⚠️"
-                    label.TextColor3 = Color3.fromRGB(255, 50, 50)
-                    label.Font = Enum.Font.GothamBold
-                    label.TextSize = 14
-                    label.TextStrokeTransparency = 0.5
-                    label.Parent = billboard
+                    -- هايلايت
+                    local h = Instance.new("Highlight")
+                    h.FillColor = Color3.fromRGB(255, 0, 0)
+                    h.OutlineColor = Color3.fromRGB(255, 200, 0)
+                    h.FillTransparency = 0.3
+                    h.Adornee = p.Character
+                    h.Parent = gui
                     
-                    adminHighlights[p] = {highlight = h, billboard = billboard}
-                else
-                    adminHighlights[p] = {highlight = h, billboard = nil}
+                    -- نص فوق الرأس
+                    local head = p.Character:FindFirstChild("Head")
+                    if head then
+                        local bb = Instance.new("BillboardGui")
+                        bb.Size = UDim2.fromOffset(250, 60)
+                        bb.StudsOffset = Vector3.new(0, 3.5, 0)
+                        bb.Adornee = head
+                        bb.AlwaysOnTop = true
+                        bb.Parent = gui
+                        
+                        local lbl = Instance.new("TextLabel")
+                        lbl.Size = UDim2.fromScale(1, 1)
+                        lbl.BackgroundTransparency = 1
+                        lbl.Text = "🚨 " .. adminType .. " 🚨"
+                        lbl.TextColor3 = Color3.fromRGB(255, 50, 50)
+                        lbl.Font = Enum.Font.GothamBold
+                        lbl.TextSize = 16
+                        lbl.TextStrokeTransparency = 0.3
+                        lbl.Parent = bb
+                        
+                        adminHighlights[p] = {highlight = h, billboard = bb, type = adminType}
+                    else
+                        adminHighlights[p] = {highlight = h, billboard = nil, type = adminType}
+                    end
                 end
-                
-            elseif not isAdminPlayer and adminHighlights[p] then
-                if adminHighlights[p].highlight then
-                    adminHighlights[p].highlight:Destroy()
+            else
+                if adminHighlights[p] then
+                    if adminHighlights[p].highlight then adminHighlights[p].highlight:Destroy() end
+                    if adminHighlights[p].billboard then adminHighlights[p].billboard:Destroy() end
+                    adminHighlights[p] = nil
                 end
-                if adminHighlights[p].billboard then
-                    adminHighlights[p].billboard:Destroy()
-                end
-                adminHighlights[p] = nil
             end
         end
     end
@@ -338,7 +373,7 @@ btn("تكبير اللاعبين", "🔍", "PlayerSize", Color3.fromRGB(220, 80,
 
 slider("مضاعف الحجم", "SizeMultiplier", 1, 20, 2)
 
-section("🛡️ الحماية والكشف")
+section("🛡️ الحماية")
 
 btn("كشف الأدمن", "🛡️", "AdminDetect", Color3.fromRGB(255, 50, 50))
 
@@ -361,7 +396,6 @@ end)
 
 section("❄️ إدارة اللاعبين")
 
--- قائمة اللاعبين
 local playerFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 200), BackgroundColor3 = Color3.fromRGB(20, 15, 35), BorderSizePixel = 0}, content)
 round(playerFrame, 12)
 
@@ -424,7 +458,7 @@ local function refreshPlayers()
         if p ~= LP then
             local isFrozen = frozenPlayers[p] == true
             local isFlying = flyingPlayers[p] ~= nil
-            local isAdminPlayer = isAdmin(p)
+            local isAdminPlayer, adminType = isAdmin(p)
             
             local bgColor = Color3.fromRGB(35, 30, 55)
             if isAdminPlayer then
@@ -667,7 +701,7 @@ conn(RunService.Heartbeat, function(dt)
     if not alive then return end
     
     adminTimer = adminTimer + dt
-    if adminTimer >= 2 then
+    if adminTimer >= 1 then
         adminTimer = 0
         updateAdminDetect()
     end
@@ -699,6 +733,6 @@ end
 
 conn(close.MouseButton1Click, cleanup)
 
-print("✅ السكربت الفخم v3.1 — مع كشف الأدمن")
-print("🛡️ كشف الأدمن: يكشف صاحب اللعبة والمشرفين")
+print("✅ السكربت الفخم v3.2")
+print("🛡️ كشف الأدمن: 6 طرق مختلفة")
 print("⚠️ كل شي محلي — أنت بس تشوف")
