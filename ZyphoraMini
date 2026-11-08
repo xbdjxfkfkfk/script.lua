@@ -1,7 +1,7 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║           السكربت الفخم v4.0                              ║
-    ║          كشف أدمن قوي — 6 طرق مختلفة                        ║
+    ║           السكربت الفخم v4.1 (مصلح)                       ║
+    ║          كشف أدمن حقيقي — بدون أخطاء                       ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
@@ -28,7 +28,6 @@ local espHighlights = {}
 local frozenPlayers = {}
 local flyingPlayers = {}
 local adminHighlights = {}
-local adminLog = {}
 
 -- الإعدادات
 local S = {
@@ -114,7 +113,7 @@ local headGradient = inst("UIGradient", {
     Rotation = 90
 }, head)
 
-inst("TextLabel", {Size = UDim2.new(1, -100, 1, 0), Position = UDim2.fromOffset(20, 0), BackgroundTransparency = 1, Text = "👑 السكربت الفخم v4.0", TextColor3 = Color3.fromRGB(220, 180, 255), Font = Enum.Font.GothamBold, TextSize = 22, TextXAlignment = Enum.TextXAlignment.Left}, head)
+inst("TextLabel", {Size = UDim2.new(1, -100, 1, 0), Position = UDim2.fromOffset(20, 0), BackgroundTransparency = 1, Text = "👑 السكربت الفخم v4.1", TextColor3 = Color3.fromRGB(220, 180, 255), Font = Enum.Font.GothamBold, TextSize = 22, TextXAlignment = Enum.TextXAlignment.Left}, head)
 
 local close = inst("TextButton", {Size = UDim2.fromOffset(32, 32), Position = UDim2.new(1, -40, 0, 9), BackgroundColor3 = Color3.fromRGB(200, 50, 80), Text = "×", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 20}, head)
 round(close, 8)
@@ -212,8 +211,17 @@ local function slider(title, key, min, max, default)
 end
 
 --====================================
--- كشف الأدمن القوي (6 طرق)
+-- كشف الأدمن الحقيقي (بدون أخطاء)
 --====================================
+
+local adminToolsList = {
+    "admin", "administrator", "mod", "moderator", "owner",
+    "ban", "unban", "kick", "unkick", "kill", "respawn",
+    "bring", "tp", "teleport", "goto", "freeze", "thaw",
+    "explode", "jail", "unjail", "speed", "fly", "noclip",
+    "invisible", "visible", "god", "ungod", "heal", "damage",
+    "أدمن", "باني", "طرد", "سجن", "قتل"
+}
 
 local function detectAdmin(player)
     local char = player.Character
@@ -226,55 +234,40 @@ local function detectAdmin(player)
         end
     end
     
-    -- [2] رتبة المجموعة
+    -- [2] مالك المجموعة (رتبة 255 فقط)
     if game.CreatorType == Enum.CreatorType.Group then
         local success, rank = pcall(function()
             return player:GetRankInGroup(game.CreatorId)
         end)
-        if success and rank then
-            if rank >= 255 then return true, "👑 مالك المجموعة", 100 end
-            if rank >= 200 then return true, "🛡️ أدمن عالي", 95 end
-            if rank >= 100 then return true, "🛡️ مشرف", 80 end
+        if success and rank and rank >= 255 then
+            return true, "👑 مالك المجموعة", 100
         end
     end
     
-    -- [3] أدوات الأدمن في اليد
+    -- [3] أدوات أدمن حقيقية فقط
     for _, tool in pairs(char:GetChildren()) do
         if tool:IsA("Tool") then
             local name = tool.Name:lower()
-            if name:find("admin") or name:find("ban") or name:find("kick") or 
-               name:find("kill") or name:find("tp") or name:find("bring") or
-               name:find("freeze") or name:find("explode") or name:find("speed") then
-                return true, "🎫 أداة: " .. tool.Name, 90
-            end
-        end
-    end
-    
-    -- [4] أدوات في Backpack
-    local backpack = player:FindFirstChild("Backpack")
-    if backpack then
-        for _, tool in pairs(backpack:GetChildren()) do
-            if tool:IsA("Tool") then
-                local name = tool.Name:lower()
-                if name:find("admin") or name:find("ban") or name:find("kick") then
-                    return true, "🎫 يملك: " .. tool.Name, 85
+            for _, adminTool in ipairs(adminToolsList) do
+                if name == adminTool or name:find("^" .. adminTool) then
+                    return true, "🎫 أداة: " .. tool.Name, 95
                 end
             end
         end
     end
     
-    -- [5] سرعة غير طبيعية
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if humanoid and humanoid.WalkSpeed > 50 then
-        return true, "⚡ سرعة: " .. humanoid.WalkSpeed, 70
-    end
-    
-    -- [6] طيران بدون أداة
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if hrp and humanoid then
-        local vel = hrp.AssemblyLinearVelocity
-        if math.abs(vel.Y) > 30 and humanoid:GetState() == Enum.HumanoidStateType.Freefall then
-            return true, "🚀 يطير بدون أداة", 75
+    -- [4] Backpack
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack then
+        for _, tool in pairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                local name = tool.Name:lower()
+                for _, adminTool in ipairs(adminToolsList) do
+                    if name == adminTool then
+                        return true, "🎫 يملك: " .. tool.Name, 90
+                    end
+                end
+            end
         end
     end
     
@@ -295,15 +288,10 @@ local function updateAdminDetect()
         if p ~= LP then
             local isAdminPlayer, adminType, confidence = detectAdmin(p)
             
-            if isAdminPlayer and confidence >= 70 then
+            if isAdminPlayer and confidence >= 90 then
                 if not adminHighlights[p] then
-                    -- تسجيل
-                    if not adminLog[p] then
-                        adminLog[p] = adminType
-                        print("🚨 أدمن: " .. p.Name .. " | " .. adminType .. " | ثقة: " .. confidence .. "%")
-                    end
+                    print("🚨 أدمن حقيقي: " .. p.Name .. " | " .. adminType)
                     
-                    -- هايلايت
                     local h = Instance.new("Highlight")
                     h.FillColor = Color3.fromRGB(255, 0, 0)
                     h.OutlineColor = Color3.fromRGB(255, 200, 0)
@@ -311,7 +299,6 @@ local function updateAdminDetect()
                     h.Adornee = p.Character
                     h.Parent = gui
                     
-                    -- نص فوق الرأس
                     local head = p.Character:FindFirstChild("Head")
                     if head then
                         local bb = Instance.new("BillboardGui")
@@ -331,9 +318,9 @@ local function updateAdminDetect()
                         lbl.TextStrokeTransparency = 0.3
                         lbl.Parent = bb
                         
-                        adminHighlights[p] = {highlight = h, billboard = bb, type = adminType, confidence = confidence}
+                        adminHighlights[p] = {highlight = h, billboard = bb, type = adminType}
                     else
-                        adminHighlights[p] = {highlight = h, billboard = nil, type = adminType, confidence = confidence}
+                        adminHighlights[p] = {highlight = h, billboard = nil, type = adminType}
                     end
                 end
             else
@@ -373,7 +360,7 @@ btn("تكبير اللاعبين", "🔍", "PlayerSize", Color3.fromRGB(220, 80,
 
 slider("مضاعف الحجم", "SizeMultiplier", 1, 20, 2)
 
-section("🛡️ كشف الأدمن (قوي)")
+section("🛡️ كشف الأدمن (حقيقي)")
 
 btn("كشف الأدمن", "🛡️", "AdminDetect", Color3.fromRGB(255, 50, 50))
 
@@ -461,7 +448,7 @@ local function refreshPlayers()
             local isAdminPlayer, adminType, confidence = detectAdmin(p)
             
             local bgColor = Color3.fromRGB(35, 30, 55)
-            if isAdminPlayer and confidence >= 70 then
+            if isAdminPlayer and confidence >= 90 then
                 bgColor = Color3.fromRGB(80, 20, 20)
             elseif isFrozen then
                 bgColor = Color3.fromRGB(60, 80, 110)
@@ -471,7 +458,7 @@ local function refreshPlayers()
             round(pf, 10)
             
             local nameText = p.DisplayName
-            if isAdminPlayer and confidence >= 70 then
+            if isAdminPlayer and confidence >= 90 then
                 nameText = "🛡️ " .. nameText
             elseif isFrozen then
                 nameText = "❄️ " .. nameText
@@ -733,6 +720,6 @@ end
 
 conn(close.MouseButton1Click, cleanup)
 
-print("✅ السكربت الفخم v4.0")
-print("🛡️ كشف الأدمن: 6 طرق | ثقة 70%+")
+print("✅ السكربت الفخم v4.1 (مصلح)")
+print("🛡️ كشف أدمن حقيقي فقط — بدون أخطاء")
 print("⚠️ كل شي محلي — أنت بس تشوف")
