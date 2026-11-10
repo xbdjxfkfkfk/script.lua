@@ -1,4 +1,4 @@
--- NOVA SUITE v9 | Unified local utility panel
+-- NOVA SUITE v10 | Unified local utility panel
 -- Roblox Luau. No server admin/permissions bypass; server controls other players.
 -- Flight: left stick + camera direction, including ascent/descent when looking up/down.
 -- Keyboard: WASD + mouse look. Both movement speeds adjustable +/-.
@@ -15,11 +15,11 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
 if not PlayerGui then return end
 
 -- Re-running v9 cleans up its own previous loops and UI.
-for _, oldKey in ipairs({"NOVA_SuiteV9Cleanup", "NOVA_SuiteV8Cleanup"}) do
+for _, oldKey in ipairs({"NOVA_SuiteV10Cleanup", "NOVA_SuiteV9Cleanup", "NOVA_SuiteV8Cleanup"}) do
     local previous = rawget(_G, oldKey)
     if type(previous) == "function" then pcall(previous) end
 end
-local OLD_GUI = "NOVA_Suite_v9"
+local OLD_GUI = "NOVA_Suite_v10"
 local old = PlayerGui:FindFirstChild(OLD_GUI)
 if old then old:Destroy() end
 
@@ -71,10 +71,11 @@ local state = {
     ESP = false,
     AdminESP = false,
     Noclip = false,
+    AutoTools = true,
 }
 local original = {WalkSpeed = nil}
 local collisionOriginal = {}
-local copiedToolSources = {}
+local importedToolNames = {}
 local fly = {attach = nil, velocity = nil, orient = nil, humanoid = nil, autoRotate = nil}
 local highlighted = {}
 local adminVisuals = {}
@@ -107,7 +108,7 @@ make("UIGradient", {
 
 local header = make("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundTransparency = 1}, main)
 make("TextLabel", {
-    Text = "NOVA SUITE  v9", Font = Enum.Font.GothamBold,
+    Text = "NOVA SUITE  v10", Font = Enum.Font.GothamBold,
     TextColor3 = COLORS.white, TextSize = 20,
     Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -80, 0, 27),
     BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
@@ -362,41 +363,115 @@ local function restoreCollisions()
     end
 end
 
--- Copies only tools visible to this client; never claims an award from the server.
-local function copyVisibleTools()
-    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-    if not backpack then
-        say("الحقيبة غير متاحة الآن", false)
-        return
+-- Tool discovery is client-side and works only with replicated Tool instances.
+-- No promise of server-granted weapons, protected tools or hidden ServerStorage.
+local TOOL_CONTAINERS = {
+    Workspace,
+    ReplicatedStorage,
+    game:GetService("StarterPack"),
+    game:GetService("ReplicatedFirst"),
+    game:GetService("Lighting"),
+}
+local toolsInfo = nil
+local toolScanRunning = false
+local importedTotal = 0
+local function toolKey(name)
+    -- One instance per normalized name, regardless of how many templates exist.
+    return name:gsub("^%s+", ""):gsub("%s+$", ""):lower()
+end
+local function toolInSomeoneCharacter(obj)
+    if not obj:IsDescendantOf(Workspace) then return false end
+    for _, player in ipairs(Players:GetPlayers()) do
+        local character = player.Character
+        if character and obj:IsDescendantOf(character) then return true end
     end
-    local copied, failed, found = 0, 0, 0
-    local function tryCopy(source)
-        if not source:IsA("Tool") or copiedToolSources[source] then return end
-        -- Don't copy what is already equipped on another player's avatar.
-        if source:IsDescendantOf(Workspace) then
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p.Character and source:IsDescendantOf(p.Character) then return end
+    return false
+end
+local function ownedToolNames()
+    local owned = {}
+    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+    for _, holder in ipairs({backpack, LocalPlayer.Character}) do
+        if holder then
+            for _, item in ipairs(holder:GetChildren()) do
+                if item:IsA("Tool") then owned[toolKey(item.Name)] = true end
             end
         end
-        found = found + 1
-        local ok, clone = pcall(function() return source:Clone() end)
-        if ok and clone then
-            clone.Parent = backpack
-            copiedToolSources[source] = true
-            copied = copied + 1
-        else
-            failed = failed + 1
+    end
+    return owned, backpack
+end
+local function copyToolOnce(source, owned)
+    if not source:IsA("Tool") or toolInSomeoneCharacter(source) then
+        return false, "skipped"
+    end
+    local name = toolKey(source.Name)
+    if name == "" or owned[name] or importedToolNames[name] then
+        return false, "duplicate"
+    end
+    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+    if not backpack then return false, "no-backpack" end
+    local success, clone = pcall(function() return source:Clone() end)
+    if not success or not clone then return false, "failed" end
+    local put = pcall(function() clone.Parent = backpack end)
+    if not put then
+        pcall(function() clone:Destroy() end)
+        return false, "failed"
+    end
+    owned[name] = true
+    importedToolNames[name] = true
+    importedTotal = importedTotal + 1
+    return true, "copied"
+end
+local function copyVisibleTools(silent)
+    if toolScanRunning or not alive then return end
+    local owned, backpack = ownedToolNames()
+    if not backpack then
+        if not silent then say("الحقيبة غير متاحة الآن", false) end
+        return
+    end
+    toolScanRunning = true
+    local copied, duplicates, failed, discovered = 0, 0, 0, 0
+    for _, container in ipairs(TOOL_CONTAINERS) do
+        for _, candidate in ipairs(container:GetDescendants()) do
+            if candidate:IsA("Tool") and not toolInSomeoneCharacter(candidate) then
+                discovered = discovered + 1
+                local didCopy, why = copyToolOnce(candidate, owned)
+                if didCopy then copied = copied + 1
+                elseif why == "duplicate" then duplicates = duplicates + 1
+                elseif why == "failed" then failed = failed + 1 end
+            end
         end
     end
-    for _, obj in ipairs(Workspace:GetDescendants()) do tryCopy(obj) end
-    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do tryCopy(obj) end
-    if copied > 0 then
-        say("تم نسخ " .. copied .. " أداة محليًا للحقيبة؛ عملها بالسيرفر غير مضمون", true)
-    elseif found > 0 then
-        say("لقيت " .. found .. " أداة، لكن ما قدرت أنسخها. تعذّر: " .. failed, false)
-    else
-        say("ما لقيت أدوات ظاهرة جديدة للنسخ عندك", false)
+    toolScanRunning = false
+    if toolsInfo then
+        toolsInfo.Text = "المضافة محليًا: " .. importedTotal .. " | آخر فحص: " .. discovered
+            .. " ظاهرة، " .. copied .. " جديدة، " .. duplicates .. " مكررة، " .. failed .. " تعذّر نسخها"
     end
+    if not silent or copied > 0 then
+        if copied > 0 then
+            say("أضفت " .. copied .. " أداة مختلفة محليًا بدون تكرار. لا يمكن ضمان عملها على السيرفر", true)
+        elseif discovered == 0 then
+            say("ما ظهرت للعميل أدوات قابلة للفحص في هذا الماب", false)
+        else
+            say("ما فيه أدوات جديدة غير مكررة. أدوات ظاهرة: " .. discovered .. "؛ فشل نسخ: " .. failed, failed == 0)
+        end
+    end
+end
+
+-- When the game streams or replicates new Tools, collect each unique name once.
+-- A small debounce prevents bursts of world objects from freezing the interface.
+local pendingToolScan = false
+local function scheduleToolScan()
+    if not alive or not state.AutoTools or pendingToolScan then return end
+    pendingToolScan = true
+    task.delay(0.8, function()
+        pendingToolScan = false
+        if alive and state.AutoTools then copyVisibleTools(true) end
+    end)
+end
+for _, container in ipairs(TOOL_CONTAINERS) do
+    listen(container.DescendantAdded, function(obj)
+        if obj:IsA("Tool") then scheduleToolScan() end
+    end)
 end
 
 local adminToolTokens = {
@@ -617,9 +692,20 @@ toggle("👻 تجاوز الجدران / Noclip", "Noclip", function(on)
     end
 end)
 
-title("🎒 أدوات الماب")
-action("🎒 جلب نسخ الأدوات الظاهرة إلى الحقيبة", copyVisibleTools)
-note("ينسخ أدوات Workspace وReplicatedStorage المتاحة لعميلك فقط. ظهور نسخة في حقيبتك لا يعني أن السيرفر منحك الأداة أو أن تأثيرها سيعمل.")
+title("🎒 أدوات الماب — بدون تكرار")
+action("🎒 جلب كل الأدوات الظاهرة (نسخة واحدة لكل اسم)", function()
+    copyVisibleTools(false)
+end)
+toggle("جمع الأدوات تلقائيًا عند ظهورها", "AutoTools", function(on)
+    if on then
+        scheduleToolScan()
+        say("التجميع التلقائي مفعل للأدوات التي تظهر عندك", true)
+    else
+        say("التجميع التلقائي متوقف. لا يزال الزر اليدوي متاحًا", true)
+    end
+end)
+toolsInfo = note("لم يبدأ فحص الأدوات بعد")
+note("يفحص Workspace وReplicatedStorage وStarterPack والمصادر المرئية الأخرى. نسخة محلية واحدة لكل اسم؛ أدوات السيرفر المخفية أو غير المصرح بها قد لا تعمل أو لا تظهر.")
 
 title("🔎 بحث وقائمة اللاعبين")
 local search = make("TextBox", {
@@ -763,7 +849,8 @@ end)
 listen(LocalPlayer.CharacterAdded, function()
     stopFlight()
     restoreCollisions()
-    copiedToolSources = {}
+    -- Keep imported tool names across respawns to prevent repeated local copies.
+    if state.AutoTools then task.delay(1.5, scheduleToolScan) end
     original.WalkSpeed = nil
     if state.Fly then
         task.delay(.5, function() if alive and state.Fly then startFlight() end end)
@@ -789,10 +876,12 @@ local function cleanup()
     for player in pairs(adminVisuals) do clearAdminVisual(player) end
     for _, conn in ipairs(connections) do conn:Disconnect() end
     gui:Destroy()
-    if rawget(_G, "NOVA_SuiteV9Cleanup") == cleanup then
-        _G.NOVA_SuiteV9Cleanup = nil
+    if rawget(_G, "NOVA_SuiteV10Cleanup") == cleanup then
+        _G.NOVA_SuiteV10Cleanup = nil
     end
 end
-_G.NOVA_SuiteV9Cleanup = cleanup
+_G.NOVA_SuiteV10Cleanup = cleanup
 listen(close.MouseButton1Click, cleanup)
-print("NOVA SUITE v9 loaded: admin tags, noclip, client-visible tool copies, camera flight, speed, player search and local drag.")
+-- Initial scan covers tools already present when joining a supported experience.
+task.defer(scheduleToolScan)
+print("NOVA SUITE v10 loaded: unique client-visible tools with auto-collection, plus v9 features.")
