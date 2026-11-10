@@ -1,558 +1,525 @@
---[[
- NOVA SUITE v6 | Admin Evidence Detector + Local Tools
- Client-side, read-only admin information. No permission bypass.
- NOTES: "Owner" verifies creator/group ownership, NOT secret in-game admin powers.
- Group ranks and replicated attributes are indicators, NOT proof of kick/ban privileges.
- In a game you do not own, local movement/visual effects may be reset by the server.
-]]
+-- NOVA SUITE v7 | Client-side utility panel
+-- Roblox Luau. Read-only admin signals; no server permission bypass.
+-- Flight gamepad: left stick moves, R1 rises, L1 descends, release to hover.
+-- Keyboard: WASD moves, Space/E rises, LeftCtrl/Q descends.
 
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
-local LP = Players.LocalPlayer
-if not LP then return end
-local PG = LP:WaitForChild("PlayerGui", 12)
-if not PG then return end
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
+if not PlayerGui then return end
 
--- Stop previous execution cleanly if this was launched again.
-local global = _G
-pcall(function()
-    if type(getgenv) == "function" then global = getgenv() end
-end)
-if type(global.NovaSuiteV6Stop) == "function" then
-    pcall(global.NovaSuiteV6Stop)
-end
-local old = PG:FindFirstChild("NOVA_Suite_V6")
+local OLD_GUI = "NOVA_Suite_v7"
+local old = PlayerGui:FindFirstChild(OLD_GUI)
 if old then old:Destroy() end
 
-local C = {
-    bg = Color3.fromRGB(13, 10, 25), panel = Color3.fromRGB(29, 22, 49),
-    dark = Color3.fromRGB(19, 15, 33), purple = Color3.fromRGB(175, 113, 255),
-    white = Color3.fromRGB(243, 237, 255), muted = Color3.fromRGB(171, 160, 193),
-    good = Color3.fromRGB(116, 238, 173), warn = Color3.fromRGB(251, 195, 112),
-    bad = Color3.fromRGB(252, 111, 146)
-}
-local active = true
-local events = {}
-local ranks = {}
-local highlights = {}
-local savedTransparency = setmetatable({}, {__mode = "k"})
-local savedCollision = setmetatable({}, {__mode = "k"})
-local S = {speed=false, fly=false, jump=false, noclip=false, ghost=false, esp=false, light=false, speedValue=48, flyValue=55}
-local originalWalkSpeed, originalPlatformStand, lightBackup
-local flyAttachment, flyVelocity, flyingRoot
-local upHeld, downHeld = false, false
-local refreshRows, refreshReport, stopFly, syncLocal
+local alive = true
+local connections = {}
+local function listen(signal, callback)
+    local c = signal:Connect(callback)
+    table.insert(connections, c)
+    return c
+end
 
-local function hook(signal, callback)
-    local con = signal:Connect(callback)
-    table.insert(events, con)
-    return con
+local COLORS = {
+    bg = Color3.fromRGB(11, 10, 19),
+    panel = Color3.fromRGB(26, 21, 41),
+    panel2 = Color3.fromRGB(36, 28, 57),
+    purple = Color3.fromRGB(154, 96, 255),
+    white = Color3.fromRGB(247, 245, 255),
+    muted = Color3.fromRGB(184, 174, 207),
+    green = Color3.fromRGB(124, 236, 169),
+    orange = Color3.fromRGB(255, 186, 108),
+}
+local function make(class, props, parent)
+    local v = Instance.new(class)
+    for k, value in pairs(props or {}) do v[k] = value end
+    v.Parent = parent
+    return v
 end
-local function create(kind, parent, fields)
-    local obj = Instance.new(kind)
-    for k, v in pairs(fields or {}) do obj[k] = v end
-    obj.Parent = parent
-    return obj
+local function round(frame, size)
+    make("UICorner", {CornerRadius = UDim.new(0, size or 10)}, frame)
 end
-local function corner(node, r)
-    create("UICorner", node, {CornerRadius=UDim.new(0,r or 10)})
+local function localCharacter()
+    return LocalPlayer.Character
 end
-local function newButton(parent, label, height, bg)
-    local b = create("TextButton", parent, {
-        Size=UDim2.new(1,0,0,height or 42), BackgroundColor3=bg or C.panel,
-        Text=label, TextSize=14, TextColor3=C.white, Font=Enum.Font.GothamSemibold,
-        BorderSizePixel=0, AutoButtonColor=true
-    })
-    corner(b,9)
+local function localHumanoid()
+    local c = localCharacter()
+    return c and c:FindFirstChildOfClass("Humanoid")
+end
+local function localRoot()
+    local c = localCharacter()
+    return c and c:FindFirstChild("HumanoidRootPart")
+end
+
+local state = {
+    Fly = false,
+    FlySpeed = 55,
+    Speed = false,
+    WalkSpeed = 50,
+    LocalInvisible = false,
+    ESP = false,
+    AdminCheck = true,
+}
+local original = {WalkSpeed = nil}
+local fly = {attach = nil, velocity = nil, orient = nil, humanoid = nil, autoRotate = nil}
+local highlighted = {}
+local selectedPlayer = nil
+
+local gui = make("ScreenGui", {
+    Name = OLD_GUI, ResetOnSpawn = false, DisplayOrder = 100,
+    IgnoreGuiInset = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+}, PlayerGui)
+
+local screen = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1200, 700)
+local width = math.min(445, math.max(290, screen.X - 35))
+local height = math.min(620, math.max(320, screen.Y - 110))
+local main = make("Frame", {
+    Size = UDim2.fromOffset(width, height),
+    Position = UDim2.fromScale(.5, .5),
+    AnchorPoint = Vector2.new(.5, .5),
+    Active = true, Draggable = true,
+    BackgroundColor3 = COLORS.bg, BorderSizePixel = 0,
+}, gui)
+round(main, 16)
+make("UIStroke", {Color = COLORS.purple, Thickness = 2}, main)
+make("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(27, 13, 46)),
+        ColorSequenceKeypoint.new(1, COLORS.bg)
+    }), Rotation = 120,
+}, main)
+
+local header = make("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundTransparency = 1}, main)
+make("TextLabel", {
+    Text = "NOVA SUITE  v7", Font = Enum.Font.GothamBold,
+    TextColor3 = COLORS.white, TextSize = 20,
+    Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -80, 0, 27),
+    BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+}, header)
+make("TextLabel", {
+    Text = "Controller Flight  •  Admin Signals", Font = Enum.Font.Gotham,
+    TextColor3 = COLORS.muted, TextSize = 11,
+    Position = UDim2.fromOffset(16, 32), Size = UDim2.new(1, -80, 0, 16),
+    BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+}, header)
+local close = make("TextButton", {
+    Text = "×", Font = Enum.Font.GothamBold, TextSize = 24,
+    Position = UDim2.new(1, -42, 0, 10), Size = UDim2.fromOffset(32, 32),
+    BackgroundColor3 = Color3.fromRGB(101, 47, 88), TextColor3 = COLORS.white,
+}, header)
+round(close, 8)
+
+local scroller = make("ScrollingFrame", {
+    Position = UDim2.fromOffset(12, 57), Size = UDim2.new(1, -24, 1, -104),
+    BackgroundTransparency = 1, BorderSizePixel = 0,
+    ScrollBarThickness = 4, ScrollBarImageColor3 = COLORS.purple,
+    AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(),
+}, main)
+make("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, scroller)
+make("UIPadding", {PaddingRight = UDim.new(0, 5), PaddingBottom = UDim.new(0, 10)}, scroller)
+local status = make("TextLabel", {
+    Position = UDim2.new(0, 12, 1, -43), Size = UDim2.new(1, -24, 0, 32),
+    Text = "الجاهزية: تحكم محلي فقط، بدون صلاحيات سيرفر",
+    BackgroundColor3 = COLORS.panel, TextColor3 = COLORS.muted,
+    Font = Enum.Font.Gotham, TextSize = 11, TextWrapped = true,
+}, main)
+round(status, 8)
+local function say(txt, good)
+    status.Text = txt
+    status.TextColor3 = good and COLORS.green or COLORS.orange
+end
+
+local function title(text)
+    local l = make("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 26), Text = text,
+        TextColor3 = COLORS.purple, Font = Enum.Font.GothamBold,
+        TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left,
+        BackgroundTransparency = 1,
+    }, scroller)
+    return l
+end
+local function action(text, callback, heightArg)
+    local b = make("TextButton", {
+        Size = UDim2.new(1, 0, 0, heightArg or 40),
+        Text = text, TextColor3 = COLORS.white,
+        BackgroundColor3 = COLORS.panel2,
+        Font = Enum.Font.GothamMedium, TextSize = 13, TextWrapped = true,
+    }, scroller)
+    round(b, 9)
+    listen(b.MouseButton1Click, function()
+        if alive then callback(b) end
+    end)
     return b
 end
-local function textLabel(parent, label, height, size, color)
-    return create("TextLabel", parent, {
-        Size=UDim2.new(1,0,0,height), BackgroundTransparency=1, Text=label,
-        TextColor3=color or C.white, Font=Enum.Font.Gotham,
-        TextSize=size or 13, TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left,
-        TextYAlignment=Enum.TextYAlignment.Center, BorderSizePixel=0
-    })
-end
-local function newList(parent)
-    local area = create("ScrollingFrame", parent, {
-        Size=UDim2.new(1,-22,1,-12), Position=UDim2.fromOffset(11,6),
-        BackgroundTransparency=1, ScrollBarThickness=3, ScrollBarImageColor3=C.purple,
-        AutomaticCanvasSize=Enum.AutomaticSize.Y, CanvasSize=UDim2.fromOffset(0,0),
-        BorderSizePixel=0
-    })
-    create("UIListLayout", area, {Padding=UDim.new(0,7), SortOrder=Enum.SortOrder.LayoutOrder})
-    create("UIPadding", area, {PaddingBottom=UDim.new(0,12)})
-    return area
-end
-
-local gui = create("ScreenGui", PG, {Name="NOVA_Suite_V6", ResetOnSpawn=false, DisplayOrder=120})
-local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(500,800)
-local width = math.floor(math.min(448, math.max(285, viewport.X-24)))
-local height = math.floor(math.min(570, math.max(360,viewport.Y-65)))
-local main = create("Frame", gui, {
-    Size=UDim2.fromOffset(width,height), Position=UDim2.new(0.5,-width/2,0.5,-height/2),
-    BackgroundColor3=C.bg, BorderSizePixel=0, Active=true
-})
-corner(main,16)
-create("UIStroke", main, {Color=C.purple, Thickness=2})
-local header = create("Frame", main, {
-    Size=UDim2.new(1,0,0,60), BackgroundColor3=C.dark,
-    BorderSizePixel=0, Active=true
-})
-corner(header,16)
-create("UIGradient", header, {Color=ColorSequence.new({
-    ColorSequenceKeypoint.new(0,Color3.fromRGB(76,36,126)),
-    ColorSequenceKeypoint.new(1,C.dark)
-})})
-create("TextLabel", header, {
-    Size=UDim2.new(1,-85,0,31),Position=UDim2.fromOffset(14,6),
-    BackgroundTransparency=1,Text="NOVA SUITE  v6",Font=Enum.Font.GothamBold,
-    TextSize=20,TextColor3=C.white,TextXAlignment=Enum.TextXAlignment.Left
-})
-create("TextLabel", header, {
-    Size=UDim2.new(1,-85,0,16),Position=UDim2.fromOffset(14,36),
-    BackgroundTransparency=1,Text="ADMIN EVIDENCE  /  LOCAL TOOLS",
-    TextSize=10,Font=Enum.Font.GothamSemibold,TextColor3=C.muted,
-    TextXAlignment=Enum.TextXAlignment.Left
-})
-local close = create("TextButton",header,{
-    Size=UDim2.fromOffset(34,34), Position=UDim2.new(1,-44,0,12),
-    BackgroundColor3=Color3.fromRGB(159,58,87), BorderSizePixel=0,
-    Text="×",TextSize=24,TextColor3=C.white,Font=Enum.Font.GothamBold
-})
-corner(close,8)
-
--- Touch + mouse dragging, avoiding deprecated Frame.Draggable.
-local dragging, startPos, startFrame, pointer = false,nil,nil,nil
-hook(header.InputBegan, function(input)
-    if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
-        dragging=true; pointer=input; startPos=input.Position; startFrame=main.Position
-    end
-end)
-hook(UIS.InputChanged, function(input)
-    if not dragging or not startPos or not startFrame then return end
-    if input.UserInputType==Enum.UserInputType.MouseMovement or input==pointer then
-        local delta=input.Position-startPos
-        main.Position=UDim2.new(startFrame.X.Scale,startFrame.X.Offset+delta.X,startFrame.Y.Scale,startFrame.Y.Offset+delta.Y)
-    end
-end)
-hook(UIS.InputEnded, function(input)
-    if input==pointer or (input.UserInputType==Enum.UserInputType.MouseButton1 and pointer and pointer.UserInputType==Enum.UserInputType.MouseButton1) then
-        dragging=false; pointer=nil
-    end
-end)
-
-local notice = create("TextLabel",main,{
-    Size=UDim2.new(1,-20,0,42),Position=UDim2.fromOffset(10,63),
-    BackgroundColor3=C.panel,BorderSizePixel=0,TextWrapped=true,
-    Text="كشف فعلي للملكية والبيانات الظاهرة؛ لا يوجد كشف مضمون لصلاحيات الأدمن المخفية.",
-    TextColor3=C.warn,TextSize=12,Font=Enum.Font.Gotham
-})
-corner(notice,8)
-local tabs = create("Frame",main,{
-    Size=UDim2.new(1,-20,0,37),Position=UDim2.fromOffset(10,111),
-    BackgroundTransparency=1
-})
-local frames, tabButtons = {},{}
-local tabNames = {{"players","اللاعبون"},{"local","الأدوات"},{"report","التقرير"}}
-local body = create("Frame",main,{
-    Size=UDim2.new(1,-20,1,-163),Position=UDim2.fromOffset(10,155),
-    BackgroundColor3=C.dark,BorderSizePixel=0
-})
-corner(body,10)
-for i,t in ipairs(tabNames) do
-    local b=create("TextButton",tabs,{
-        Size=UDim2.new(1/3,-5,1,0),Position=UDim2.new((i-1)/3,(i-1)*3,0,0),
-        BackgroundColor3=C.panel,Text=t[2],TextColor3=C.white,
-        Font=Enum.Font.GothamSemibold,TextSize=13,BorderSizePixel=0
-    })
-    corner(b,8)
-    tabButtons[t[1]]=b
-    local panel=create("Frame",body,{
-        Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false
-    })
-    frames[t[1]]=panel
-end
-local function openTab(name)
-    for k,panel in pairs(frames) do
-        panel.Visible=(k==name)
-        tabButtons[k].BackgroundColor3=(k==name) and Color3.fromRGB(93,48,144) or C.panel
-    end
-end
-for _,t in ipairs(tabNames) do
-    local name=t[1]
-    hook(tabButtons[name].MouseButton1Click,function()
-        openTab(name)
-        if name=="report" and refreshReport then refreshReport() end
+local function toggle(text, key, onChanged)
+    local base = text
+    local b
+    b = action("○  " .. base, function()
+        state[key] = not state[key]
+        b.Text = (state[key] and "●  " or "○  ") .. base
+        b.BackgroundColor3 = state[key] and Color3.fromRGB(76, 45, 120) or COLORS.panel2
+        if onChanged then onChanged(state[key]) end
     end)
+    return b
 end
-openTab("players")
-
-local playerList = newList(frames.players)
-local localList = newList(frames["local"])
-local reportList = newList(frames.report)
-
--- Rankings are never called inside render or repeated every frame.
-local function queryRank(p)
-    if game.CreatorType~=Enum.CreatorType.Group then return end
-    if ranks[p] and (ranks[p].pending or (os.clock()-ranks[p].at)<60) then return end
-    ranks[p]={pending=true,at=os.clock()}
-    task.spawn(function()
-        local ok,result=pcall(function() return p:GetRankInGroup(game.CreatorId) end)
-        if not active or p.Parent~=Players then return end
-        ranks[p]={pending=false,at=os.clock(),rank=ok and result or nil}
-        -- Updated automatically by the lightweight 5-second refresh loop.
-    end)
+local function note(text)
+    return make("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 40), Text = text,
+        TextWrapped = true, TextColor3 = COLORS.muted,
+        Font = Enum.Font.Gotham, TextSize = 11,
+        BackgroundTransparency = 1,
+    }, scroller)
 end
 
-local function getObservedTools(p)
-    local container=p.Character
-    local names={}
-    if container then
-        for _,obj in ipairs(container:GetChildren()) do
-            if obj:IsA("Tool") then
-                local n=string.lower(obj.Name)
-                if n=="kick" or n=="ban" or n=="admin" or n=="moderator" then
-                    table.insert(names,obj.Name)
-                end
+local function stopFlight()
+    if fly.velocity then fly.velocity:Destroy() end
+    if fly.orient then fly.orient:Destroy() end
+    if fly.attach then fly.attach:Destroy() end
+    if fly.humanoid and fly.humanoid.Parent then
+        fly.humanoid.PlatformStand = false
+        fly.humanoid.AutoRotate = (fly.autoRotate ~= false)
+    end
+    fly.attach, fly.velocity, fly.orient, fly.humanoid = nil, nil, nil, nil
+end
+local function startFlight()
+    stopFlight()
+    local hrp = localRoot()
+    local hum = localHumanoid()
+    if not hrp or not hum then
+        state.Fly = false
+        say("الشخصية غير جاهزة للطيران", false)
+        return false
+    end
+    fly.humanoid = hum
+    fly.autoRotate = hum.AutoRotate
+    fly.attach = make("Attachment", {Name = "NovaFlightAttachment"}, hrp)
+    fly.velocity = make("LinearVelocity", {
+        Name = "NovaFlightVelocity", Attachment0 = fly.attach,
+        RelativeTo = Enum.ActuatorRelativeTo.World,
+        VectorVelocity = Vector3.zero,
+        MaxForce = math.huge,
+    }, hrp)
+    fly.orient = make("AlignOrientation", {
+        Name = "NovaFlightOrientation", Attachment0 = fly.attach,
+        Mode = Enum.OrientationAlignmentMode.OneAttachment,
+        MaxTorque = math.huge, Responsiveness = 14,
+    }, hrp)
+    hum.AutoRotate = false
+    hum.PlatformStand = true
+    say("طيران: العصا اليسرى تحركك، R1 ارتفاع، L1 نزول", true)
+    return true
+end
+
+-- Gamepad thumbstick readings directly to work even if Humanoid is in PlatformStand.
+local thumb = Vector2.zero
+local function currentThumb()
+    -- Poll prevents stale stick values when input focus changes.
+    local success, inputs = pcall(UserInputService.GetGamepadState, UserInputService, Enum.UserInputType.Gamepad1)
+    if success then
+        local found = false
+        for _, input in ipairs(inputs) do
+            if input.KeyCode == Enum.KeyCode.Thumbstick1 then
+                thumb = Vector2.new(input.Position.X, input.Position.Y)
+                found = true
+                break
+            end
+        end
+        if not found then thumb = Vector2.zero end
+    else
+        thumb = Vector2.zero
+    end
+    if thumb.Magnitude < 0.14 then return Vector2.zero end
+    return thumb
+end
+local function gamepadDown(key)
+    local success, pressed = pcall(UserInputService.IsGamepadButtonDown, UserInputService, Enum.UserInputType.Gamepad1, key)
+    return success and pressed or false
+end
+local function keyDown(key)
+    return UserInputService:IsKeyDown(key)
+end
+local function updateFlight()
+    if not state.Fly then return end
+    local root = localRoot()
+    if not root or not fly.velocity or fly.velocity.Parent ~= root then
+        startFlight()
+        return
+    end
+    local cam = Workspace.CurrentCamera
+    if not cam then return end
+    local f = cam.CFrame.LookVector
+    local flatForward = Vector3.new(f.X, 0, f.Z)
+    if flatForward.Magnitude < .01 then flatForward = Vector3.new(0, 0, -1) end
+    flatForward = flatForward.Unit
+    local flatRight = flatForward:Cross(Vector3.yAxis).Unit
+    local gamepadAxis = currentThumb()
+    local horizontal = flatRight * gamepadAxis.X + flatForward * gamepadAxis.Y
+    if keyDown(Enum.KeyCode.W) then horizontal = horizontal + flatForward end
+    if keyDown(Enum.KeyCode.S) then horizontal = horizontal - flatForward end
+    if keyDown(Enum.KeyCode.D) then horizontal = horizontal + flatRight end
+    if keyDown(Enum.KeyCode.A) then horizontal = horizontal - flatRight end
+    if horizontal.Magnitude > 1 then horizontal = horizontal.Unit end
+    local goUp = keyDown(Enum.KeyCode.Space) or keyDown(Enum.KeyCode.E) or gamepadDown(Enum.KeyCode.ButtonR1)
+    local goDown = keyDown(Enum.KeyCode.LeftControl) or keyDown(Enum.KeyCode.Q) or gamepadDown(Enum.KeyCode.ButtonL1)
+    local vertical = (goUp and 1 or 0) - (goDown and 1 or 0)
+    -- No pressed controls = zero velocity, hover at current altitude.
+    fly.velocity.VectorVelocity = (horizontal + Vector3.new(0, vertical, 0)) * state.FlySpeed
+    fly.orient.CFrame = CFrame.lookAt(Vector3.zero, flatForward)
+end
+
+local function applySpeed()
+    local hum = localHumanoid()
+    if hum and not state.Fly then
+        if not original.WalkSpeed then original.WalkSpeed = hum.WalkSpeed end
+        hum.WalkSpeed = state.Speed and state.WalkSpeed or original.WalkSpeed
+    end
+end
+local function applyLocalInvisible()
+    local character = localCharacter()
+    if not character then return end
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.LocalTransparencyModifier = state.LocalInvisible and 1 or 0
+        end
+    end
+end
+
+local function getRole(player)
+    if game.CreatorType == Enum.CreatorType.User then
+        if player.UserId == game.CreatorId then
+            return "مالك التجربة (هوية مؤكدة)", "owner"
+        end
+    elseif game.CreatorType == Enum.CreatorType.Group then
+        local ok, rank = pcall(function() return player:GetRankInGroup(game.CreatorId) end)
+        if ok and rank then
+            if rank == 255 then
+                return "مالك المجموعة (رتبة 255)", "owner"
+            elseif rank >= 200 then
+                return "رتبة مجموعة عالية " .. tostring(rank) .. " — ليست إثبات أدمن", "possible"
             end
         end
     end
-    -- Other players' Backpack contents typically do not replicate to this client.
-    return #names>0 and table.concat(names,", ") or nil
-end
-
-local function inspectPlayer(p)
-    if game.CreatorType==Enum.CreatorType.User and p.UserId==game.CreatorId then
-        return 1,"👑 مالك التجربة","ملكية مؤكدة من CreatorId؛ ليست إثباتًا لصلاحية Kick داخل الماب"
-    end
-    if game.CreatorType==Enum.CreatorType.Group then
-        queryRank(p)
-        local x=ranks[p]
-        if x and x.rank==255 then
-            return 1,"👑 مالك القروب","رتبة القروب 255؛ صلاحيات الأدمن داخل الماب غير مثبتة"
-        elseif x and x.rank and x.rank>=200 then
-            return 2,"🟡 رتبة قروب مرتفعة","رتبة القروب: "..tostring(x.rank).." — لا تثبت أدمن الماب"
-        end
-    end
-    local attrNames={"IsAdmin","Admin","IsModerator","Moderator","AdminLevel","AdminRank","IsOwner"}
-    for _,key in ipairs(attrNames) do
-        local value=p:GetAttribute(key)
-        if value~=nil and value~=false and value~=0 and value~="" then
-            return 2,"🟡 إشارة إدارية معلنة","Attribute: "..key.."="..tostring(value).."؛ غير موثّقة من نظام الصلاحيات"
-        end
-    end
-    local role=p:GetAttribute("Role")
-    if type(role)=="string" then
-        local lower=string.lower(role)
-        if lower=="admin" or lower=="moderator" or lower=="owner" then
-            return 2,"🟡 دور معلن","Role="..role.."؛ لا يثبت صلاحيات الأوامر"
-        end
-    end
-    local tool=getObservedTools(p)
-    if tool then
-        return 3,"⚪ مؤشر أداة","اسم أداة ظاهر: "..tool.." — ليس دليلًا على الأدمن"
-    end
-    return 4,"⚪ غير معروف","ما فيه دليل ظاهر يثبت صلاحية إدارية"
-end
-
-local function clearElements(parent, kind)
-    for _,child in ipairs(parent:GetChildren()) do
-        if child:IsA(kind) then child:Destroy() end
-    end
-end
-local lastScan={owners=0,signals=0,tools=0,unknown=0}
-refreshRows=function()
-    if not active then return end
-    clearElements(playerList,"Frame")
-    local all=Players:GetPlayers()
-    local results={}
-    local totals={owners=0,signals=0,tools=0,unknown=0}
-    for _,p in ipairs(all) do
-        local score,status,reason=inspectPlayer(p)
-        if score==1 then totals.owners=totals.owners+1
-        elseif score==2 then totals.signals=totals.signals+1
-        elseif score==3 then totals.tools=totals.tools+1
-        else totals.unknown=totals.unknown+1 end
-        table.insert(results,{p=p,score=score,status=status,reason=reason})
-    end
-    lastScan=totals
-    table.sort(results,function(a,b)
-        if a.score==b.score then return a.p.Name:lower()<b.p.Name:lower() end
-        return a.score<b.score
-    end)
-    textLabel(playerList,"المتصلون: "..tostring(#all).."  |  مالك/قروب: "..totals.owners.."  |  إشارات: "..totals.signals,30,12,C.muted)
-    for _,it in ipairs(results) do
-        local f=create("Frame",playerList,{Size=UDim2.new(1,-4,0,77),BackgroundColor3=C.panel,BorderSizePixel=0})
-        corner(f,8)
-        create("TextLabel",f,{
-            Size=UDim2.new(1,-16,0,22),Position=UDim2.fromOffset(8,4),
-            BackgroundTransparency=1,Text=it.p.Name.." ["..it.p.UserId.."]",TextSize=13,
-            Font=Enum.Font.GothamBold,TextColor3=C.white,TextXAlignment=Enum.TextXAlignment.Left,
-            TextTruncate=Enum.TextTruncate.AtEnd
-        })
-        create("TextLabel",f,{
-            Size=UDim2.new(1,-16,0,19),Position=UDim2.fromOffset(8,26),
-            BackgroundTransparency=1,Text=it.status,TextSize=12,
-            Font=Enum.Font.GothamSemibold,TextColor3=(it.score==1 and C.good) or (it.score==2 and C.warn) or C.muted,
-            TextXAlignment=Enum.TextXAlignment.Left
-        })
-        create("TextLabel",f,{
-            Size=UDim2.new(1,-16,0,29),Position=UDim2.fromOffset(8,46),
-            BackgroundTransparency=1,Text=it.reason,TextSize=10,TextWrapped=true,
-            TextColor3=C.muted,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left
-        })
-    end
-end
-
-local function playerCharacter()
-    local character=LP.Character
-    return character,character and character:FindFirstChildOfClass("Humanoid"),character and character:FindFirstChild("HumanoidRootPart")
-end
-local function restoreTransparency()
-    for part,value in pairs(savedTransparency) do
-        if part and part.Parent then pcall(function() part.LocalTransparencyModifier=value end) end
-        savedTransparency[part]=nil
-    end
-end
-local function restoreCollision()
-    for part,value in pairs(savedCollision) do
-        if part and part.Parent then pcall(function() part.CanCollide=value end) end
-        savedCollision[part]=nil
-    end
+    return "صلاحيات الأدمن غير معروفة", "unknown"
 end
 local function clearHighlights()
-    for p,h in pairs(highlights) do
-        if h then h:Destroy() end
-        highlights[p]=nil
+    for player, data in pairs(highlighted) do
+        if data and data.Parent then data:Destroy() end
+        highlighted[player] = nil
     end
 end
-stopFly=function()
-    if flyVelocity then flyVelocity:Destroy() end
-    if flyAttachment then flyAttachment:Destroy() end
-    flyVelocity=nil; flyAttachment=nil; flyingRoot=nil
-    local _,h=playerCharacter()
-    if h and originalPlatformStand~=nil then h.PlatformStand=originalPlatformStand end
-    originalPlatformStand=nil
-    upHeld=false;downHeld=false
-end
-local function startFly()
-    local _,h,r=playerCharacter()
-    if not h or not r then return end
-    stopFly()
-    originalPlatformStand=h.PlatformStand
-    h.PlatformStand=true
-    flyAttachment=create("Attachment",r,{Name="NovaFlyAttachment"})
-    flyVelocity=create("LinearVelocity",r,{
-        Name="NovaFlyVelocity",Attachment0=flyAttachment,
-        RelativeTo=Enum.ActuatorRelativeTo.World,
-        MaxForce=1000000,VectorVelocity=Vector3.zero
-    })
-    flyingRoot=r
-end
-local function setLight(enabled)
-    if enabled then
-        if not lightBackup then
-            lightBackup={Brightness=Lighting.Brightness,ClockTime=Lighting.ClockTime,Ambient=Lighting.Ambient,OutdoorAmbient=Lighting.OutdoorAmbient,FogEnd=Lighting.FogEnd}
-        end
-        Lighting.Brightness=3;Lighting.ClockTime=14
-        Lighting.Ambient=Color3.fromRGB(200,200,210)
-        Lighting.OutdoorAmbient=Color3.fromRGB(200,200,210)
-        Lighting.FogEnd=100000
-    elseif lightBackup then
-        for k,v in pairs(lightBackup) do Lighting[k]=v end
-        lightBackup=nil
+local function refreshHighlights()
+    if not state.ESP then
+        clearHighlights()
+        return
     end
-end
-syncLocal=function()
-    local character,h,r=playerCharacter()
-    if not character then return end
-    if S.speed and h then
-        if originalWalkSpeed==nil then originalWalkSpeed=h.WalkSpeed end
-        h.WalkSpeed=S.speedValue
-    elseif h and originalWalkSpeed~=nil then
-        h.WalkSpeed=originalWalkSpeed;originalWalkSpeed=nil
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            if char and not highlighted[player] then
+                highlighted[player] = make("Highlight", {
+                    Name = "NovaLocalESP", Adornee = char,
+                    FillColor = COLORS.purple, OutlineColor = COLORS.white,
+                    FillTransparency = .66, DepthMode = Enum.HighlightDepthMode.AlwaysOnTop,
+                }, gui)
+            elseif highlighted[player] and highlighted[player].Adornee ~= char then
+                highlighted[player]:Destroy()
+                highlighted[player] = nil
+            end
+        end
     end
-    if S.ghost then
-        for _,part in ipairs(character:GetDescendants()) do
-            if part:IsA("BasePart") and part.Name~="HumanoidRootPart" then
-                if savedTransparency[part]==nil then savedTransparency[part]=part.LocalTransparencyModifier end
-                part.LocalTransparencyModifier=1
-            end
-        end
-    else restoreTransparency() end
-    if S.noclip then
-        for _,part in ipairs(character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                if savedCollision[part]==nil then savedCollision[part]=part.CanCollide end
-                part.CanCollide=false
-            end
-        end
-    else restoreCollision() end
-    if S.fly then
-        if not flyVelocity or not flyVelocity.Parent or flyingRoot~=r then startFly() end
-        if flyVelocity and h then
-            local horizontal=h.MoveDirection*S.flyValue
-            local vertical=0
-            if upHeld or UIS:IsKeyDown(Enum.KeyCode.E) or UIS:IsKeyDown(Enum.KeyCode.Space) then vertical=vertical+S.flyValue end
-            if downHeld or UIS:IsKeyDown(Enum.KeyCode.Q) then vertical=vertical-S.flyValue end
-            flyVelocity.VectorVelocity=horizontal+Vector3.new(0,vertical,0)
-        end
-    elseif flyVelocity then stopFly() end
-    if S.esp then
-        for _,p in ipairs(Players:GetPlayers()) do
-            if p~=LP and p.Character then
-                if not highlights[p] or highlights[p].Adornee~=p.Character then
-                    if highlights[p] then highlights[p]:Destroy() end
-                    highlights[p]=create("Highlight",gui,{
-                        Name="NovaLocalHighlight",Adornee=p.Character,FillTransparency=0.8,
-                        OutlineColor=C.purple,FillColor=C.purple,
-                        DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
-                    })
-                end
-            end
-        end
-        for p,h1 in pairs(highlights) do
-            if p.Parent~=Players or not p.Character then h1:Destroy();highlights[p]=nil end
-        end
-    elseif next(highlights) then clearHighlights() end
 end
 
-textLabel(localList,"هذه التأثيرات على جهازك فقط، وقد يمنعها سيرفر الماب أو يعيد إعداداتها.",48,12,C.warn)
-local buttons={}
-local function toggle(title,key,description)
-    local b=newButton(localList,title,42)
-    textLabel(localList,description,28,11,C.muted)
-    buttons[key]=b
-    local function paint()
-        b.BackgroundColor3=S[key] and Color3.fromRGB(78,126,95) or C.panel
-        b.Text=title..(S[key] and "  [ON]" or "  [OFF]")
+local function tryTeleport(player)
+    if not player or player == LocalPlayer or player.Parent ~= Players then
+        say("اختر لاعبًا موجودًا أولًا", false)
+        return
     end
-    paint()
-    hook(b.MouseButton1Click,function()
-        S[key]=not S[key]
-        if key=="light" then setLight(S.light) end
-        if key=="fly" and not S.fly then stopFly() end
-        if key=="ghost" and not S.ghost then restoreTransparency() end
-        if key=="noclip" and not S.noclip then restoreCollision() end
-        if key=="esp" and not S.esp then clearHighlights() end
-        paint()
-        syncLocal()
-    end)
-end
-toggle("⚡ زيادة سرعة المشي","speed","تغيير WalkSpeed محليًا فقط")
-toggle("🚀 الطيران","fly","التحريك بالمشي؛ E أو Space صعود، Q نزول، أو أزرار اللمس")
-toggle("⬆ قفز إضافي","jump","قفز في الهواء عند الضغط على زر القفز")
-toggle("🧱 مرور محلي عبر الجدران","noclip","قد يصحح السيرفر موقعك أو يصطدم بك")
-toggle("👻 اختفاء بصري محلي","ghost","أنت فقط قد لا ترى شخصيتك؛ الآخرون قد يرونك")
-toggle("👁 تمييز اللاعبين محليًا","esp","حدود مضيئة للاعبين المتاحين لجهازك")
-toggle("☀️ إضاءة أقوى","light","تعديل الإضاءة والضباب على شاشتك")
-local speedBtn=newButton(localList,"سرعة المشي: 48  |  اضغط للتبديل",38)
-hook(speedBtn.MouseButton1Click,function()
-    S.speedValue=(S.speedValue==48 and 80 or (S.speedValue==80 and 24 or 48))
-    speedBtn.Text="سرعة المشي: "..S.speedValue.."  |  اضغط للتبديل"
-    syncLocal()
-end)
-local flyBtn=newButton(localList,"سرعة الطيران: 55  |  اضغط للتبديل",38)
-hook(flyBtn.MouseButton1Click,function()
-    S.flyValue=(S.flyValue==55 and 90 or (S.flyValue==90 and 30 or 55))
-    flyBtn.Text="سرعة الطيران: "..S.flyValue.."  |  اضغط للتبديل"
-end)
-local up=newButton(localList,"▲ صعود (اضغط باستمرار)",38)
-local down=newButton(localList,"▼ نزول (اضغط باستمرار)",38)
-for _,data in ipairs({{up,true},{down,false}}) do
-    local b,isUp=data[1],data[2]
-    hook(b.InputBegan,function(i)
-        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-            if isUp then upHeld=true else downHeld=true end
-        end
-    end)
-    hook(b.InputEnded,function(i)
-        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-            if isUp then upHeld=false else downHeld=false end
-        end
-    end)
+    local fromRoot = localRoot()
+    local toRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not fromRoot or not toRoot then
+        say("ما قدرت أوصل لموقع اللاعب الآن", false)
+        return
+    end
+    fromRoot.CFrame = toRoot.CFrame * CFrame.new(0, 0, 4)
+    say("انتقلت قرب " .. player.Name .. " محليًا؛ قد يعيدك السيرفر", true)
 end
 
-local reportBox=create("TextBox",reportList,{
-    Size=UDim2.new(1,-2,0,350),BackgroundColor3=C.panel,Text="",
-    TextColor3=C.white,TextSize=12,Font=Enum.Font.Code,TextWrapped=false,
-    MultiLine=true,ClearTextOnFocus=false,TextEditable=true,
-    TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,
-    BorderSizePixel=0
-})
-corner(reportBox,8)
-local copyReport=newButton(reportList,"نسخ التقرير (إذا متاح)",42,C.purple)
-refreshReport=function()
-    local rows={"NOVA SUITE v6 — CLIENT OBSERVATIONS",
-        "PlaceId: "..tostring(game.PlaceId),
-        "GameId: "..tostring(game.GameId),
-        "Players: "..tostring(#Players:GetPlayers()),
-        "Owner/group owner: "..lastScan.owners,
-        "Public signals: "..lastScan.signals,
-        "Tool name indicators: "..lastScan.tools,
-        "Unknown: "..lastScan.unknown,
-        "NOTE: These observations do not prove hidden admin rights.","---"}
-    for _,p in ipairs(Players:GetPlayers()) do
-        local _,status,reason=inspectPlayer(p)
-        table.insert(rows,p.Name.." ["..p.UserId.."] => "..status.." | "..reason)
-    end
-    reportBox.Text=table.concat(rows,"\n")
-end
-hook(copyReport.MouseButton1Click,function()
-    refreshReport()
-    local fn=nil
-    pcall(function() fn=setclipboard end)
-    if type(fn)=="function" then
-        local ok=pcall(fn,reportBox.Text)
-        copyReport.Text=ok and "تم نسخ التقرير ✓" or "النسخ غير متاح — استخدم صندوق النص"
+title("🚀 الطيران والتحكم")
+local flyButton
+flyButton = toggle("الطيران الحر — يد سوني وكيبورد", "Fly", function(on)
+    if on then
+        if not startFlight() then
+            flyButton.Text = "○  الطيران الحر — يد سوني وكيبورد"
+            flyButton.BackgroundColor3 = COLORS.panel2
+        end
     else
-        copyReport.Text="النسخ غير متاح — استخدم صندوق النص"
+        stopFlight()
+        say("تم إيقاف الطيران ويمكنك المشي والنزول طبيعي", true)
     end
 end)
+note("يد السوني على PC: العصا اليسرى للحركة، R1 ↑ وL1 ↓. الكيبورد: WASD، Space ↑ وCtrl ↓. ترك الأزرار يثبتك في الجو.")
+local speedFlyText = action("سرعة الطيران: 55   [+]", function(b)
+    local options = {25, 55, 90, 140}
+    local i = 1
+    for index, value in ipairs(options) do if value == state.FlySpeed then i = index break end end
+    state.FlySpeed = options[(i % #options) + 1]
+    b.Text = "سرعة الطيران: " .. state.FlySpeed .. "   [+]"
+end)
 
-hook(Players.PlayerAdded,function(p)
-    queryRank(p)
-    task.defer(function() if active then refreshRows() end end)
+title("👤 أدوات الشخصية المحلية")
+toggle("السرعة الإضافية", "Speed", function() applySpeed() end)
+action("تغيير سرعة المشي: 50   [+]", function(b)
+    local values = {32, 50, 75, 100}
+    local idx = 1
+    for i, value in ipairs(values) do if value == state.WalkSpeed then idx = i break end end
+    state.WalkSpeed = values[(idx % #values) + 1]
+    b.Text = "تغيير سرعة المشي: " .. state.WalkSpeed .. "   [+]"
+    applySpeed()
 end)
-hook(Players.PlayerRemoving,function(p)
-    ranks[p]=nil
-    if highlights[p] then highlights[p]:Destroy();highlights[p]=nil end
-    task.defer(function() if active then refreshRows() end end)
+toggle("إخفاء الشخصية من شاشتك فقط", "LocalInvisible", function()
+    applyLocalInvisible()
+    say("هذا اختفاء محلي فقط؛ بقية اللاعبين قد يشاهدون شخصيتك", false)
 end)
-hook(LP.CharacterAdded,function()
-    stopFly();originalWalkSpeed=nil
-    restoreTransparency();restoreCollision()
+toggle("إبراز مواقع اللاعبين (ESP محلي)", "ESP", function(on)
+    refreshHighlights()
+    say(on and "إبراز اللاعبين على شاشتك مفعل" or "إبراز اللاعبين متوقف", true)
 end)
-hook(UIS.JumpRequest,function()
-    if S.jump then
-        local _,h=playerCharacter()
-        if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
+
+title("🛡️ كشف المالك والرتب العامة")
+note("الكشف تلقائي ويعرض مصدر المعلومة. رتبة القروب أو وجود أداة باسم Kick لا يثبت امتلاك أدمن داخل الماب.")
+
+title("🔎 بحث وقائمة اللاعبين")
+local search = make("TextBox", {
+    Size = UDim2.new(1, 0, 0, 42),
+    BackgroundColor3 = COLORS.panel2, TextColor3 = COLORS.white,
+    PlaceholderColor3 = COLORS.muted, PlaceholderText = "اكتب اسم اللاعب أو جزءًا منه...",
+    Text = "", ClearTextOnFocus = false,
+    Font = Enum.Font.Gotham, TextSize = 13,
+}, scroller)
+round(search, 9)
+local chosen = make("TextLabel", {
+    Size = UDim2.new(1, 0, 0, 28),
+    Text = "لم يتم تحديد لاعب", Font = Enum.Font.GothamMedium,
+    TextColor3 = COLORS.orange, TextSize = 12,
+    BackgroundTransparency = 1,
+}, scroller)
+action("📍 الانتقال إلى اللاعب المحدد", function()
+    tryTeleport(selectedPlayer)
+end)
+local listBox = make("ScrollingFrame", {
+    Size = UDim2.new(1, 0, 0, 235),
+    BackgroundColor3 = COLORS.panel, BorderSizePixel = 0,
+    ScrollBarThickness = 4, ScrollBarImageColor3 = COLORS.purple,
+    AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(),
+}, scroller)
+round(listBox, 10)
+make("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 5)}, listBox)
+make("UIPadding", {PaddingLeft = UDim.new(0, 5), PaddingTop = UDim.new(0, 5), PaddingRight = UDim.new(0, 5)}, listBox)
+local function refreshList()
+    if not alive then return end
+    for _, item in ipairs(listBox:GetChildren()) do
+        if item:IsA("TextButton") then item:Destroy() end
     end
-end)
-local scanTick, localTick=0,0
-hook(RunService.Heartbeat,function(dt)
-    if not active then return end
-    scanTick=scanTick+dt;localTick=localTick+dt
-    if localTick>0.07 then localTick=0;syncLocal() end
-    if scanTick>5 then scanTick=0;refreshRows() end
-end)
-
-local function shutdown()
-    if not active then return end
-    active=false
-    S.speed=false;S.fly=false;S.noclip=false;S.ghost=false;S.esp=false;S.light=false
-    stopFly();restoreCollision();restoreTransparency();clearHighlights();setLight(false)
-    local _,h=playerCharacter()
-    if h and originalWalkSpeed~=nil then h.WalkSpeed=originalWalkSpeed end
-    for _,con in ipairs(events) do pcall(function() con:Disconnect() end) end
-    if gui and gui.Parent then gui:Destroy() end
-    if global.NovaSuiteV6Stop==shutdown then global.NovaSuiteV6Stop=nil end
+    local phrase = string.lower(search.Text)
+    local all = Players:GetPlayers()
+    table.sort(all, function(a, b) return a.Name:lower() < b.Name:lower() end)
+    for _, player in ipairs(all) do
+        if player ~= LocalPlayer and (phrase == "" or player.Name:lower():find(phrase, 1, true) or player.DisplayName:lower():find(phrase, 1, true)) then
+            local role, roleType = getRole(player)
+            local b = make("TextButton", {
+                Size = UDim2.new(1, -4, 0, 55),
+                Text = player.DisplayName .. " (@" .. player.Name .. ")\n" .. role,
+                TextColor3 = roleType == "owner" and COLORS.green or (roleType == "possible" and COLORS.orange or COLORS.white),
+                BackgroundColor3 = COLORS.panel2,
+                TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true,
+                Font = Enum.Font.GothamMedium, TextSize = 12,
+            }, listBox)
+            round(b, 8)
+            listen(b.MouseButton1Click, function()
+                selectedPlayer = player
+                chosen.Text = "المحدد: @" .. player.Name .. "  |  " .. role
+                chosen.TextColor3 = COLORS.green
+                say("اخترت اللاعب؛ اضغط زر الانتقال", true)
+            end)
+        end
+    end
 end
-global.NovaSuiteV6Stop=shutdown
-hook(close.MouseButton1Click,shutdown)
-refreshRows()
-print("NOVA SUITE v6 loaded: owner/rank/evidence detector + client-only tools")
+listen(search:GetPropertyChangedSignal("Text"), refreshList)
+-- Press Enter after typing a unique name to teleport without another click.
+listen(search.FocusLost, function(enterPressed)
+    if not enterPressed then return end
+    local query = search.Text:lower()
+    if query == "" then return end
+    local matches = {}
+    local exact = nil
+    for _, candidate in ipairs(Players:GetPlayers()) do
+        if candidate ~= LocalPlayer then
+            if candidate.Name:lower() == query or candidate.DisplayName:lower() == query then exact = candidate end
+            if candidate.Name:lower():find(query, 1, true) or candidate.DisplayName:lower():find(query, 1, true) then
+                table.insert(matches, candidate)
+            end
+        end
+    end
+    local match = exact or (#matches == 1 and matches[1] or nil)
+    if match then
+        selectedPlayer = match
+        chosen.Text = "المحدد: @" .. match.Name
+        chosen.TextColor3 = COLORS.green
+        tryTeleport(match)
+    else
+        say("الاسم غير موجود أو يطابق أكثر من لاعب؛ اختر من القائمة", false)
+    end
+end)
+listen(Players.PlayerAdded, refreshList)
+listen(Players.PlayerRemoving, function(player)
+    if selectedPlayer == player then
+        selectedPlayer = nil
+        chosen.Text = "لم يتم تحديد لاعب"
+    end
+    refreshList()
+end)
+refreshList()
+note("سحب لاعب آخر من سيرفر عام لا يعمل بشكل موثوق بسكربت محلي. لا يوجد زر سحب وهمي في هذه النسخة.")
+
+-- Update small set of client-only functions.
+local elapsed = 0
+listen(RunService.RenderStepped, function(dt)
+    if not alive then return end
+    updateFlight()
+    elapsed = elapsed + dt
+    if elapsed >= .5 then
+        elapsed = 0
+        if state.LocalInvisible then applyLocalInvisible() end
+        if state.Speed then applySpeed() end
+        refreshHighlights()
+    end
+end)
+listen(LocalPlayer.CharacterAdded, function()
+    stopFlight()
+    original.WalkSpeed = nil
+    if state.Fly then
+        task.delay(.5, function() if alive and state.Fly then startFlight() end end)
+    end
+    task.delay(.7, function()
+        if alive then applySpeed(); applyLocalInvisible() end
+    end)
+end)
+
+local function cleanup()
+    if not alive then return end
+    alive = false
+    state.Fly = false
+    stopFlight()
+    state.LocalInvisible = false
+    applyLocalInvisible()
+    state.Speed = false
+    applySpeed()
+    clearHighlights()
+    for _, conn in ipairs(connections) do conn:Disconnect() end
+    gui:Destroy()
+end
+listen(close.MouseButton1Click, cleanup)
+print("NOVA SUITE v7 loaded. Admin statuses reflect public evidence, not private permissions.")
