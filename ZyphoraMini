@@ -1,4 +1,4 @@
--- NOVA SUITE v8 | Experimental client-side utility panel
+-- NOVA SUITE v9 | Unified local utility panel
 -- Roblox Luau. No server admin/permissions bypass; server controls other players.
 -- Flight: left stick + camera direction, including ascent/descent when looking up/down.
 -- Keyboard: WASD + mouse look. Both movement speeds adjustable +/-.
@@ -9,14 +9,17 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
 if not PlayerGui then return end
 
--- Re-running v8 cleans up its own previous loops and UI.
-local previous = rawget(_G, "NOVA_SuiteV8Cleanup")
-if type(previous) == "function" then pcall(previous) end
-local OLD_GUI = "NOVA_Suite_v8"
+-- Re-running v9 cleans up its own previous loops and UI.
+for _, oldKey in ipairs({"NOVA_SuiteV9Cleanup", "NOVA_SuiteV8Cleanup"}) do
+    local previous = rawget(_G, oldKey)
+    if type(previous) == "function" then pcall(previous) end
+end
+local OLD_GUI = "NOVA_Suite_v9"
 local old = PlayerGui:FindFirstChild(OLD_GUI)
 if old then old:Destroy() end
 
@@ -67,8 +70,11 @@ local state = {
     LocalInvisible = false,
     ESP = false,
     AdminESP = false,
+    Noclip = false,
 }
 local original = {WalkSpeed = nil}
+local collisionOriginal = {}
+local copiedToolSources = {}
 local fly = {attach = nil, velocity = nil, orient = nil, humanoid = nil, autoRotate = nil}
 local highlighted = {}
 local adminVisuals = {}
@@ -101,7 +107,7 @@ make("UIGradient", {
 
 local header = make("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundTransparency = 1}, main)
 make("TextLabel", {
-    Text = "NOVA SUITE  v8", Font = Enum.Font.GothamBold,
+    Text = "NOVA SUITE  v9", Font = Enum.Font.GothamBold,
     TextColor3 = COLORS.white, TextSize = 20,
     Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -80, 0, 27),
     BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
@@ -333,6 +339,87 @@ local function applyLocalInvisible()
     end
 end
 
+-- Local noclip: keep each part's original collision state for an honest reset.
+local function applyNoclip()
+    if not state.Noclip then return end
+    local char = localCharacter()
+    if not char then return end
+    for _, obj in ipairs(char:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            if collisionOriginal[obj] == nil then
+                collisionOriginal[obj] = obj.CanCollide
+            end
+            obj.CanCollide = false
+        end
+    end
+end
+local function restoreCollisions()
+    for part, originalState in pairs(collisionOriginal) do
+        if part and part.Parent then
+            pcall(function() part.CanCollide = originalState end)
+        end
+        collisionOriginal[part] = nil
+    end
+end
+
+-- Copies only tools visible to this client; never claims an award from the server.
+local function copyVisibleTools()
+    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+    if not backpack then
+        say("الحقيبة غير متاحة الآن", false)
+        return
+    end
+    local copied, failed, found = 0, 0, 0
+    local function tryCopy(source)
+        if not source:IsA("Tool") or copiedToolSources[source] then return end
+        -- Don't copy what is already equipped on another player's avatar.
+        if source:IsDescendantOf(Workspace) then
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p.Character and source:IsDescendantOf(p.Character) then return end
+            end
+        end
+        found = found + 1
+        local ok, clone = pcall(function() return source:Clone() end)
+        if ok and clone then
+            clone.Parent = backpack
+            copiedToolSources[source] = true
+            copied = copied + 1
+        else
+            failed = failed + 1
+        end
+    end
+    for _, obj in ipairs(Workspace:GetDescendants()) do tryCopy(obj) end
+    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do tryCopy(obj) end
+    if copied > 0 then
+        say("تم نسخ " .. copied .. " أداة محليًا للحقيبة؛ عملها بالسيرفر غير مضمون", true)
+    elseif found > 0 then
+        say("لقيت " .. found .. " أداة، لكن ما قدرت أنسخها. تعذّر: " .. failed, false)
+    else
+        say("ما لقيت أدوات ظاهرة جديدة للنسخ عندك", false)
+    end
+end
+
+local adminToolTokens = {
+    "admin", "moderator", "mod panel", "ban hammer", "banhammer",
+    "kick tool", "kicktool", "owner tool", "admin wand",
+    "ادمن", "أدمن", "مشرف"
+}
+local function visibleAdminTool(player)
+    local char = player.Character
+    if not char then return nil end
+    -- Other players' Backpacks are normally not visible on the client.
+    for _, tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            local lower = tool.Name:lower()
+            for _, token in ipairs(adminToolTokens) do
+                if lower:find(token, 1, true) then
+                    return tool.Name
+                end
+            end
+        end
+    end
+    return nil
+end
 local function getRole(player)
     if game.CreatorType == Enum.CreatorType.User then
         if player.UserId == game.CreatorId then
@@ -344,9 +431,13 @@ local function getRole(player)
             if rank == 255 then
                 return "مالك المجموعة (رتبة 255)", "owner"
             elseif rank >= 200 then
-                return "رتبة مجموعة عالية " .. tostring(rank) .. " — ليست إثبات أدمن", "possible"
+                return "رتبة قروب " .. tostring(rank) .. " (ليست إثبات أدمن)", "possible"
             end
         end
+    end
+    local candidate = visibleAdminTool(player)
+    if candidate then
+        return "أداة ظاهرة: " .. candidate .. " (اشتباه فقط)", "tool"
     end
     return "صلاحيات الأدمن غير معروفة", "unknown"
 end
@@ -399,20 +490,21 @@ local function refreshAdminVision()
             local char = player.Character
             local head = char and char:FindFirstChild("Head")
             local role, kind = getRole(player)
-            if kind ~= "owner" and kind ~= "possible" then
+            if kind ~= "owner" and kind ~= "possible" and kind ~= "tool" then
                 clearAdminVisual(player)
             elseif not char or not head then
                 clearAdminVisual(player)
             else
                 local existing = adminVisuals[player]
-                if existing and existing.char ~= char then
+                if existing and (existing.char ~= char or existing.kind ~= kind) then
                     clearAdminVisual(player)
                     existing = nil
                 end
                 if not existing then
                     local isOwner = kind == "owner"
-                    local color = isOwner and COLORS.green or COLORS.orange
-                    local tag = isOwner and "👑 مالك التجربة / المجموعة" or "🛡️ رتبة مجموعة عالية (غير مؤكدة)"
+                    local color = isOwner and COLORS.green or (kind == "tool" and Color3.fromRGB(245, 216, 105) or COLORS.orange)
+                    local tag = isOwner and "👑 مالك التجربة / المجموعة" or
+                        (kind == "tool" and "🔎 أداة إدارية محتملة (غير مؤكدة)" or "🛡️ رتبة قروب عالية (غير مؤكدة)")
                     local highlight = make("Highlight", {
                         Name = "NovaAdminVisionLocal", Adornee = char,
                         FillColor = color, OutlineColor = color,
@@ -432,7 +524,7 @@ local function refreshAdminVision()
                         Font = Enum.Font.GothamBold, TextSize = 13,
                         TextWrapped = true,
                     }, billboard)
-                    adminVisuals[player] = {char = char, highlight = highlight, billboard = billboard, label = label}
+                    adminVisuals[player] = {char = char, kind = kind, highlight = highlight, billboard = billboard, label = label}
                 end
             end
         end
@@ -473,6 +565,19 @@ local function tryTeleport(player)
     say("انتقلت قرب " .. player.Name .. " محليًا؛ قد يعيدك السيرفر", true)
 end
 
+title("🛡️ كشف ورؤية الأدمنية — فوق رؤوس اللاعبين")
+toggle("🛡️ كشف الأدمنية وإظهار أسمائهم على الماب", "AdminESP", function(on)
+    refreshAdminVision()
+    if on then
+        local count = 0
+        for _ in pairs(adminVisuals) do count = count + 1 end
+        say("تم تمييز " .. count .. " لاعب بدليل ظاهر. المالك مؤكد؛ الرتب والأدوات ليست إثبات أدمن", true)
+    else
+        say("تم إيقاف رؤية الأدمنية", true)
+    end
+end)
+note("الأخضر: مالك معروف. البرتقالي: رتبة قروب عامة. الأصفر: أداة باسم إداري ظاهرة (اشتباه فقط). الاسم يظهر فوق الرأس إذا توفر دليل. لا يوجد فحص مضمون لصلاحيات السيرفر المخفية.")
+
 title("🚀 الطيران والتحكم")
 local flyButton
 flyButton = toggle("الطيران الحر — يد سوني وكيبورد", "Fly", function(on)
@@ -501,16 +606,20 @@ toggle("إبراز مواقع اللاعبين (ESP محلي)", "ESP", function(
     say(on and "إبراز اللاعبين على شاشتك مفعل" or "إبراز اللاعبين متوقف", true)
 end)
 
-title("🛡️ رؤية الأدمنية داخل الماب")
-toggle("إظهار المالك والرتب المرتفعة فوق الشخصيات", "AdminESP", function(on)
-    refreshAdminVision()
+title("🧱 اختراق الجدران (محلي)")
+toggle("👻 تجاوز الجدران / Noclip", "Noclip", function(on)
     if on then
-        say("الأخضر = مالك معروف، البرتقالي = رتبة مجموعة عامة؛ صلاحية الأدمن غير مؤكدة", true)
+        applyNoclip()
+        say("تجاوز الجدران مفعّل عندك محليًا؛ قد يمنعه السيرفر أو يعيد موقعك", true)
     else
-        say("تم إيقاف إبراز المالك والرتب", true)
+        restoreCollisions()
+        say("تم إيقاف تجاوز الجدران واستعادة التصادم", true)
     end
 end)
-note("تمييز مرئي مثل ESP: الأخضر لمالك اللعبة/المجموعة، والبرتقالي لرتبة قروب مرتفعة. أدمن السيرفر السري لا يمكن كشفه بشكل مضمون بسكربت محلي.")
+
+title("🎒 أدوات الماب")
+action("🎒 جلب نسخ الأدوات الظاهرة إلى الحقيبة", copyVisibleTools)
+note("ينسخ أدوات Workspace وReplicatedStorage المتاحة لعميلك فقط. ظهور نسخة في حقيبتك لا يعني أن السيرفر منحك الأداة أو أن تأثيرها سيعمل.")
 
 title("🔎 بحث وقائمة اللاعبين")
 local search = make("TextBox", {
@@ -627,6 +736,9 @@ note("زر السحب محاولة محلية تجريبية وقد لا يظه�
 
 -- Update small set of client-only functions.
 local elapsed, adminElapsed, dragElapsed = 0, 0, 0
+listen(RunService.Stepped, function()
+    if alive and state.Noclip then applyNoclip() end
+end)
 listen(RunService.RenderStepped, function(dt)
     if not alive then return end
     updateFlight()
@@ -650,12 +762,14 @@ listen(RunService.RenderStepped, function(dt)
 end)
 listen(LocalPlayer.CharacterAdded, function()
     stopFlight()
+    restoreCollisions()
+    copiedToolSources = {}
     original.WalkSpeed = nil
     if state.Fly then
         task.delay(.5, function() if alive and state.Fly then startFlight() end end)
     end
     task.delay(.7, function()
-        if alive then applySpeed(); applyLocalInvisible() end
+        if alive then applySpeed(); applyLocalInvisible(); applyNoclip() end
     end)
 end)
 
@@ -668,15 +782,17 @@ local function cleanup()
     applyLocalInvisible()
     state.Speed = false
     applySpeed()
+    state.Noclip = false
+    restoreCollisions()
     clearHighlights()
     stopDrag()
     for player in pairs(adminVisuals) do clearAdminVisual(player) end
     for _, conn in ipairs(connections) do conn:Disconnect() end
     gui:Destroy()
-    if rawget(_G, "NOVA_SuiteV8Cleanup") == cleanup then
-        _G.NOVA_SuiteV8Cleanup = nil
+    if rawget(_G, "NOVA_SuiteV9Cleanup") == cleanup then
+        _G.NOVA_SuiteV9Cleanup = nil
     end
 end
-_G.NOVA_SuiteV8Cleanup = cleanup
+_G.NOVA_SuiteV9Cleanup = cleanup
 listen(close.MouseButton1Click, cleanup)
-print("NOVA SUITE v8 loaded: camera-direction flight, +/- speed, visual owner/group-rank hints, local drag attempt.")
+print("NOVA SUITE v9 loaded: admin tags, noclip, client-visible tool copies, camera flight, speed, player search and local drag.")
