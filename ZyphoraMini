@@ -1,4 +1,4 @@
--- NOVA SUITE v14 | Accurate tool diagnostics and live inventory counts
+-- NOVA SUITE v15 | Official title menu discovery (no fake title preview)
 -- Roblox Luau. No server admin/permissions bypass; server controls other players.
 -- Flight: left stick + camera direction, including ascent/descent when looking up/down.
 -- Keyboard: WASD + mouse look. Both movement speeds adjustable +/-.
@@ -15,11 +15,11 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
 if not PlayerGui then return end
 
 -- Re-running cleans up prior UI and loops.
-for _, oldKey in ipairs({"NOVA_SuiteV14Cleanup", "NOVA_SuiteV13Cleanup", "NOVA_SuiteV12Cleanup", "NOVA_SuiteV11Cleanup", "NOVA_SuiteV10Cleanup", "NOVA_SuiteV9Cleanup", "NOVA_SuiteV8Cleanup"}) do
+for _, oldKey in ipairs({"NOVA_SuiteV15Cleanup", "NOVA_SuiteV14Cleanup", "NOVA_SuiteV13Cleanup", "NOVA_SuiteV12Cleanup", "NOVA_SuiteV11Cleanup", "NOVA_SuiteV10Cleanup", "NOVA_SuiteV9Cleanup", "NOVA_SuiteV8Cleanup"}) do
     local previous = rawget(_G, oldKey)
     if type(previous) == "function" then pcall(previous) end
 end
-local OLD_GUI = "NOVA_Suite_v14"
+local OLD_GUI = "NOVA_Suite_v15"
 local old = PlayerGui:FindFirstChild(OLD_GUI)
 if old then old:Destroy() end
 
@@ -81,7 +81,6 @@ local adminVisuals = {}
 local selectedPlayer = nil
 local dragTarget = nil
 local selectedTitle = nil
-local previewBillboard = nil
 
 local gui = make("ScreenGui", {
     Name = OLD_GUI, ResetOnSpawn = false, DisplayOrder = 100,
@@ -109,7 +108,7 @@ make("UIGradient", {
 
 local header = make("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundTransparency = 1}, main)
 make("TextLabel", {
-    Text = "NOVA SUITE  v14", Font = Enum.Font.GothamBold,
+    Text = "NOVA SUITE  v15", Font = Enum.Font.GothamBold,
     TextColor3 = COLORS.white, TextSize = 20,
     Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -80, 0, 27),
     BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
@@ -1113,17 +1112,38 @@ end)
 refreshList()
 note("زر السحب محاولة محلية تجريبية وقد لا يظهر أثرها للآخرين؛ السحب الحقيقي يحتاج سماح السيرفر. لا تعد هذه الأداة بتحكم أو صلاحيات على لاعبين آخرين.")
 
--- Title browser: inspect ONLY replicated/public client-visible metadata.
--- Experiences define titles differently. This UI cannot grant locked or server-owned titles.
+-- Titles in Roblox are experience-specific. This is a client-side discovery and
+-- navigation panel, NOT a title-granting API. Server-granted titles must be
+-- equipped through the experience's own supported UI.
+local GuiService = game:GetService("GuiService")
 local titleEntries = {}
-local titleSearch = nil
-local titleList = nil
-local titleStatus = nil
+local titleSearch, titleList, titleStatus
 local refreshTitleList
+local originalTitleButtons = {}
+local titleMenuStatus
+
+-- If the native menu is focused, hide NOVA but keep a safe return control.
+local returnToNova = make("TextButton", {
+    Name = "ReturnToNova", Visible = false,
+    Text = "↩ العودة إلى NOVA", Font = Enum.Font.GothamBold,
+    TextSize = 14, TextColor3 = COLORS.white,
+    BackgroundColor3 = COLORS.panel2,
+    AnchorPoint = Vector2.new(1, 1),
+    Position = UDim2.new(1, -15, 1, -15),
+    Size = UDim2.fromOffset(175, 43),
+    ZIndex = 90,
+}, gui)
+round(returnToNova, 10)
+listen(returnToNova.MouseButton1Click, function()
+    returnToNova.Visible = false
+    main.Visible = true
+end)
+
 local function titleField(text)
     local lower = tostring(text or ""):lower()
     return lower:find("title", 1, true) ~= nil
         or lower:find("nametag", 1, true) ~= nil
+        or lower:find("name tag", 1, true) ~= nil
         or lower:find("لقب", 1, true) ~= nil
         or lower:find("ألقاب", 1, true) ~= nil
         or lower:find("القاب", 1, true) ~= nil
@@ -1137,24 +1157,24 @@ local function titleContainer(object)
     end
     return false
 end
-local function usableTitle(text)
-    if type(text) ~= "string" then return nil end
-    local trimmed = text:gsub("^%s+", ""):gsub("%s+$", "")
-    if #trimmed < 2 or #trimmed > 100 then return nil end
+local function usableTitle(txt)
+    if type(txt) ~= "string" then return nil end
+    local trimmed = txt:gsub("^%s+", ""):gsub("%s+$", "")
+    if #trimmed < 2 or #trimmed > 100 or trimmed:find("\n", 1, true) then return nil end
     local lower = trimmed:lower()
     if lower == "title" or lower == "titles" or lower == "none"
         or lower == "default" or lower == "false" or lower == "true" then
         return nil
     end
-    if trimmed:find("\n", 1, true) then return nil end
     return trimmed
 end
 local function addTitleCandidate(label, source)
     label = usableTitle(label)
     if not label then return end
     local key = label:lower()
-    if titleEntries[key] then return end
-    titleEntries[key] = {name = label, source = source}
+    if not titleEntries[key] then
+        titleEntries[key] = {name = label, source = source}
+    end
 end
 local function currentTitleFromReplicatedData()
     for _, host in ipairs({LocalPlayer, localCharacter()}) do
@@ -1175,38 +1195,84 @@ local function currentTitleFromReplicatedData()
     return nil, nil
 end
 local function clearTitlePreview()
-    if previewBillboard then
-        previewBillboard:Destroy()
-        previewBillboard = nil
-    end
+    -- Intentionally a no-op. v15 does not create fake client-side name tags.
 end
-local function previewTitle(titleName)
-    clearTitlePreview()
-    local character = localCharacter()
-    local head = character and character:FindFirstChild("Head")
-    if not head then
-        say("الشخصية غير جاهزة؛ لا أستطيع عرض معاينة اللقب", false)
+
+local function nativeButtonScore(button)
+    if not button:IsA("GuiButton") or button:IsDescendantOf(gui) then return 0 end
+    local name = button.Name:lower()
+    local txt = button:IsA("TextButton") and button.Text:lower() or ""
+    local parentName = button.Parent and button.Parent.Name:lower() or ""
+    if titleField(txt) then return 10 end
+    if titleField(name) then return 9 end
+    if titleField(parentName) and (name:find("open",1,true) or name:find("menu",1,true)) then
+        return 6
+    end
+    return 0
+end
+local function nativeButtonVisible(button)
+    local current = button
+    while current and current ~= PlayerGui do
+        if current:IsA("GuiObject") and not current.Visible then return false end
+        if current:IsA("LayerCollector") and not current.Enabled then return false end
+        current = current.Parent
+    end
+    return button:IsDescendantOf(PlayerGui)
+end
+local function refreshNativeTitleButtons()
+    originalTitleButtons = {}
+    for _, obj in ipairs(PlayerGui:GetDescendants()) do
+        local score = nativeButtonScore(obj)
+        if score > 0 then
+            table.insert(originalTitleButtons, {
+                object = obj,
+                score = score,
+                visible = nativeButtonVisible(obj),
+            })
+        end
+    end
+    table.sort(originalTitleButtons, function(a,b)
+        if a.visible ~= b.visible then return a.visible end
+        if a.score ~= b.score then return a.score > b.score end
+        return a.object.Name < b.object.Name
+    end)
+    local visibleCount = 0
+    for _, item in ipairs(originalTitleButtons) do
+        if item.visible then visibleCount = visibleCount + 1 end
+    end
+    if titleMenuStatus then
+        titleMenuStatus.Text = "أزرار نظام الألقاب المكتشفة: " .. #originalTitleButtons
+            .. " | الظاهرة والقابلة للوصول: " .. visibleCount
+    end
+    return visibleCount
+end
+local function openNativeTitleMenu()
+    refreshNativeTitleButtons()
+    local target = nil
+    for _, item in ipairs(originalTitleButtons) do
+        if item.visible and item.object.Parent then
+            target = item.object
+            break
+        end
+    end
+    if not target then
+        say("ما لقيت زر ألقاب أصلي ظاهر. افتح قائمة الماب بنفسك، ثم اضغط البحث مرة ثانية", false)
         return
     end
-    previewBillboard = make("BillboardGui", {
-        Name = "NovaTitleLocalPreview", Adornee = head,
-        AlwaysOnTop = true, Size = UDim2.fromOffset(240, 45),
-        StudsOffsetWorldSpace = Vector3.new(0, 3.3, 0),
-    }, gui)
-    make("TextLabel", {
-        Name = "PreviewText", Size = UDim2.fromScale(1, 1),
-        Text = "🏷️ " .. titleName,
-        Font = Enum.Font.GothamBold, TextSize = 16, TextWrapped = true,
-        TextColor3 = COLORS.green, TextStrokeTransparency = .12,
-        TextStrokeColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1,
-    }, previewBillboard)
-    say("تمت معاينة لقب «" .. titleName .. "» على شاشتك فقط؛ لم يُمنح من السيرفر", true)
+    local success = pcall(function() GuiService.SelectedObject = target end)
+    main.Visible = false
+    returnToNova.Visible = true
+    if success then
+        print("NOVA v15: focused native titles button " .. target:GetFullName() .. "; click it to open the game's title UI")
+    else
+        print("NOVA v15: a title-menu button is visible. Click it manually: " .. target:GetFullName())
+    end
+    -- Do not synthesize a click or send arbitrary remotes: title activation
+    -- must be handled by the game's official, server-authorized flow.
 end
 local function scanVisibleTitles()
     titleEntries = {}
-    local scanned = 0
-    local maxObjects = 15000
-    -- Scan replicated objects, not hidden server storage. Limit for UI responsiveness.
+    local scanned, maxObjects = 0, 15000
     for _, root in ipairs({ReplicatedStorage, Workspace, game:GetService("StarterGui"), PlayerGui}) do
         for _, obj in ipairs(root:GetDescendants()) do
             scanned = scanned + 1
@@ -1217,18 +1283,17 @@ local function scanVisibleTitles()
                         addTitleCandidate(obj.Value, "قيمة ظاهرة")
                     elseif titleContainer(obj.Parent) then
                         addTitleCandidate(obj.Name, "قائمة ظاهرة")
-                        addTitleCandidate(obj.Value, "قيمة قائمة ظاهرة")
+                        addTitleCandidate(obj.Value, "قيمة ظاهرة")
                     end
-                elseif obj:IsA("Folder") or obj:IsA("Configuration") then
-                    if titleContainer(obj.Parent) then
-                        addTitleCandidate(obj.Name, "اسم عنصر ظاهـر")
-                    end
+                elseif (obj:IsA("Folder") or obj:IsA("Configuration"))
+                    and titleContainer(obj.Parent) then
+                    addTitleCandidate(obj.Name, "عنصر قائمة ظاهر")
                 elseif obj:IsA("TextLabel") and titleContainer(obj.Parent) then
-                    addTitleCandidate(obj.Text, "نص واجهة الماب")
+                    addTitleCandidate(obj.Text, "واجهة ظاهرة")
                 end
                 if titleContainer(obj) then
                     for key, value in pairs(obj:GetAttributes()) do
-                        if type(value) == "string" and (titleField(key) or titleContainer(obj)) then
+                        if type(value) == "string" and titleField(key) then
                             addTitleCandidate(value, "خاصية ظاهرة")
                         end
                     end
@@ -1237,54 +1302,74 @@ local function scanVisibleTitles()
         end
         if scanned > maxObjects then break end
     end
+    -- Many games display the assigned title as a BillboardGui above a player.
+    -- Observe these real, already-displayed tags; never copy/equip another player's title.
+    for _, player in ipairs(Players:GetPlayers()) do
+        local character = player.Character
+        if character then
+            for _, obj in ipairs(character:GetDescendants()) do
+                if obj:IsA("TextLabel") then
+                    local billboard = obj:FindFirstAncestorWhichIsA("BillboardGui")
+                    if billboard and billboard.Name ~= "NovaTitleLocalPreview" then
+                        local labelText = usableTitle(obj.Text)
+                        if labelText and labelText ~= player.Name and labelText ~= player.DisplayName then
+                            if titleField(obj.Name) or titleField(billboard.Name)
+                                or labelText:match("^%[.+%]") then
+                                addTitleCandidate(labelText, "وسم ظاهر فوق " .. player.DisplayName)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
     local active = currentTitleFromReplicatedData()
-    if active then addTitleCandidate(active, "لقبي المسجل") end
+    if active then addTitleCandidate(active, "لقبي في البيانات الظاهرة") end
     local total = 0
     for _ in pairs(titleEntries) do total = total + 1 end
     if titleStatus then
-        titleStatus.Text = "الألقاب المكتشفة: " .. total .. " | فحص: " .. math.min(scanned,maxObjects)
-            .. " عنصر. هذه أسماء مرئية، وليست قائمة بألقاب تملك صلاحية استخدامها."
+        titleStatus.Text = "أسماء ألقاب ظاهرة: " .. total
+            .. " | الفحص: " .. math.min(scanned, maxObjects)
+            .. " عنصر. ظهور لقب عند لاعب آخر لا يعني أنك تملكه."
     end
-    refreshTitleList()
+    if refreshTitleList then refreshTitleList() end
+    refreshNativeTitleButtons()
     if total == 0 then
-        say("لم أجد قائمة ألقاب ظاهرة للعميل. بعض المابات تخزن الألقاب على السيرفر فقط", false)
+        say("ما ظهرت بيانات ألقاب للعميل. جرّب فتح قائمة الألقاب الأصلية في الماب", false)
     else
-        say("وجدت " .. total .. " اسم لقب محتمل. المعاينة محلية فقط؛ تفعيل اللقب العام من نظام الماب", true)
+        say("رصدت " .. total .. " اسم لقب ظاهر. منح الألقاب الحقيقية يتم من نظام الماب نفسه", true)
     end
 end
 
-newSection("🏷️ الألقاب")
-title("🏷️ الألقاب الظاهرة في الماب")
-note("تقدر تبحث وتختار لقبًا وتعاينه فوق رأسك محليًا. ظهور لقب جديد لكل اللاعبين يحتاج دعماً من نظام الألقاب الرسمي داخل الماب.")
+newSection("🏷️ الألقاب الحقيقية")
+title("🏷️ كشف الألقاب وفتح نظام الماب")
+local titleNote = note("بدون معاينة محلية أو لقب مزيف. نعرض الألقاب الظاهرة ونبحث عن زر الألقاب الأصلي. اختيار اللقب وظهوره للجميع يحتاجان موافقة سيرفر الماب.")
+titleNote.Size = UDim2.new(1, 0, 0, 68)
 titleSearch = make("TextBox", {
     Size = UDim2.new(1, 0, 0, 42),
     BackgroundColor3 = COLORS.panel2, TextColor3 = COLORS.white,
     PlaceholderColor3 = COLORS.muted,
-    PlaceholderText = "ابحث عن لقب...", Text = "", ClearTextOnFocus = false,
+    PlaceholderText = "ابحث عن اسم لقب ظاهر...", Text = "", ClearTextOnFocus = false,
     Font = Enum.Font.Gotham, TextSize = 13,
 }, scroller)
 round(titleSearch, 9)
-titleStatus = note("اضغط زر البحث لاكتشاف الألقاب المتاحة للعرض في هذا الماب.")
-titleStatus.Size = UDim2.new(1, 0, 0, 55)
-action("🔎 اكتشاف الألقاب الظاهرة", function() scanVisibleTitles() end)
-action("👀 معاينة اللقب المحدد على شاشتي", function()
-    if not selectedTitle then
-        say("اختر لقبًا من القائمة أولًا", false)
-    else
-        previewTitle(selectedTitle)
-    end
+titleStatus = note("افحص الألقاب المتاحة للعرض في بيانات الماب.")
+titleStatus.Size = UDim2.new(1, 0, 0, 61)
+titleMenuStatus = note("زر نظام الألقاب الأصلي: لم يُفحص بعد")
+action("🔍 فحص الألقاب الظاهرة الآن", scanVisibleTitles)
+action("🎮 ابحث عن زر الألقاب الأصلي", function()
+    local n = refreshNativeTitleButtons()
+    say(n > 0 and "وجدت زرًا أصليًا؛ اضغط فتح الواجهة للانتقال إليه" or
+        "لا يوجد زر ألقاب أصلي ظاهر حاليًا", n > 0)
 end)
-action("✅ فحص لقبي الظاهر في بيانات الماب", function()
+action("🏷️ الانتقال إلى قائمة الألقاب الأصلية", openNativeTitleMenu, 47)
+action("✅ قراءة لقبي المسجل في بيانات اللعبة", function()
     local active, source = currentTitleFromReplicatedData()
     if active then
-        say("اللقب المسجل في البيانات الظاهرة: «" .. active .. "» (" .. source .. "). ظهوره للآخرين غير مؤكد", true)
+        say("لقب ظاهر ببياناتك: «" .. active .. "» (" .. source .. "). لا يثبت ذلك ظهوره للجميع", true)
     else
-        say("ما لقيت لقبًا معلنًا ببيانات شخصيتك. استخدم قائمة الألقاب الرسمية داخل الماب للتفعيل", false)
+        say("ما فيه لقب معلن ضمن بياناتك المتاحة. التفعيل الحقيقي من واجهة اللعبة", false)
     end
-end)
-action("✖ إزالة معاينة اللقب المحلية", function()
-    clearTitlePreview()
-    say("تمت إزالة معاينة اللقب من شاشتك", true)
 end)
 titleList = make("ScrollingFrame", {
     Size = UDim2.new(1, 0, 0, 220), BackgroundColor3 = COLORS.panel,
@@ -1308,8 +1393,8 @@ refreshTitleList = function()
             table.insert(results, entry)
         end
     end
-    table.sort(results, function(a, b) return a.name:lower() < b.name:lower() end)
-    for i = 1, math.min(#results, 90) do
+    table.sort(results, function(a,b) return a.name:lower() < b.name:lower() end)
+    for i=1, math.min(#results, 90) do
         local entry = results[i]
         local b = make("TextButton", {
             Size = UDim2.new(1, -5, 0, 48), BackgroundColor3 = COLORS.panel2,
@@ -1320,20 +1405,19 @@ refreshTitleList = function()
         round(b, 8)
         listen(b.MouseButton1Click, function()
             selectedTitle = entry.name
-            say("اخترت لقب «" .. selectedTitle .. "». اضغط معاينة لرؤيته محليًا", true)
+            say("وجدت «" .. selectedTitle .. "» ضمن البيانات الظاهرة؛ للتفعيل استخدم قائمة الماب الأصلية", true)
         end)
     end
     if #results == 0 then
         make("TextLabel", {
             Size = UDim2.new(1, 0, 0, 44), BackgroundTransparency = 1,
-            TextColor3 = COLORS.muted, Text = "لا توجد نتائج. جرّب اكتشاف الألقاب أو غيّر البحث.",
+            TextColor3 = COLORS.muted, Text = "ما فيه نتائج. اضغط فحص الألقاب أو غيّر البحث.",
             TextWrapped = true, TextSize = 12,
         }, titleList)
     end
 end
 listen(titleSearch:GetPropertyChangedSignal("Text"), refreshTitleList)
 refreshTitleList()
-
 -- Update small set of client-only functions.
 local elapsed, adminElapsed, dragElapsed = 0, 0, 0
 listen(RunService.Stepped, function()
@@ -1392,14 +1476,14 @@ local function cleanup()
     for player in pairs(adminVisuals) do clearAdminVisual(player) end
     for _, conn in ipairs(connections) do conn:Disconnect() end
     gui:Destroy()
-    if rawget(_G, "NOVA_SuiteV14Cleanup") == cleanup then
-        _G.NOVA_SuiteV14Cleanup = nil
+    if rawget(_G, "NOVA_SuiteV15Cleanup") == cleanup then
+        _G.NOVA_SuiteV15Cleanup = nil
     end
 end
-_G.NOVA_SuiteV14Cleanup = cleanup
+_G.NOVA_SuiteV15Cleanup = cleanup
 listen(close.MouseButton1Click, cleanup)
 -- Initial scan covers tools already present when joining a supported experience.
 task.defer(scheduleToolScan)
 task.defer(scanVisibleTitles)
 task.defer(refreshToolUI)
-print("NOVA SUITE v14 loaded: live inventory diagnostics, grouped actions and local title previews.")
+print("NOVA SUITE v15 loaded: grouped actions and native title UI discovery. No client-only titles created.")
