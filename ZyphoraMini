@@ -1,4 +1,4 @@
--- NOVA SUITE v10 | Unified local utility panel
+-- NOVA SUITE v11 | Organized tabs and tool manager
 -- Roblox Luau. No server admin/permissions bypass; server controls other players.
 -- Flight: left stick + camera direction, including ascent/descent when looking up/down.
 -- Keyboard: WASD + mouse look. Both movement speeds adjustable +/-.
@@ -14,12 +14,12 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
 if not PlayerGui then return end
 
--- Re-running v9 cleans up its own previous loops and UI.
-for _, oldKey in ipairs({"NOVA_SuiteV10Cleanup", "NOVA_SuiteV9Cleanup", "NOVA_SuiteV8Cleanup"}) do
+-- Re-running cleans up prior UI and loops.
+for _, oldKey in ipairs({"NOVA_SuiteV11Cleanup", "NOVA_SuiteV10Cleanup", "NOVA_SuiteV9Cleanup", "NOVA_SuiteV8Cleanup"}) do
     local previous = rawget(_G, oldKey)
     if type(previous) == "function" then pcall(previous) end
 end
-local OLD_GUI = "NOVA_Suite_v10"
+local OLD_GUI = "NOVA_Suite_v11"
 local old = PlayerGui:FindFirstChild(OLD_GUI)
 if old then old:Destroy() end
 
@@ -108,7 +108,7 @@ make("UIGradient", {
 
 local header = make("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundTransparency = 1}, main)
 make("TextLabel", {
-    Text = "NOVA SUITE  v10", Font = Enum.Font.GothamBold,
+    Text = "NOVA SUITE  v11", Font = Enum.Font.GothamBold,
     TextColor3 = COLORS.white, TextSize = 20,
     Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -80, 0, 27),
     BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
@@ -126,14 +126,66 @@ local close = make("TextButton", {
 }, header)
 round(close, 8)
 
-local scroller = make("ScrollingFrame", {
-    Position = UDim2.fromOffset(12, 57), Size = UDim2.new(1, -24, 1, -104),
-    BackgroundTransparency = 1, BorderSizePixel = 0,
-    ScrollBarThickness = 4, ScrollBarImageColor3 = COLORS.purple,
-    AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(),
+-- Each feature has an independent page. The horizontal bar scrolls on PC/touch.
+local tabs = make("ScrollingFrame", {
+    Position = UDim2.fromOffset(12, 57), Size = UDim2.new(1, -24, 0, 48),
+    BackgroundColor3 = COLORS.panel, BorderSizePixel = 0,
+    ScrollingDirection = Enum.ScrollingDirection.X,
+    ScrollBarThickness = 3, ScrollBarImageColor3 = COLORS.purple,
+    AutomaticCanvasSize = Enum.AutomaticSize.X, CanvasSize = UDim2.new(),
 }, main)
-make("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, scroller)
-make("UIPadding", {PaddingRight = UDim.new(0, 5), PaddingBottom = UDim.new(0, 10)}, scroller)
+round(tabs, 10)
+make("UIListLayout", {
+    FillDirection = Enum.FillDirection.Horizontal,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    VerticalAlignment = Enum.VerticalAlignment.Center,
+    Padding = UDim.new(0, 5),
+}, tabs)
+make("UIPadding", {
+    PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6),
+}, tabs)
+local contentHost = make("Frame", {
+    Position = UDim2.fromOffset(12, 111), Size = UDim2.new(1, -24, 1, -157),
+    BackgroundTransparency = 1, ClipsDescendants = true,
+}, main)
+local scroller = nil
+local pages, navButtons = {}, {}
+local activePage = nil
+local function selectPage(which)
+    for _, page in pairs(pages) do page.Visible = (page == which) end
+    for page, button in pairs(navButtons) do
+        button.BackgroundColor3 = page == which and Color3.fromRGB(76, 45, 120) or COLORS.panel2
+        button.TextColor3 = page == which and COLORS.white or COLORS.muted
+    end
+    activePage = which
+end
+local function newSection(name)
+    local button = make("TextButton", {
+        Size = UDim2.fromOffset(140, 37), BackgroundColor3 = COLORS.panel2,
+        Text = name, Font = Enum.Font.GothamBold, TextSize = 12,
+        TextColor3 = COLORS.muted, TextWrapped = true,
+    }, tabs)
+    round(button, 8)
+    local page = make("ScrollingFrame", {
+        Size = UDim2.fromScale(1, 1), Position = UDim2.fromScale(0, 0),
+        Visible = false, BackgroundTransparency = 1, BorderSizePixel = 0,
+        ScrollBarThickness = 4, ScrollBarImageColor3 = COLORS.purple,
+        AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(),
+    }, contentHost)
+    make("UIListLayout", {
+        Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder,
+    }, page)
+    make("UIPadding", {
+        PaddingLeft = UDim.new(0, 2), PaddingRight = UDim.new(0, 7),
+        PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 12),
+    }, page)
+    pages[name] = page
+    navButtons[page] = button
+    listen(button.MouseButton1Click, function() if alive then selectPage(page) end end)
+    scroller = page
+    if not activePage then selectPage(page) end
+    return page
+end
 local status = make("TextLabel", {
     Position = UDim2.new(0, 12, 1, -43), Size = UDim2.new(1, -24, 0, 32),
     Text = "الجاهزية: تحكم محلي فقط، بدون صلاحيات سيرفر",
@@ -171,12 +223,13 @@ end
 local function toggle(text, key, onChanged)
     local base = text
     local b
-    b = action("○  " .. base, function()
+    b = action((state[key] and "●  " or "○  ") .. base, function()
         state[key] = not state[key]
         b.Text = (state[key] and "●  " or "○  ") .. base
         b.BackgroundColor3 = state[key] and Color3.fromRGB(76, 45, 120) or COLORS.panel2
         if onChanged then onChanged(state[key]) end
     end)
+    if state[key] then b.BackgroundColor3 = Color3.fromRGB(76, 45, 120) end
     return b
 end
 local function note(text)
@@ -372,6 +425,32 @@ local TOOL_CONTAINERS = {
     game:GetService("ReplicatedFirst"),
     game:GetService("Lighting"),
 }
+-- Favorites persist in the executor filesystem when its file APIs are available.
+-- Otherwise _G saves the selection only for this Roblox client session.
+local HttpService = game:GetService("HttpService")
+local favoritesFile = "NOVA_Suite_Favorites_" .. tostring(LocalPlayer.UserId) .. ".json"
+local favorites = {}
+local filesystemSaving = (type(readfile) == "function" and type(writefile) == "function")
+if type(_G.NOVA_SuiteFavorites) == "table" then
+    for key, name in pairs(_G.NOVA_SuiteFavorites) do favorites[key] = name end
+end
+if filesystemSaving then
+    pcall(function()
+        local loaded = HttpService:JSONDecode(readfile(favoritesFile))
+        if type(loaded) == "table" then favorites = loaded end
+    end)
+end
+local function saveFavorites()
+    _G.NOVA_SuiteFavorites = favorites
+    if filesystemSaving then
+        local ok = pcall(function()
+            writefile(favoritesFile, HttpService:JSONEncode(favorites))
+        end)
+        return ok
+    end
+    return false
+end
+local refreshToolUI = function() end
 local toolsInfo = nil
 local toolScanRunning = false
 local importedTotal = 0
@@ -404,7 +483,7 @@ local function copyToolOnce(source, owned)
         return false, "skipped"
     end
     local name = toolKey(source.Name)
-    if name == "" or owned[name] or importedToolNames[name] then
+    if name == "" or owned[name] then
         return false, "duplicate"
     end
     local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
@@ -442,6 +521,7 @@ local function copyVisibleTools(silent)
         end
     end
     toolScanRunning = false
+    refreshToolUI()
     if toolsInfo then
         toolsInfo.Text = "المضافة محليًا: " .. importedTotal .. " | آخر فحص: " .. discovered
             .. " ظاهرة، " .. copied .. " جديدة، " .. duplicates .. " مكررة، " .. failed .. " تعذّر نسخها"
@@ -640,7 +720,8 @@ local function tryTeleport(player)
     say("انتقلت قرب " .. player.Name .. " محليًا؛ قد يعيدك السيرفر", true)
 end
 
-title("🛡️ كشف ورؤية الأدمنية — فوق رؤوس اللاعبين")
+newSection("🛡️ رؤية الأدمنية")
+title("🛡️ رؤية الأدمنية فوق الرؤوس")
 toggle("🛡️ كشف الأدمنية وإظهار أسمائهم على الماب", "AdminESP", function(on)
     refreshAdminVision()
     if on then
@@ -653,6 +734,7 @@ toggle("🛡️ كشف الأدمنية وإظهار أسمائهم على ال�
 end)
 note("الأخضر: مالك معروف. البرتقالي: رتبة قروب عامة. الأصفر: أداة باسم إداري ظاهرة (اشتباه فقط). الاسم يظهر فوق الرأس إذا توفر دليل. لا يوجد فحص مضمون لصلاحيات السيرفر المخفية.")
 
+newSection("🚀 الطيران")
 title("🚀 الطيران والتحكم")
 local flyButton
 flyButton = toggle("الطيران الحر — يد سوني وكيبورد", "Fly", function(on)
@@ -669,19 +751,25 @@ end)
 note("يد السوني: وجّه الكاميرا بالعصا اليمنى، وادفع العصا اليسرى للأمام: ترتفع إذا تناظر فوق وتنزل إذا تناظر تحت. إذا وقفت الحركة تثبت. بدون R1 أو L1. على الكيبورد: WASD مع الماوس.")
 adjuster("سرعة الطيران", "FlySpeed", 10, 500, 10)
 
-title("👤 أدوات الشخصية المحلية")
+newSection("⚡ السرعة")
+title("⚡ السرعة والتحكم بالمشي")
 toggle("السرعة الإضافية", "Speed", function() applySpeed() end)
 adjuster("سرعة المشي", "WalkSpeed", 10, 200, 5, applySpeed)
+newSection("👻 الإخفاء")
+title("👻 الإخفاء المحلي")
 toggle("إخفاء الشخصية من شاشتك فقط", "LocalInvisible", function()
     applyLocalInvisible()
     say("هذا اختفاء محلي فقط؛ بقية اللاعبين قد يشاهدون شخصيتك", false)
 end)
+newSection("👁️ رؤية اللاعبين")
+title("👁️ رؤية اللاعبين")
 toggle("إبراز مواقع اللاعبين (ESP محلي)", "ESP", function(on)
     refreshHighlights()
     say(on and "إبراز اللاعبين على شاشتك مفعل" or "إبراز اللاعبين متوقف", true)
 end)
 
-title("🧱 اختراق الجدران (محلي)")
+newSection("🧱 الجدران")
+title("🧱 تجاوز الجدران (محلي)")
 toggle("👻 تجاوز الجدران / Noclip", "Noclip", function(on)
     if on then
         applyNoclip()
@@ -692,7 +780,8 @@ toggle("👻 تجاوز الجدران / Noclip", "Noclip", function(on)
     end
 end)
 
-title("🎒 أدوات الماب — بدون تكرار")
+newSection("🎒 الأدوات")
+title("🎒 مدير الأدوات — بدون تكرار")
 action("🎒 جلب كل الأدوات الظاهرة (نسخة واحدة لكل اسم)", function()
     copyVisibleTools(false)
 end)
@@ -705,8 +794,160 @@ toggle("جمع الأدوات تلقائيًا عند ظهورها", "AutoTools"
     end
 end)
 toolsInfo = note("لم يبدأ فحص الأدوات بعد")
-note("يفحص Workspace وReplicatedStorage وStarterPack والمصادر المرئية الأخرى. نسخة محلية واحدة لكل اسم؛ أدوات السيرفر المخفية أو غير المصرح بها قد لا تعمل أو لا تظهر.")
+note("يفحص الأدوات المتاحة لجهازك فقط. ظهور أداة في القائمة لا يعني أن السيرفر سيسمح باستخدامها.")
+local toolSearch = make("TextBox", {
+    Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = COLORS.panel2,
+    TextColor3 = COLORS.white, PlaceholderColor3 = COLORS.muted,
+    PlaceholderText = "🔎 بحث باسم الأداة...", Text = "", ClearTextOnFocus = false,
+    Font = Enum.Font.Gotham, TextSize = 13,
+}, scroller)
+round(toolSearch, 9)
+local favoritesOnly = false
+local favoritesFilter = action("☆ عرض المفضلة فقط: إيقاف", function(button)
+    favoritesOnly = not favoritesOnly
+    button.Text = favoritesOnly and "★ عرض المفضلة فقط: تشغيل" or "☆ عرض المفضلة فقط: إيقاف"
+    refreshToolUI()
+end)
+action("🔄 تحديث قائمة الأدوات", function()
+    refreshToolUI()
+    say("تم تحديث الأسماء المرئية. الجلب الفعلي يعتمد على إتاحة السيرفر", true)
+end)
+local nearbyToolsInfo = note("الأدوات القريبة: لم يبدأ البحث بعد")
+action("📍 عرض الأدوات القريبة من شخصيتي", function()
+    local root = localRoot()
+    if not root then say("الشخصية غير جاهزة", false); return end
+    local seen, found = {}, {}
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Tool") and not toolInSomeoneCharacter(obj) then
+            local part = obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart", true)
+            if part then
+                local distance = (part.Position - root.Position).Magnitude
+                local key = toolKey(obj.Name)
+                if key ~= "" and distance <= 100 and (not seen[key] or distance < seen[key].distance) then
+                    seen[key] = {name = obj.Name, distance = distance}
+                end
+            end
+        end
+    end
+    for _, item in pairs(seen) do table.insert(found, item) end
+    table.sort(found, function(a, b) return a.distance < b.distance end)
+    local names = {}
+    for i = 1, math.min(5, #found) do
+        table.insert(names, found[i].name .. " (" .. math.floor(found[i].distance) .. "m)")
+    end
+    nearbyToolsInfo.Text = (#found == 0) and "لا توجد أدوات مرئية ضمن 100 وحدة من موقعك"
+        or ("أقرب الأدوات (" .. #found .. "): " .. table.concat(names, "، "))
+    nearbyToolsInfo.Size = UDim2.new(1, 0, 0, 72)
+end)
+local itemsList = make("ScrollingFrame", {
+    Size = UDim2.new(1, 0, 0, 240), BackgroundColor3 = COLORS.panel,
+    BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = COLORS.purple,
+    AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(),
+}, scroller)
+round(itemsList, 9)
+make("UIListLayout", {Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder}, itemsList)
+make("UIPadding", {PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5), PaddingTop = UDim.new(0, 5)}, itemsList)
+local favoriteStorageNote = note(filesystemSaving
+    and "المفضلة: سيُحاول حفظها في ملف حتى بعد إعادة تشغيل السكربت."
+    or "المفضلة: تبقى عند إغلاق وفتح السكربت في نفس الجلسة فقط؛ مشغّلك لا يدعم الحفظ في ملف.")
+refreshToolUI = function()
+    if not alive or not itemsList.Parent then return end
+    for _, existing in ipairs(itemsList:GetChildren()) do
+        if existing:IsA("Frame") then existing:Destroy() end
+    end
+    local owned = ownedToolNames()
+    local found = {}
+    for _, container in ipairs(TOOL_CONTAINERS) do
+        for _, obj in ipairs(container:GetDescendants()) do
+            if obj:IsA("Tool") and not toolInSomeoneCharacter(obj) then
+                local key = toolKey(obj.Name)
+                if key ~= "" and not found[key] then found[key] = obj.Name end
+            end
+        end
+    end
+    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+    for _, holder in ipairs({backpack, LocalPlayer.Character}) do
+        if holder then
+            for _, obj in ipairs(holder:GetChildren()) do
+                if obj:IsA("Tool") then found[toolKey(obj.Name)] = obj.Name end
+            end
+        end
+    end
+    -- Favorites remain searchable when the current map does not contain them.
+    for key, name in pairs(favorites) do
+        if not found[key] then found[key] = name end
+    end
+    local keys = {}
+    local phrase = toolKey(toolSearch.Text)
+    for key, name in pairs(found) do
+        if (phrase == "" or key:find(phrase, 1, true)) and (not favoritesOnly or favorites[key]) then
+            table.insert(keys, key)
+        end
+    end
+    table.sort(keys, function(a, b) return a < b end)
+    local displayMax = math.min(#keys, 120)
+    for i = 1, displayMax do
+        local key = keys[i]
+        local name = found[key]
+        local ownedNow = owned[key]
+        local row = make("Frame", {
+            Size = UDim2.new(1, -5, 0, 44), BackgroundColor3 = COLORS.panel2,
+            BorderSizePixel = 0,
+        }, itemsList)
+        round(row, 8)
+        local star = make("TextButton", {
+            Size = UDim2.fromOffset(40, 36), Position = UDim2.fromOffset(4, 4),
+            Text = favorites[key] and "★" or "☆",
+            TextColor3 = COLORS.orange, BackgroundTransparency = 1,
+            Font = Enum.Font.GothamBold, TextSize = 22,
+        }, row)
+        local equip = make("TextButton", {
+            Position = UDim2.new(1, -66, 0, 4), Size = UDim2.fromOffset(60, 36),
+            Text = ownedNow and "تجهيز" or "غير متاح",
+            BackgroundColor3 = ownedNow and Color3.fromRGB(76, 45, 120) or COLORS.panel,
+            TextColor3 = ownedNow and COLORS.white or COLORS.muted,
+            Font = Enum.Font.Gotham, TextSize = 11,
+        }, row)
+        round(equip, 7)
+        make("TextLabel", {
+            Position = UDim2.fromOffset(47, 1), Size = UDim2.new(1, -120, 1, -2),
+            BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+            Text = name, TextColor3 = COLORS.white,
+            Font = Enum.Font.GothamMedium, TextSize = 12, TextTruncate = Enum.TextTruncate.AtEnd,
+        }, row)
+        listen(star.MouseButton1Click, function()
+            if favorites[key] then favorites[key] = nil else favorites[key] = name end
+            local persisted = saveFavorites()
+            say(persisted and "تم حفظ المفضلة في ملف" or "المفضلة محفوظة لهذه الجلسة فقط", persisted)
+            refreshToolUI()
+        end)
+        listen(equip.MouseButton1Click, function()
+            local hum = localHumanoid()
+            local pack = LocalPlayer:FindFirstChildOfClass("Backpack")
+            local item = nil
+            for _, holder in ipairs({pack, LocalPlayer.Character}) do
+                if holder then
+                    for _, obj in ipairs(holder:GetChildren()) do
+                        if obj:IsA("Tool") and toolKey(obj.Name) == key then item = obj break end
+                    end
+                end
+                if item then break end
+            end
+            if item and hum then
+                local ok = pcall(function() hum:EquipTool(item) end)
+                say(ok and "حاولت تجهيز " .. name or "تعذّر تجهيز هذه الأداة", ok)
+            else
+                say("الأداة ظاهرة بالاسم لكنها غير موجودة بحقيبتك، ولا يمكن فرض منحها من السيرفر", false)
+            end
+        end)
+    end
+    if #keys > displayMax then
+        say("يُعرض أول 120 أداة. استخدم البحث لتصفية بقية الأسماء", false)
+    end
+end
+listen(toolSearch:GetPropertyChangedSignal("Text"), refreshToolUI)
 
+newSection("🔎 قائمة اللاعبين")
 title("🔎 بحث وقائمة اللاعبين")
 local search = make("TextBox", {
     Size = UDim2.new(1, 0, 0, 42),
@@ -722,9 +963,15 @@ local chosen = make("TextLabel", {
     TextColor3 = COLORS.orange, TextSize = 12,
     BackgroundTransparency = 1,
 }, scroller)
+newSection("📍 الانتقال")
+title("📍 الانتقال للاعب")
+note("اختر اللاعب من قسم قائمة اللاعبين أولًا ثم افتح هذا القسم.")
 action("📍 الانتقال إلى اللاعب المحدد", function()
     tryTeleport(selectedPlayer)
 end)
+newSection("🧲 السحب")
+title("🧲 محاولة السحب المحلية")
+note("اختَر لاعبًا من قسم القائمة أولًا. لا يمكن سحب لاعبين على السيرفر دون صلاحية.")
 local dragButton
 dragButton = action("🧲 سحب تجريبي محلي للاعب المحدد", function()
     if dragTarget then
@@ -740,6 +987,7 @@ dragButton = action("🧲 سحب تجريبي محلي للاعب المحدد",
         attemptLocalDrag()
     end
 end)
+scroller = pages["🔎 قائمة اللاعبين"]
 local listBox = make("ScrollingFrame", {
     Size = UDim2.new(1, 0, 0, 235),
     BackgroundColor3 = COLORS.panel, BorderSizePixel = 0,
@@ -876,12 +1124,13 @@ local function cleanup()
     for player in pairs(adminVisuals) do clearAdminVisual(player) end
     for _, conn in ipairs(connections) do conn:Disconnect() end
     gui:Destroy()
-    if rawget(_G, "NOVA_SuiteV10Cleanup") == cleanup then
-        _G.NOVA_SuiteV10Cleanup = nil
+    if rawget(_G, "NOVA_SuiteV11Cleanup") == cleanup then
+        _G.NOVA_SuiteV11Cleanup = nil
     end
 end
-_G.NOVA_SuiteV10Cleanup = cleanup
+_G.NOVA_SuiteV11Cleanup = cleanup
 listen(close.MouseButton1Click, cleanup)
 -- Initial scan covers tools already present when joining a supported experience.
 task.defer(scheduleToolScan)
-print("NOVA SUITE v10 loaded: unique client-visible tools with auto-collection, plus v9 features.")
+task.defer(refreshToolUI)
+print("NOVA SUITE v11 loaded: independent tabs, client-visible unique tools, search and favorites.")
