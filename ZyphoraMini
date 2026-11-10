@@ -1,725 +1,558 @@
 --[[
-    ╔══════════════════════════════════════════════════════════╗
-    ║           السكربت الفخم v4.1 (مصلح)                       ║
-    ║          كشف أدمن حقيقي — بدون أخطاء                       ║
-    ╚══════════════════════════════════════════════════════════╝
+ NOVA SUITE v6 | Admin Evidence Detector + Local Tools
+ Client-side, read-only admin information. No permission bypass.
+ NOTES: "Owner" verifies creator/group ownership, NOT secret in-game admin powers.
+ Group ranks and replicated attributes are indicators, NOT proof of kick/ban privileges.
+ In a game you do not own, local movement/visual effects may be reset by the server.
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
 local LP = Players.LocalPlayer
+if not LP then return end
 local PG = LP:WaitForChild("PlayerGui", 12)
-
 if not PG then return end
 
--- تنظيف
-for _, name in ipairs({"السكربت_الفخم"}) do
-    local old = PG:FindFirstChild(name)
-    if old then old:Destroy() end
+-- Stop previous execution cleanly if this was launched again.
+local global = _G
+pcall(function()
+    if type(getgenv) == "function" then global = getgenv() end
+end)
+if type(global.NovaSuiteV6Stop) == "function" then
+    pcall(global.NovaSuiteV6Stop)
 end
+local old = PG:FindFirstChild("NOVA_Suite_V6")
+if old then old:Destroy() end
 
--- الحالة
-local alive = true
-local conns = {}
-local draggedPlayer = nil
-local carriedPlayer = nil
-local espHighlights = {}
-local frozenPlayers = {}
-local flyingPlayers = {}
-local adminHighlights = {}
-
--- الإعدادات
-local S = {
-    Invisible = false,
-    Speed = false,
-    WalkSpeed = 100,
-    Fly = false,
-    FlySpeed = 50,
-    Noclip = false,
-    InfiniteJump = false,
-    DragPlayers = false,
-    PlayerESP = false,
-    PlayerSize = false,
-    SizeMultiplier = 2,
-    AdminDetect = false,
+local C = {
+    bg = Color3.fromRGB(13, 10, 25), panel = Color3.fromRGB(29, 22, 49),
+    dark = Color3.fromRGB(19, 15, 33), purple = Color3.fromRGB(175, 113, 255),
+    white = Color3.fromRGB(243, 237, 255), muted = Color3.fromRGB(171, 160, 193),
+    good = Color3.fromRGB(116, 238, 173), warn = Color3.fromRGB(251, 195, 112),
+    bad = Color3.fromRGB(252, 111, 146)
 }
+local active = true
+local events = {}
+local ranks = {}
+local highlights = {}
+local savedTransparency = setmetatable({}, {__mode = "k"})
+local savedCollision = setmetatable({}, {__mode = "k"})
+local S = {speed=false, fly=false, jump=false, noclip=false, ghost=false, esp=false, light=false, speedValue=48, flyValue=55}
+local originalWalkSpeed, originalPlatformStand, lightBackup
+local flyAttachment, flyVelocity, flyingRoot
+local upHeld, downHeld = false, false
+local refreshRows, refreshReport, stopFly, syncLocal
 
--- دوال
-local function conn(signal, fn)
-    local c = signal:Connect(fn)
-    table.insert(conns, c)
-    return c
+local function hook(signal, callback)
+    local con = signal:Connect(callback)
+    table.insert(events, con)
+    return con
 end
-
-local function inst(typ, props, parent)
-    local x = Instance.new(typ)
-    for k, v in pairs(props or {}) do pcall(function() x[k] = v end) end
-    x.Parent = parent
-    return x
+local function create(kind, parent, fields)
+    local obj = Instance.new(kind)
+    for k, v in pairs(fields or {}) do obj[k] = v end
+    obj.Parent = parent
+    return obj
 end
-
-local function round(x, r) inst("UICorner", {CornerRadius = UDim.new(0, r or 8)}, x) end
-
-local function root()
-    local char = LP.Character
-    return char and char:FindFirstChild("HumanoidRootPart")
+local function corner(node, r)
+    create("UICorner", node, {CornerRadius=UDim.new(0,r or 10)})
 end
-
--- واجهة
-local gui = inst("ScreenGui", {Name = "السكربت_الفخم", ResetOnSpawn = false, DisplayOrder = 90}, PG)
-
-local main = inst("Frame", {
-    Size = UDim2.fromOffset(480, 650),
-    Position = UDim2.new(0.5, -240, 0.5, -325),
-    BackgroundColor3 = Color3.fromRGB(8, 8, 12),
-    BorderSizePixel = 0,
-    Active = true,
-    Draggable = true
-}, gui)
-round(main, 18)
-inst("UIStroke", {Color = Color3.fromRGB(180, 100, 255), Thickness = 2.5}, main)
-
--- خلفية فخمة
-local bgGradient = inst("UIGradient", {
-    Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 5, 45)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(12, 5, 25)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 12))
-    }),
-    Rotation = 135
-}, main)
-
-local outerGlow = inst("ImageLabel", {
-    Size = UDim2.new(1, 80, 1, 80),
-    Position = UDim2.new(0, -40, 0, -40),
-    BackgroundTransparency = 1,
-    Image = "rbxassetid://5028857084",
-    ImageColor3 = Color3.fromRGB(150, 80, 255),
-    ImageTransparency = 0.85,
-    ScaleType = Enum.ScaleType.Slice,
-    SliceCenter = Rect.new(24, 24, 276, 276)
-}, main)
-
--- ترويسة
-local head = inst("Frame", {Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = Color3.fromRGB(20, 10, 35), BorderSizePixel = 0}, main)
-round(head, 18)
-
-local headGradient = inst("UIGradient", {
-    Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 40, 150)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 15, 60))
-    }),
-    Rotation = 90
-}, head)
-
-inst("TextLabel", {Size = UDim2.new(1, -100, 1, 0), Position = UDim2.fromOffset(20, 0), BackgroundTransparency = 1, Text = "👑 السكربت الفخم v4.1", TextColor3 = Color3.fromRGB(220, 180, 255), Font = Enum.Font.GothamBold, TextSize = 22, TextXAlignment = Enum.TextXAlignment.Left}, head)
-
-local close = inst("TextButton", {Size = UDim2.fromOffset(32, 32), Position = UDim2.new(1, -40, 0, 9), BackgroundColor3 = Color3.fromRGB(200, 50, 80), Text = "×", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 20}, head)
-round(close, 8)
-
--- محتوى
-local content = inst("ScrollingFrame", {Size = UDim2.new(1, -20, 1, -65), Position = UDim2.fromOffset(10, 58), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = Color3.fromRGB(180, 100, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, main)
-inst("UIListLayout", {Padding = UDim.new(0, 8)}, content)
-inst("UIPadding", {PaddingRight = UDim.new(0, 5)}, content)
-
--- زر
-local function btn(title, icon, key, color)
-    local b = inst("TextButton", {Size = UDim2.new(1, 0, 0, 55), BackgroundColor3 = Color3.fromRGB(25, 20, 40), BorderSizePixel = 0, Text = "", AutoButtonColor = false}, content)
-    round(b, 12)
-    
-    local btnGradient = inst("UIGradient", {
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 30, 60)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 15, 35))
-        }),
-        Rotation = 90
-    }, b)
-    
-    local sideLine = inst("Frame", {Size = UDim2.fromOffset(3, 30), Position = UDim2.new(0, 0, 0.5, -15), BackgroundColor3 = color or Color3.fromRGB(150, 80, 255), BorderSizePixel = 0}, b)
-    round(sideLine, 2)
-    
-    inst("TextLabel", {Size = UDim2.fromOffset(40, 40), Position = UDim2.fromOffset(12, 7), BackgroundTransparency = 1, Text = icon, Font = Enum.Font.Gotham, TextSize = 24, TextColor3 = Color3.new(1,1,1)}, b)
-    inst("TextLabel", {Size = UDim2.new(1, -60, 0, 24), Position = UDim2.fromOffset(58, 8), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left}, b)
-    
-    local state = inst("TextLabel", {Size = UDim2.new(1, -60, 0, 18), Position = UDim2.fromOffset(58, 32), BackgroundTransparency = 1, Text = "مطفأ", TextColor3 = Color3.fromRGB(160, 160, 160), Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, b)
-    
-    local on = false
-    conn(b.MouseButton1Click, function()
-        on = not on
-        S[key] = on
-        state.Text = on and "مشغّل ✓" or "مطفأ"
-        state.TextColor3 = on and Color3.fromRGB(140, 255, 180) or Color3.fromRGB(160, 160, 160)
-        
-        if on then
-            btnGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, color or Color3.fromRGB(100, 50, 180)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 25, 90))
-            })
-        else
-            btnGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 30, 60)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 15, 35))
-            })
-        end
-    end)
-    
+local function newButton(parent, label, height, bg)
+    local b = create("TextButton", parent, {
+        Size=UDim2.new(1,0,0,height or 42), BackgroundColor3=bg or C.panel,
+        Text=label, TextSize=14, TextColor3=C.white, Font=Enum.Font.GothamSemibold,
+        BorderSizePixel=0, AutoButtonColor=true
+    })
+    corner(b,9)
     return b
 end
-
--- قسم
-local function section(text)
-    local s = inst("Frame", {Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1}, content)
-    local line = inst("Frame", {Size = UDim2.new(1, -10, 0, 1), Position = UDim2.new(0, 5, 1, -5), BackgroundColor3 = Color3.fromRGB(150, 80, 255), BackgroundTransparency = 0.6, BorderSizePixel = 0}, s)
-    inst("TextLabel", {Size = UDim2.new(1, -10, 1, 0), Position = UDim2.fromOffset(10, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(200, 150, 255), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, s)
+local function textLabel(parent, label, height, size, color)
+    return create("TextLabel", parent, {
+        Size=UDim2.new(1,0,0,height), BackgroundTransparency=1, Text=label,
+        TextColor3=color or C.white, Font=Enum.Font.Gotham,
+        TextSize=size or 13, TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left,
+        TextYAlignment=Enum.TextYAlignment.Center, BorderSizePixel=0
+    })
+end
+local function newList(parent)
+    local area = create("ScrollingFrame", parent, {
+        Size=UDim2.new(1,-22,1,-12), Position=UDim2.fromOffset(11,6),
+        BackgroundTransparency=1, ScrollBarThickness=3, ScrollBarImageColor3=C.purple,
+        AutomaticCanvasSize=Enum.AutomaticSize.Y, CanvasSize=UDim2.fromOffset(0,0),
+        BorderSizePixel=0
+    })
+    create("UIListLayout", area, {Padding=UDim.new(0,7), SortOrder=Enum.SortOrder.LayoutOrder})
+    create("UIPadding", area, {PaddingBottom=UDim.new(0,12)})
+    return area
 end
 
--- منزلق
-local function slider(title, key, min, max, default)
-    local f = inst("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundColor3 = Color3.fromRGB(25, 20, 40), BorderSizePixel = 0}, content)
-    round(f, 12)
-    
-    inst("TextLabel", {Size = UDim2.new(0.6, 0, 0, 20), Position = UDim2.fromOffset(14, 6), BackgroundTransparency = 1, Text = title, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, f)
-    
-    local val = inst("TextLabel", {Size = UDim2.new(0.3, 0, 0, 20), Position = UDim2.new(0.7, -10, 0, 6), BackgroundTransparency = 1, Text = tostring(default), TextColor3 = Color3.fromRGB(200, 150, 255), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Right}, f)
-    
-    local bg = inst("Frame", {Size = UDim2.new(1, -28, 0, 6), Position = UDim2.fromOffset(14, 36), BackgroundColor3 = Color3.fromRGB(40, 35, 55), BorderSizePixel = 0}, f)
-    round(bg, 3)
-    
-    local fill = inst("Frame", {Size = UDim2.new((default - min) / (max - min), 0, 1, 0), BackgroundColor3 = Color3.fromRGB(180, 100, 255), BorderSizePixel = 0}, bg)
-    round(fill, 3)
-    
-    local handle = inst("Frame", {Size = UDim2.fromOffset(18, 18), Position = UDim2.new((default - min) / (max - min), -9, 0.5, -9), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0}, bg)
-    round(handle, 9)
-    
-    S[key] = default
-    local dragging = false
-    
-    local function update(input)
-        local rel = math.clamp((input.Position.X - bg.AbsolutePosition.X) / bg.AbsoluteSize.X, 0, 1)
-        local v = math.floor(min + (max - min) * rel)
-        S[key] = v
-        val.Text = tostring(v)
-        fill.Size = UDim2.new(rel, 0, 1, 0)
-        handle.Position = UDim2.new(rel, -9, 0.5, -9)
+local gui = create("ScreenGui", PG, {Name="NOVA_Suite_V6", ResetOnSpawn=false, DisplayOrder=120})
+local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(500,800)
+local width = math.floor(math.min(448, math.max(285, viewport.X-24)))
+local height = math.floor(math.min(570, math.max(360,viewport.Y-65)))
+local main = create("Frame", gui, {
+    Size=UDim2.fromOffset(width,height), Position=UDim2.new(0.5,-width/2,0.5,-height/2),
+    BackgroundColor3=C.bg, BorderSizePixel=0, Active=true
+})
+corner(main,16)
+create("UIStroke", main, {Color=C.purple, Thickness=2})
+local header = create("Frame", main, {
+    Size=UDim2.new(1,0,0,60), BackgroundColor3=C.dark,
+    BorderSizePixel=0, Active=true
+})
+corner(header,16)
+create("UIGradient", header, {Color=ColorSequence.new({
+    ColorSequenceKeypoint.new(0,Color3.fromRGB(76,36,126)),
+    ColorSequenceKeypoint.new(1,C.dark)
+})})
+create("TextLabel", header, {
+    Size=UDim2.new(1,-85,0,31),Position=UDim2.fromOffset(14,6),
+    BackgroundTransparency=1,Text="NOVA SUITE  v6",Font=Enum.Font.GothamBold,
+    TextSize=20,TextColor3=C.white,TextXAlignment=Enum.TextXAlignment.Left
+})
+create("TextLabel", header, {
+    Size=UDim2.new(1,-85,0,16),Position=UDim2.fromOffset(14,36),
+    BackgroundTransparency=1,Text="ADMIN EVIDENCE  /  LOCAL TOOLS",
+    TextSize=10,Font=Enum.Font.GothamSemibold,TextColor3=C.muted,
+    TextXAlignment=Enum.TextXAlignment.Left
+})
+local close = create("TextButton",header,{
+    Size=UDim2.fromOffset(34,34), Position=UDim2.new(1,-44,0,12),
+    BackgroundColor3=Color3.fromRGB(159,58,87), BorderSizePixel=0,
+    Text="×",TextSize=24,TextColor3=C.white,Font=Enum.Font.GothamBold
+})
+corner(close,8)
+
+-- Touch + mouse dragging, avoiding deprecated Frame.Draggable.
+local dragging, startPos, startFrame, pointer = false,nil,nil,nil
+hook(header.InputBegan, function(input)
+    if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+        dragging=true; pointer=input; startPos=input.Position; startFrame=main.Position
     end
-    
-    conn(handle.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end end)
-    conn(bg.InputBegan, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true update(input) end end)
-    conn(UIS.InputEnded, function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
-    conn(UIS.InputChanged, function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end end)
-end
-
---====================================
--- كشف الأدمن الحقيقي (بدون أخطاء)
---====================================
-
-local adminToolsList = {
-    "admin", "administrator", "mod", "moderator", "owner",
-    "ban", "unban", "kick", "unkick", "kill", "respawn",
-    "bring", "tp", "teleport", "goto", "freeze", "thaw",
-    "explode", "jail", "unjail", "speed", "fly", "noclip",
-    "invisible", "visible", "god", "ungod", "heal", "damage",
-    "أدمن", "باني", "طرد", "سجن", "قتل"
-}
-
-local function detectAdmin(player)
-    local char = player.Character
-    if not char then return false, "لا شخصية", 0 end
-    
-    -- [1] صاحب اللعبة (100%)
-    if game.CreatorType == Enum.CreatorType.User then
-        if player.UserId == game.CreatorId then
-            return true, "👑 صاحب اللعبة", 100
-        end
+end)
+hook(UIS.InputChanged, function(input)
+    if not dragging or not startPos or not startFrame then return end
+    if input.UserInputType==Enum.UserInputType.MouseMovement or input==pointer then
+        local delta=input.Position-startPos
+        main.Position=UDim2.new(startFrame.X.Scale,startFrame.X.Offset+delta.X,startFrame.Y.Scale,startFrame.Y.Offset+delta.Y)
     end
-    
-    -- [2] مالك المجموعة (رتبة 255 فقط)
-    if game.CreatorType == Enum.CreatorType.Group then
-        local success, rank = pcall(function()
-            return player:GetRankInGroup(game.CreatorId)
-        end)
-        if success and rank and rank >= 255 then
-            return true, "👑 مالك المجموعة", 100
-        end
+end)
+hook(UIS.InputEnded, function(input)
+    if input==pointer or (input.UserInputType==Enum.UserInputType.MouseButton1 and pointer and pointer.UserInputType==Enum.UserInputType.MouseButton1) then
+        dragging=false; pointer=nil
     end
-    
-    -- [3] أدوات أدمن حقيقية فقط
-    for _, tool in pairs(char:GetChildren()) do
-        if tool:IsA("Tool") then
-            local name = tool.Name:lower()
-            for _, adminTool in ipairs(adminToolsList) do
-                if name == adminTool or name:find("^" .. adminTool) then
-                    return true, "🎫 أداة: " .. tool.Name, 95
-                end
-            end
-        end
-    end
-    
-    -- [4] Backpack
-    local backpack = player:FindFirstChild("Backpack")
-    if backpack then
-        for _, tool in pairs(backpack:GetChildren()) do
-            if tool:IsA("Tool") then
-                local name = tool.Name:lower()
-                for _, adminTool in ipairs(adminToolsList) do
-                    if name == adminTool then
-                        return true, "🎫 يملك: " .. tool.Name, 90
-                    end
-                end
-            end
-        end
-    end
-    
-    return false, "عادي", 0
-end
-
-local function updateAdminDetect()
-    if not S.AdminDetect then 
-        for p, data in pairs(adminHighlights) do
-            if data.highlight then data.highlight:Destroy() end
-            if data.billboard then data.billboard:Destroy() end
-            adminHighlights[p] = nil
-        end
-        return 
-    end
-    
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LP then
-            local isAdminPlayer, adminType, confidence = detectAdmin(p)
-            
-            if isAdminPlayer and confidence >= 90 then
-                if not adminHighlights[p] then
-                    print("🚨 أدمن حقيقي: " .. p.Name .. " | " .. adminType)
-                    
-                    local h = Instance.new("Highlight")
-                    h.FillColor = Color3.fromRGB(255, 0, 0)
-                    h.OutlineColor = Color3.fromRGB(255, 200, 0)
-                    h.FillTransparency = 0.3
-                    h.Adornee = p.Character
-                    h.Parent = gui
-                    
-                    local head = p.Character:FindFirstChild("Head")
-                    if head then
-                        local bb = Instance.new("BillboardGui")
-                        bb.Size = UDim2.fromOffset(250, 60)
-                        bb.StudsOffset = Vector3.new(0, 3.5, 0)
-                        bb.Adornee = head
-                        bb.AlwaysOnTop = true
-                        bb.Parent = gui
-                        
-                        local lbl = Instance.new("TextLabel")
-                        lbl.Size = UDim2.fromScale(1, 1)
-                        lbl.BackgroundTransparency = 1
-                        lbl.Text = "🚨 " .. adminType .. " 🚨"
-                        lbl.TextColor3 = Color3.fromRGB(255, 50, 50)
-                        lbl.Font = Enum.Font.GothamBold
-                        lbl.TextSize = 16
-                        lbl.TextStrokeTransparency = 0.3
-                        lbl.Parent = bb
-                        
-                        adminHighlights[p] = {highlight = h, billboard = bb, type = adminType}
-                    else
-                        adminHighlights[p] = {highlight = h, billboard = nil, type = adminType}
-                    end
-                end
-            else
-                if adminHighlights[p] then
-                    if adminHighlights[p].highlight then adminHighlights[p].highlight:Destroy() end
-                    if adminHighlights[p].billboard then adminHighlights[p].billboard:Destroy() end
-                    adminHighlights[p] = nil
-                end
-            end
-        end
-    end
-end
-
---====================================
--- بناء الواجهة
---====================================
-
-section("🔥 القدرات الرئيسية")
-
-btn("الاختفاء التام", "👻", "Invisible", Color3.fromRGB(150, 0, 200))
-btn("السرعة الخارقة", "⚡", "Speed", Color3.fromRGB(0, 150, 250))
-btn("الطيران الحر", "🚀", "Fly", Color3.fromRGB(0, 200, 150))
-btn("تجاوز الجدران", "👻", "Noclip", Color3.fromRGB(150, 0, 200))
-btn("القفز اللانهائي", "⬆️", "InfiniteJump", Color3.fromRGB(100, 200, 255))
-
-section("⚙️ الإعدادات")
-
-slider("سرعة المشي", "WalkSpeed", 16, 1000, 100)
-slider("سرعة الطيران", "FlySpeed", 10, 500, 50)
-
-section("🎯 التفاعل مع اللاعبين")
-
-btn("سحب لاعب", "🧲", "DragPlayers", Color3.fromRGB(230, 160, 0))
-btn("حمل لاعب", "🤗", "CarryPlayers", Color3.fromRGB(240, 100, 150))
-btn("رؤية اللاعبين", "👁️", "PlayerESP", Color3.fromRGB(0, 200, 150))
-btn("تكبير اللاعبين", "🔍", "PlayerSize", Color3.fromRGB(220, 80, 280))
-
-slider("مضاعف الحجم", "SizeMultiplier", 1, 20, 2)
-
-section("🛡️ كشف الأدمن (حقيقي)")
-
-btn("كشف الأدمن", "🛡️", "AdminDetect", Color3.fromRGB(255, 50, 50))
-
-section("🎒 الأدوات")
-
-local grabAllBtn = inst("TextButton", {Size = UDim2.new(1, 0, 0, 45), BackgroundColor3 = Color3.fromRGB(0, 150, 100), Text = "🎒 جلب كل الأدوات", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 15}, content)
-round(grabAllBtn, 10)
-
-conn(grabAllBtn.MouseButton1Click, function()
-    local count = 0
-    for _, tool in pairs(game:GetDescendants()) do
-        if tool:IsA("Tool") and tool.Parent ~= LP.Backpack and tool.Parent ~= LP.Character then
-            local clone = tool:Clone()
-            clone.Parent = LP.Backpack
-            count = count + 1
-        end
-    end
-    grabAllBtn.Text = "✅ تم جلب " .. count .. " أداة"
 end)
 
-section("❄️ إدارة اللاعبين")
-
-local playerFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 200), BackgroundColor3 = Color3.fromRGB(20, 15, 35), BorderSizePixel = 0}, content)
-round(playerFrame, 12)
-
-local playerGradient = inst("UIGradient", {
-    Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 20, 50)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 10, 30))
-    }),
-    Rotation = 90
-}, playerFrame)
-
-inst("TextLabel", {Size = UDim2.new(1, -14, 0, 24), Position = UDim2.fromOffset(12, 8), BackgroundTransparency = 1, Text = "📋 اللاعبون", TextColor3 = Color3.fromRGB(180, 220, 255), Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, playerFrame)
-
-local playerScroll = inst("ScrollingFrame", {Size = UDim2.new(1, -14, 1, -36), Position = UDim2.fromOffset(7, 34), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(180, 220, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, playerFrame)
-inst("UIListLayout", {Padding = UDim.new(0, 5)}, playerScroll)
-
-local function freezePlayer(p)
-    frozenPlayers[p] = true
-    local char = p.Character
-    if char then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then hrp.Anchored = true end
+local notice = create("TextLabel",main,{
+    Size=UDim2.new(1,-20,0,42),Position=UDim2.fromOffset(10,63),
+    BackgroundColor3=C.panel,BorderSizePixel=0,TextWrapped=true,
+    Text="كشف فعلي للملكية والبيانات الظاهرة؛ لا يوجد كشف مضمون لصلاحيات الأدمن المخفية.",
+    TextColor3=C.warn,TextSize=12,Font=Enum.Font.Gotham
+})
+corner(notice,8)
+local tabs = create("Frame",main,{
+    Size=UDim2.new(1,-20,0,37),Position=UDim2.fromOffset(10,111),
+    BackgroundTransparency=1
+})
+local frames, tabButtons = {},{}
+local tabNames = {{"players","اللاعبون"},{"local","الأدوات"},{"report","التقرير"}}
+local body = create("Frame",main,{
+    Size=UDim2.new(1,-20,1,-163),Position=UDim2.fromOffset(10,155),
+    BackgroundColor3=C.dark,BorderSizePixel=0
+})
+corner(body,10)
+for i,t in ipairs(tabNames) do
+    local b=create("TextButton",tabs,{
+        Size=UDim2.new(1/3,-5,1,0),Position=UDim2.new((i-1)/3,(i-1)*3,0,0),
+        BackgroundColor3=C.panel,Text=t[2],TextColor3=C.white,
+        Font=Enum.Font.GothamSemibold,TextSize=13,BorderSizePixel=0
+    })
+    corner(b,8)
+    tabButtons[t[1]]=b
+    local panel=create("Frame",body,{
+        Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false
+    })
+    frames[t[1]]=panel
+end
+local function openTab(name)
+    for k,panel in pairs(frames) do
+        panel.Visible=(k==name)
+        tabButtons[k].BackgroundColor3=(k==name) and Color3.fromRGB(93,48,144) or C.panel
     end
 end
+for _,t in ipairs(tabNames) do
+    local name=t[1]
+    hook(tabButtons[name].MouseButton1Click,function()
+        openTab(name)
+        if name=="report" and refreshReport then refreshReport() end
+    end)
+end
+openTab("players")
 
-local function unfreezePlayer(p)
-    frozenPlayers[p] = nil
-    local char = p.Character
-    if char then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then hrp.Anchored = false end
-    end
+local playerList = newList(frames.players)
+local localList = newList(frames["local"])
+local reportList = newList(frames.report)
+
+-- Rankings are never called inside render or repeated every frame.
+local function queryRank(p)
+    if game.CreatorType~=Enum.CreatorType.Group then return end
+    if ranks[p] and (ranks[p].pending or (os.clock()-ranks[p].at)<60) then return end
+    ranks[p]={pending=true,at=os.clock()}
+    task.spawn(function()
+        local ok,result=pcall(function() return p:GetRankInGroup(game.CreatorId) end)
+        if not active or p.Parent~=Players then return end
+        ranks[p]={pending=false,at=os.clock(),rank=ok and result or nil}
+        -- Updated automatically by the lightweight 5-second refresh loop.
+    end)
 end
 
-local function giveFly(p)
-    local char = p.Character
-    if char then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local bv = Instance.new("BodyVelocity")
-            bv.MaxForce = Vector3.new(0, math.huge, 0)
-            bv.Velocity = Vector3.new(0, 50, 0)
-            bv.Parent = hrp
-            flyingPlayers[p] = bv
-        end
-    end
-end
-
-local function removeFly(p)
-    if flyingPlayers[p] then
-        flyingPlayers[p]:Destroy()
-        flyingPlayers[p] = nil
-    end
-end
-
-local function refreshPlayers()
-    for _, v in pairs(playerScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
-    
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LP then
-            local isFrozen = frozenPlayers[p] == true
-            local isFlying = flyingPlayers[p] ~= nil
-            local isAdminPlayer, adminType, confidence = detectAdmin(p)
-            
-            local bgColor = Color3.fromRGB(35, 30, 55)
-            if isAdminPlayer and confidence >= 90 then
-                bgColor = Color3.fromRGB(80, 20, 20)
-            elseif isFrozen then
-                bgColor = Color3.fromRGB(60, 80, 110)
-            end
-            
-            local pf = inst("Frame", {Size = UDim2.new(1, 0, 0, 45), BackgroundColor3 = bgColor, BorderSizePixel = 0}, playerScroll)
-            round(pf, 10)
-            
-            local nameText = p.DisplayName
-            if isAdminPlayer and confidence >= 90 then
-                nameText = "🛡️ " .. nameText
-            elseif isFrozen then
-                nameText = "❄️ " .. nameText
-            elseif isFlying then
-                nameText = "🚀 " .. nameText
-            end
-            
-            inst("TextLabel", {Size = UDim2.new(0.32, 0, 1, 0), Position = UDim2.fromOffset(12, 0), BackgroundTransparency = 1, Text = nameText, TextColor3 = isAdminPlayer and Color3.fromRGB(255, 100, 100) or Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, pf)
-            
-            local btns = {
-                {icon = "🧲", color = Color3.fromRGB(230, 160, 0), action = "drag"},
-                {icon = "🤗", color = Color3.fromRGB(240, 100, 150), action = "carry"},
-                {icon = "📍", color = Color3.fromRGB(0, 200, 150), action = "tp"},
-                {icon = isFlying and "🛬" or "🚀", color = isFlying and Color3.fromRGB(100, 180, 255) or Color3.fromRGB(70, 130, 200), action = "fly"},
-                {icon = isFrozen and "🔥" or "❄️", color = isFrozen and Color3.fromRGB(110, 160, 210) or Color3.fromRGB(80, 120, 180), action = "freeze"},
-            }
-            
-            for i, data in ipairs(btns) do
-                local b = inst("TextButton", {Size = UDim2.fromOffset(40, 32), Position = UDim2.new(1, -215 + (i-1) * 42, 0.5, -16), BackgroundColor3 = data.color, Text = data.icon, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 16}, pf)
-                round(b, 8)
-                
-                if data.action == "drag" then
-                    conn(b.MouseButton1Click, function() draggedPlayer = p S.DragPlayers = true end)
-                elseif data.action == "carry" then
-                    conn(b.MouseButton1Click, function() carriedPlayer = (carriedPlayer == p) and nil or p end)
-                elseif data.action == "tp" then
-                    conn(b.MouseButton1Click, function()
-                        local r = root()
-                        local t = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-                        if r and t then r.CFrame = t.CFrame * CFrame.new(0, 0, -3) end
-                    end)
-                elseif data.action == "fly" then
-                    conn(b.MouseButton1Click, function()
-                        if flyingPlayers[p] then removeFly(p) else giveFly(p) end
-                        task.wait(0.1) refreshPlayers()
-                    end)
-                elseif data.action == "freeze" then
-                    conn(b.MouseButton1Click, function()
-                        if frozenPlayers[p] then unfreezePlayer(p) else freezePlayer(p) end
-                        task.wait(0.1) refreshPlayers()
-                    end)
+local function getObservedTools(p)
+    local container=p.Character
+    local names={}
+    if container then
+        for _,obj in ipairs(container:GetChildren()) do
+            if obj:IsA("Tool") then
+                local n=string.lower(obj.Name)
+                if n=="kick" or n=="ban" or n=="admin" or n=="moderator" then
+                    table.insert(names,obj.Name)
                 end
             end
         end
     end
+    -- Other players' Backpack contents typically do not replicate to this client.
+    return #names>0 and table.concat(names,", ") or nil
 end
 
-refreshPlayers()
-conn(Players.PlayerAdded, function(p) task.wait(1) refreshPlayers() end)
-conn(Players.PlayerRemoving, function(p) 
-    frozenPlayers[p] = nil 
-    flyingPlayers[p] = nil 
-    if adminHighlights[p] then
-        if adminHighlights[p].highlight then adminHighlights[p].highlight:Destroy() end
-        if adminHighlights[p].billboard then adminHighlights[p].billboard:Destroy() end
-        adminHighlights[p] = nil
+local function inspectPlayer(p)
+    if game.CreatorType==Enum.CreatorType.User and p.UserId==game.CreatorId then
+        return 1,"👑 مالك التجربة","ملكية مؤكدة من CreatorId؛ ليست إثباتًا لصلاحية Kick داخل الماب"
     end
-    refreshPlayers() 
-end)
-
--- أزرار سريعة
-local quickFrame = inst("Frame", {Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1}, content)
-
-local unfreezeBtn = inst("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(200, 100, 50), Text = "🔥 فك الكل", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13}, quickFrame)
-round(unfreezeBtn, 10)
-
-local unflyBtn = inst("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), Position = UDim2.new(0.52, 0, 0, 0), BackgroundColor3 = Color3.fromRGB(70, 110, 180), Text = "🛬 إيقاف الطيران", TextColor3 = Color3.new(1,1,1), Font = Enum.Font.GothamBold, TextSize = 13}, quickFrame)
-round(unflyBtn, 10)
-
-conn(unfreezeBtn.MouseButton1Click, function()
-    for p, _ in pairs(frozenPlayers) do unfreezePlayer(p) end
-    refreshPlayers()
-end)
-
-conn(unflyBtn.MouseButton1Click, function()
-    for p, _ in pairs(flyingPlayers) do removeFly(p) end
-    refreshPlayers()
-end)
-
---====================================
--- الأنظمة
---====================================
-
-local function updateInvisible()
-    local char = LP.Character
-    if not char then return end
-    if S.Invisible then
-        for _, v in pairs(char:GetDescendants()) do
-            if v:IsA("BasePart") then v.LocalTransparencyModifier = 1 v.CastShadow = false end
-            if v:IsA("Decal") or v:IsA("Texture") then v.LocalTransparencyModifier = 1 end
-            if v:IsA("ParticleEmitter") or v:IsA("Trail") then v.Enabled = false end
-        end
-    else
-        for _, v in pairs(char:GetDescendants()) do
-            if v:IsA("BasePart") then v.LocalTransparencyModifier = 0 v.CastShadow = true end
-            if v:IsA("Decal") or v:IsA("Texture") then v.LocalTransparencyModifier = 0 end
-            if v:IsA("ParticleEmitter") or v:IsA("Trail") then v.Enabled = true end
+    if game.CreatorType==Enum.CreatorType.Group then
+        queryRank(p)
+        local x=ranks[p]
+        if x and x.rank==255 then
+            return 1,"👑 مالك القروب","رتبة القروب 255؛ صلاحيات الأدمن داخل الماب غير مثبتة"
+        elseif x and x.rank and x.rank>=200 then
+            return 2,"🟡 رتبة قروب مرتفعة","رتبة القروب: "..tostring(x.rank).." — لا تثبت أدمن الماب"
         end
     end
-end
-
-local function updateSpeed()
-    local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-    if h then h.WalkSpeed = S.Speed and S.WalkSpeed or 16 end
-end
-
-local function updateNoclip()
-    local char = LP.Character
-    if not char then return end
-    if S.Noclip then
-        for _, v in pairs(char:GetDescendants()) do
-            if v:IsA("BasePart") then v.CanCollide = false end
-        end
-    else
-        for _, v in pairs(char:GetDescendants()) do
-            if v:IsA("BasePart") then v.CanCollide = true end
+    local attrNames={"IsAdmin","Admin","IsModerator","Moderator","AdminLevel","AdminRank","IsOwner"}
+    for _,key in ipairs(attrNames) do
+        local value=p:GetAttribute(key)
+        if value~=nil and value~=false and value~=0 and value~="" then
+            return 2,"🟡 إشارة إدارية معلنة","Attribute: "..key.."="..tostring(value).."؛ غير موثّقة من نظام الصلاحيات"
         end
     end
-end
-
-local flyVel = nil
-local flyAtt = nil
-local flyOri = nil
-
-local function stopFly()
-    if flyVel then pcall(function() flyVel:Destroy() end) end
-    if flyAtt then pcall(function() flyAtt:Destroy() end) end
-    if flyOri then pcall(function() flyOri:Destroy() end) end
-    flyVel = nil flyAtt = nil flyOri = nil
-end
-
-local function updateFly()
-    local r = root()
-    if not r then stopFly() return end
-    
-    if S.Fly then
-        if not flyVel or not flyVel.Parent then
-            stopFly()
-            flyAtt = Instance.new("Attachment") flyAtt.Parent = r
-            flyVel = Instance.new("LinearVelocity")
-            flyVel.Attachment0 = flyAtt
-            flyVel.MaxForce = math.huge
-            flyVel.Parent = r
-            flyOri = Instance.new("AlignOrientation")
-            flyOri.Attachment0 = flyAtt
-            flyOri.Mode = Enum.OrientationAlignmentMode.OneAttachment
-            flyOri.MaxTorque = math.huge
-            flyOri.Parent = r
+    local role=p:GetAttribute("Role")
+    if type(role)=="string" then
+        local lower=string.lower(role)
+        if lower=="admin" or lower=="moderator" or lower=="owner" then
+            return 2,"🟡 دور معلن","Role="..role.."؛ لا يثبت صلاحيات الأوامر"
         end
-        local cam = workspace.CurrentCamera
-        local dir = Vector3.zero
-        if UIS:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.E) or UIS:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.yAxis end
-        if UIS:IsKeyDown(Enum.KeyCode.Q) or UIS:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.yAxis end
-        flyVel.VectorVelocity = dir * S.FlySpeed
-    else
-        stopFly()
+    end
+    local tool=getObservedTools(p)
+    if tool then
+        return 3,"⚪ مؤشر أداة","اسم أداة ظاهر: "..tool.." — ليس دليلًا على الأدمن"
+    end
+    return 4,"⚪ غير معروف","ما فيه دليل ظاهر يثبت صلاحية إدارية"
+end
+
+local function clearElements(parent, kind)
+    for _,child in ipairs(parent:GetChildren()) do
+        if child:IsA(kind) then child:Destroy() end
+    end
+end
+local lastScan={owners=0,signals=0,tools=0,unknown=0}
+refreshRows=function()
+    if not active then return end
+    clearElements(playerList,"Frame")
+    local all=Players:GetPlayers()
+    local results={}
+    local totals={owners=0,signals=0,tools=0,unknown=0}
+    for _,p in ipairs(all) do
+        local score,status,reason=inspectPlayer(p)
+        if score==1 then totals.owners=totals.owners+1
+        elseif score==2 then totals.signals=totals.signals+1
+        elseif score==3 then totals.tools=totals.tools+1
+        else totals.unknown=totals.unknown+1 end
+        table.insert(results,{p=p,score=score,status=status,reason=reason})
+    end
+    lastScan=totals
+    table.sort(results,function(a,b)
+        if a.score==b.score then return a.p.Name:lower()<b.p.Name:lower() end
+        return a.score<b.score
+    end)
+    textLabel(playerList,"المتصلون: "..tostring(#all).."  |  مالك/قروب: "..totals.owners.."  |  إشارات: "..totals.signals,30,12,C.muted)
+    for _,it in ipairs(results) do
+        local f=create("Frame",playerList,{Size=UDim2.new(1,-4,0,77),BackgroundColor3=C.panel,BorderSizePixel=0})
+        corner(f,8)
+        create("TextLabel",f,{
+            Size=UDim2.new(1,-16,0,22),Position=UDim2.fromOffset(8,4),
+            BackgroundTransparency=1,Text=it.p.Name.." ["..it.p.UserId.."]",TextSize=13,
+            Font=Enum.Font.GothamBold,TextColor3=C.white,TextXAlignment=Enum.TextXAlignment.Left,
+            TextTruncate=Enum.TextTruncate.AtEnd
+        })
+        create("TextLabel",f,{
+            Size=UDim2.new(1,-16,0,19),Position=UDim2.fromOffset(8,26),
+            BackgroundTransparency=1,Text=it.status,TextSize=12,
+            Font=Enum.Font.GothamSemibold,TextColor3=(it.score==1 and C.good) or (it.score==2 and C.warn) or C.muted,
+            TextXAlignment=Enum.TextXAlignment.Left
+        })
+        create("TextLabel",f,{
+            Size=UDim2.new(1,-16,0,29),Position=UDim2.fromOffset(8,46),
+            BackgroundTransparency=1,Text=it.reason,TextSize=10,TextWrapped=true,
+            TextColor3=C.muted,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left
+        })
     end
 end
 
-local function updateDrag()
-    if S.DragPlayers and draggedPlayer then
-        local t = draggedPlayer.Character and draggedPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local r = root()
-        if t and r then t.CFrame = r.CFrame * CFrame.new(0, 0, -5) end
+local function playerCharacter()
+    local character=LP.Character
+    return character,character and character:FindFirstChildOfClass("Humanoid"),character and character:FindFirstChild("HumanoidRootPart")
+end
+local function restoreTransparency()
+    for part,value in pairs(savedTransparency) do
+        if part and part.Parent then pcall(function() part.LocalTransparencyModifier=value end) end
+        savedTransparency[part]=nil
     end
 end
-
-local function updateCarry()
-    if carriedPlayer then
-        local t = carriedPlayer.Character and carriedPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local r = root()
-        if t and r then t.CFrame = r.CFrame * CFrame.new(0, 2, 0) end
+local function restoreCollision()
+    for part,value in pairs(savedCollision) do
+        if part and part.Parent then pcall(function() part.CanCollide=value end) end
+        savedCollision[part]=nil
     end
 end
-
-local function updateESP()
-    if S.PlayerESP then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LP and p.Character and not espHighlights[p] then
-                local h = Instance.new("Highlight")
-                h.FillColor = Color3.fromRGB(255, 0, 100)
-                h.Adornee = p.Character
-                h.Parent = gui
-                espHighlights[p] = h
+local function clearHighlights()
+    for p,h in pairs(highlights) do
+        if h then h:Destroy() end
+        highlights[p]=nil
+    end
+end
+stopFly=function()
+    if flyVelocity then flyVelocity:Destroy() end
+    if flyAttachment then flyAttachment:Destroy() end
+    flyVelocity=nil; flyAttachment=nil; flyingRoot=nil
+    local _,h=playerCharacter()
+    if h and originalPlatformStand~=nil then h.PlatformStand=originalPlatformStand end
+    originalPlatformStand=nil
+    upHeld=false;downHeld=false
+end
+local function startFly()
+    local _,h,r=playerCharacter()
+    if not h or not r then return end
+    stopFly()
+    originalPlatformStand=h.PlatformStand
+    h.PlatformStand=true
+    flyAttachment=create("Attachment",r,{Name="NovaFlyAttachment"})
+    flyVelocity=create("LinearVelocity",r,{
+        Name="NovaFlyVelocity",Attachment0=flyAttachment,
+        RelativeTo=Enum.ActuatorRelativeTo.World,
+        MaxForce=1000000,VectorVelocity=Vector3.zero
+    })
+    flyingRoot=r
+end
+local function setLight(enabled)
+    if enabled then
+        if not lightBackup then
+            lightBackup={Brightness=Lighting.Brightness,ClockTime=Lighting.ClockTime,Ambient=Lighting.Ambient,OutdoorAmbient=Lighting.OutdoorAmbient,FogEnd=Lighting.FogEnd}
+        end
+        Lighting.Brightness=3;Lighting.ClockTime=14
+        Lighting.Ambient=Color3.fromRGB(200,200,210)
+        Lighting.OutdoorAmbient=Color3.fromRGB(200,200,210)
+        Lighting.FogEnd=100000
+    elseif lightBackup then
+        for k,v in pairs(lightBackup) do Lighting[k]=v end
+        lightBackup=nil
+    end
+end
+syncLocal=function()
+    local character,h,r=playerCharacter()
+    if not character then return end
+    if S.speed and h then
+        if originalWalkSpeed==nil then originalWalkSpeed=h.WalkSpeed end
+        h.WalkSpeed=S.speedValue
+    elseif h and originalWalkSpeed~=nil then
+        h.WalkSpeed=originalWalkSpeed;originalWalkSpeed=nil
+    end
+    if S.ghost then
+        for _,part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name~="HumanoidRootPart" then
+                if savedTransparency[part]==nil then savedTransparency[part]=part.LocalTransparencyModifier end
+                part.LocalTransparencyModifier=1
             end
         end
-    else
-        for p, h in pairs(espHighlights) do if h then h:Destroy() end espHighlights[p] = nil end
-    end
-end
-
-local originalSizes = {}
-local function updateSize()
-    if S.PlayerSize then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LP and p.Character then
-                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-                if hrp and not originalSizes[p] then originalSizes[p] = hrp.Size end
-                if hrp then hrp.Size = Vector3.new(2, 2, 1) * S.SizeMultiplier end
+    else restoreTransparency() end
+    if S.noclip then
+        for _,part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                if savedCollision[part]==nil then savedCollision[part]=part.CanCollide end
+                part.CanCollide=false
             end
         end
-    else
-        for p, s in pairs(originalSizes) do
-            local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then hrp.Size = s end
+    else restoreCollision() end
+    if S.fly then
+        if not flyVelocity or not flyVelocity.Parent or flyingRoot~=r then startFly() end
+        if flyVelocity and h then
+            local horizontal=h.MoveDirection*S.flyValue
+            local vertical=0
+            if upHeld or UIS:IsKeyDown(Enum.KeyCode.E) or UIS:IsKeyDown(Enum.KeyCode.Space) then vertical=vertical+S.flyValue end
+            if downHeld or UIS:IsKeyDown(Enum.KeyCode.Q) then vertical=vertical-S.flyValue end
+            flyVelocity.VectorVelocity=horizontal+Vector3.new(0,vertical,0)
         end
-        table.clear(originalSizes)
-    end
+    elseif flyVelocity then stopFly() end
+    if S.esp then
+        for _,p in ipairs(Players:GetPlayers()) do
+            if p~=LP and p.Character then
+                if not highlights[p] or highlights[p].Adornee~=p.Character then
+                    if highlights[p] then highlights[p]:Destroy() end
+                    highlights[p]=create("Highlight",gui,{
+                        Name="NovaLocalHighlight",Adornee=p.Character,FillTransparency=0.8,
+                        OutlineColor=C.purple,FillColor=C.purple,
+                        DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
+                    })
+                end
+            end
+        end
+        for p,h1 in pairs(highlights) do
+            if p.Parent~=Players or not p.Character then h1:Destroy();highlights[p]=nil end
+        end
+    elseif next(highlights) then clearHighlights() end
 end
 
--- قفز لانهائي
-conn(UIS.InputBegan, function(input, gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.Space and S.InfiniteJump then
-        local h = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+textLabel(localList,"هذه التأثيرات على جهازك فقط، وقد يمنعها سيرفر الماب أو يعيد إعداداتها.",48,12,C.warn)
+local buttons={}
+local function toggle(title,key,description)
+    local b=newButton(localList,title,42)
+    textLabel(localList,description,28,11,C.muted)
+    buttons[key]=b
+    local function paint()
+        b.BackgroundColor3=S[key] and Color3.fromRGB(78,126,95) or C.panel
+        b.Text=title..(S[key] and "  [ON]" or "  [OFF]")
+    end
+    paint()
+    hook(b.MouseButton1Click,function()
+        S[key]=not S[key]
+        if key=="light" then setLight(S.light) end
+        if key=="fly" and not S.fly then stopFly() end
+        if key=="ghost" and not S.ghost then restoreTransparency() end
+        if key=="noclip" and not S.noclip then restoreCollision() end
+        if key=="esp" and not S.esp then clearHighlights() end
+        paint()
+        syncLocal()
+    end)
+end
+toggle("⚡ زيادة سرعة المشي","speed","تغيير WalkSpeed محليًا فقط")
+toggle("🚀 الطيران","fly","التحريك بالمشي؛ E أو Space صعود، Q نزول، أو أزرار اللمس")
+toggle("⬆ قفز إضافي","jump","قفز في الهواء عند الضغط على زر القفز")
+toggle("🧱 مرور محلي عبر الجدران","noclip","قد يصحح السيرفر موقعك أو يصطدم بك")
+toggle("👻 اختفاء بصري محلي","ghost","أنت فقط قد لا ترى شخصيتك؛ الآخرون قد يرونك")
+toggle("👁 تمييز اللاعبين محليًا","esp","حدود مضيئة للاعبين المتاحين لجهازك")
+toggle("☀️ إضاءة أقوى","light","تعديل الإضاءة والضباب على شاشتك")
+local speedBtn=newButton(localList,"سرعة المشي: 48  |  اضغط للتبديل",38)
+hook(speedBtn.MouseButton1Click,function()
+    S.speedValue=(S.speedValue==48 and 80 or (S.speedValue==80 and 24 or 48))
+    speedBtn.Text="سرعة المشي: "..S.speedValue.."  |  اضغط للتبديل"
+    syncLocal()
+end)
+local flyBtn=newButton(localList,"سرعة الطيران: 55  |  اضغط للتبديل",38)
+hook(flyBtn.MouseButton1Click,function()
+    S.flyValue=(S.flyValue==55 and 90 or (S.flyValue==90 and 30 or 55))
+    flyBtn.Text="سرعة الطيران: "..S.flyValue.."  |  اضغط للتبديل"
+end)
+local up=newButton(localList,"▲ صعود (اضغط باستمرار)",38)
+local down=newButton(localList,"▼ نزول (اضغط باستمرار)",38)
+for _,data in ipairs({{up,true},{down,false}}) do
+    local b,isUp=data[1],data[2]
+    hook(b.InputBegan,function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            if isUp then upHeld=true else downHeld=true end
+        end
+    end)
+    hook(b.InputEnded,function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            if isUp then upHeld=false else downHeld=false end
+        end
+    end)
+end
+
+local reportBox=create("TextBox",reportList,{
+    Size=UDim2.new(1,-2,0,350),BackgroundColor3=C.panel,Text="",
+    TextColor3=C.white,TextSize=12,Font=Enum.Font.Code,TextWrapped=false,
+    MultiLine=true,ClearTextOnFocus=false,TextEditable=true,
+    TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,
+    BorderSizePixel=0
+})
+corner(reportBox,8)
+local copyReport=newButton(reportList,"نسخ التقرير (إذا متاح)",42,C.purple)
+refreshReport=function()
+    local rows={"NOVA SUITE v6 — CLIENT OBSERVATIONS",
+        "PlaceId: "..tostring(game.PlaceId),
+        "GameId: "..tostring(game.GameId),
+        "Players: "..tostring(#Players:GetPlayers()),
+        "Owner/group owner: "..lastScan.owners,
+        "Public signals: "..lastScan.signals,
+        "Tool name indicators: "..lastScan.tools,
+        "Unknown: "..lastScan.unknown,
+        "NOTE: These observations do not prove hidden admin rights.","---"}
+    for _,p in ipairs(Players:GetPlayers()) do
+        local _,status,reason=inspectPlayer(p)
+        table.insert(rows,p.Name.." ["..p.UserId.."] => "..status.." | "..reason)
+    end
+    reportBox.Text=table.concat(rows,"\n")
+end
+hook(copyReport.MouseButton1Click,function()
+    refreshReport()
+    local fn=nil
+    pcall(function() fn=setclipboard end)
+    if type(fn)=="function" then
+        local ok=pcall(fn,reportBox.Text)
+        copyReport.Text=ok and "تم نسخ التقرير ✓" or "النسخ غير متاح — استخدم صندوق النص"
+    else
+        copyReport.Text="النسخ غير متاح — استخدم صندوق النص"
+    end
+end)
+
+hook(Players.PlayerAdded,function(p)
+    queryRank(p)
+    task.defer(function() if active then refreshRows() end end)
+end)
+hook(Players.PlayerRemoving,function(p)
+    ranks[p]=nil
+    if highlights[p] then highlights[p]:Destroy();highlights[p]=nil end
+    task.defer(function() if active then refreshRows() end end)
+end)
+hook(LP.CharacterAdded,function()
+    stopFly();originalWalkSpeed=nil
+    restoreTransparency();restoreCollision()
+end)
+hook(UIS.JumpRequest,function()
+    if S.jump then
+        local _,h=playerCharacter()
         if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
     end
 end)
-
--- الحلقة الرئيسية
-local adminTimer = 0
-conn(RunService.Heartbeat, function(dt)
-    if not alive then return end
-    
-    adminTimer = adminTimer + dt
-    if adminTimer >= 1 then
-        adminTimer = 0
-        updateAdminDetect()
-    end
-    
-    updateInvisible()
-    updateSpeed()
-    updateNoclip()
-    updateFly()
-    updateDrag()
-    updateCarry()
-    updateESP()
-    updateSize()
+local scanTick, localTick=0,0
+hook(RunService.Heartbeat,function(dt)
+    if not active then return end
+    scanTick=scanTick+dt;localTick=localTick+dt
+    if localTick>0.07 then localTick=0;syncLocal() end
+    if scanTick>5 then scanTick=0;refreshRows() end
 end)
 
--- التنظيف
-local function cleanup()
-    alive = false
-    stopFly()
-    for p, _ in pairs(frozenPlayers) do unfreezePlayer(p) end
-    for p, _ in pairs(flyingPlayers) do removeFly(p) end
-    for p, h in pairs(espHighlights) do if h then h:Destroy() end end
-    for p, data in pairs(adminHighlights) do
-        if data.highlight then data.highlight:Destroy() end
-        if data.billboard then data.billboard:Destroy() end
-    end
-    for _, c in pairs(conns) do c:Disconnect() end
-    gui:Destroy()
+local function shutdown()
+    if not active then return end
+    active=false
+    S.speed=false;S.fly=false;S.noclip=false;S.ghost=false;S.esp=false;S.light=false
+    stopFly();restoreCollision();restoreTransparency();clearHighlights();setLight(false)
+    local _,h=playerCharacter()
+    if h and originalWalkSpeed~=nil then h.WalkSpeed=originalWalkSpeed end
+    for _,con in ipairs(events) do pcall(function() con:Disconnect() end) end
+    if gui and gui.Parent then gui:Destroy() end
+    if global.NovaSuiteV6Stop==shutdown then global.NovaSuiteV6Stop=nil end
 end
-
-conn(close.MouseButton1Click, cleanup)
-
-print("✅ السكربت الفخم v4.1 (مصلح)")
-print("🛡️ كشف أدمن حقيقي فقط — بدون أخطاء")
-print("⚠️ كل شي محلي — أنت بس تشوف")
+global.NovaSuiteV6Stop=shutdown
+hook(close.MouseButton1Click,shutdown)
+refreshRows()
+print("NOVA SUITE v6 loaded: owner/rank/evidence detector + client-only tools")
