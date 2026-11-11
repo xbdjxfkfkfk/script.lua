@@ -1,4 +1,4 @@
--- NOVA SUITE v15 | Official title menu discovery (no fake title preview)
+-- NOVA SUITE v16 | VOLL title catalog and native UI access
 -- Roblox Luau. No server admin/permissions bypass; server controls other players.
 -- Flight: left stick + camera direction, including ascent/descent when looking up/down.
 -- Keyboard: WASD + mouse look. Both movement speeds adjustable +/-.
@@ -15,11 +15,11 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
 if not PlayerGui then return end
 
 -- Re-running cleans up prior UI and loops.
-for _, oldKey in ipairs({"NOVA_SuiteV15Cleanup", "NOVA_SuiteV14Cleanup", "NOVA_SuiteV13Cleanup", "NOVA_SuiteV12Cleanup", "NOVA_SuiteV11Cleanup", "NOVA_SuiteV10Cleanup", "NOVA_SuiteV9Cleanup", "NOVA_SuiteV8Cleanup"}) do
+for _, oldKey in ipairs({"NOVA_SuiteV16Cleanup", "NOVA_SuiteV15Cleanup", "NOVA_SuiteV14Cleanup", "NOVA_SuiteV13Cleanup", "NOVA_SuiteV12Cleanup", "NOVA_SuiteV11Cleanup", "NOVA_SuiteV10Cleanup", "NOVA_SuiteV9Cleanup", "NOVA_SuiteV8Cleanup"}) do
     local previous = rawget(_G, oldKey)
     if type(previous) == "function" then pcall(previous) end
 end
-local OLD_GUI = "NOVA_Suite_v15"
+local OLD_GUI = "NOVA_Suite_v16"
 local old = PlayerGui:FindFirstChild(OLD_GUI)
 if old then old:Destroy() end
 
@@ -108,7 +108,7 @@ make("UIGradient", {
 
 local header = make("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundTransparency = 1}, main)
 make("TextLabel", {
-    Text = "NOVA SUITE  v15", Font = Enum.Font.GothamBold,
+    Text = "NOVA SUITE  v16", Font = Enum.Font.GothamBold,
     TextColor3 = COLORS.white, TextSize = 20,
     Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -80, 0, 27),
     BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
@@ -1263,9 +1263,9 @@ local function openNativeTitleMenu()
     main.Visible = false
     returnToNova.Visible = true
     if success then
-        print("NOVA v15: focused native titles button " .. target:GetFullName() .. "; click it to open the game's title UI")
+        print("NOVA v16: focused native titles button " .. target:GetFullName() .. "; click it to open the game's title UI")
     else
-        print("NOVA v15: a title-menu button is visible. Click it manually: " .. target:GetFullName())
+        print("NOVA v16: a title-menu button is visible. Click it manually: " .. target:GetFullName())
     end
     -- Do not synthesize a click or send arbitrary remotes: title activation
     -- must be handled by the game's official, server-authorized flow.
@@ -1328,7 +1328,7 @@ local function scanVisibleTitles()
     local total = 0
     for _ in pairs(titleEntries) do total = total + 1 end
     if titleStatus then
-        titleStatus.Text = "أسماء ألقاب ظاهرة: " .. total
+        titleStatus.Text = "الألقاب المرصودة بالعميل: " .. total
             .. " | الفحص: " .. math.min(scanned, maxObjects)
             .. " عنصر. ظهور لقب عند لاعب آخر لا يعني أنك تملكه."
     end
@@ -1341,28 +1341,48 @@ local function scanVisibleTitles()
     end
 end
 
+-- The following names and requirements are transcribed from screenshots supplied
+-- by the user. They are REFERENCE DATA, not server-granted / current entitlements.
+-- All actual equip/unlock/purchase actions remain inside the game's own UI.
+local vollTitleCatalog = {
+    {name = "✨ مميز", requirement = "الانضمام إلى مجموعة ألعاب VOLL على Roblox", screenshotState = "تجهيز (وقت التصوير)", kind = "مجموعة"},
+    {name = "[من أهل المكان]", requirement = "10 ساعات لعب للحصول على الشارة", screenshotState = "مغلق (وقت التصوير)", kind = "إنجاز"},
+    {name = "[منزل قديم]", requirement = "20 ساعة لعب للحصول على الشارة", screenshotState = "مغلق (وقت التصوير)", kind = "إنجاز"},
+    {name = "[👑]", requirement = "شراء من متجر الماب بسعر 35 روبوكس (بحسب الصورة)", screenshotState = "شراء (وقت التصوير)", kind = "شراء"},
+    {name = "[✦ تعزيز كامل ✦]", requirement = "تعزيز خادم VOLL على ديسكورد", screenshotState = "مغلق (وقت التصوير)", kind = "مجموعة"},
+    {name = "الأصل", requirement = "لأعضاء المجتمع القدامى والمؤهلين؛ تمنحه الإدارة", screenshotState = "مغلق (وقت التصوير)", kind = "مجموعة"},
+    {name = "فنان محترف", requirement = "تقديم نماذج أعمال فنية للإدارة", screenshotState = "مغلق (وقت التصوير)", kind = "مجموعة"},
+    {name = "الموسيقي المحترف", requirement = "تقديم أعمال موسيقية إلى إدارة فريق VOLL", screenshotState = "مغلق (وقت التصوير)", kind = "مجموعة"},
+    {name = "صياد الثغرات", requirement = "الإبلاغ عن الأخطاء والثغرات ومساعدة المطورين", screenshotState = "مغلق (وقت التصوير)", kind = "مجموعة"},
+    {name = "صانع المحتوى", requirement = "إنشاء محتوى عن اللعبة ومراجعته من الإدارة", screenshotState = "مغلق (وقت التصوير)", kind = "مجموعة"},
+    {name = "[★★★★★★★]", requirement = "لقب خاص يمنحه مالك اللعبة للاعبين المتميزين", screenshotState = "مغلق (وقت التصوير)", kind = "هدية"},
+}
+local catalogSelectionNote
+
 newSection("🏷️ الألقاب الحقيقية")
-title("🏷️ كشف الألقاب وفتح نظام الماب")
-local titleNote = note("بدون معاينة محلية أو لقب مزيف. نعرض الألقاب الظاهرة ونبحث عن زر الألقاب الأصلي. اختيار اللقب وظهوره للجميع يحتاجان موافقة سيرفر الماب.")
+title("🏷️ ألقاب VOLL وفتح نظام الماب")
+local titleNote = note("أسماء الألقاب أدناه من صور VOLL التي أرسلتها؛ ليست ضمانًا للتوفر الآن. لا توجد معاينة وهمية ولا منح تلقائي. التفعيل الذي يراه الجميع يكون من نظام الماب الرسمي فقط.")
 titleNote.Size = UDim2.new(1, 0, 0, 68)
 titleSearch = make("TextBox", {
     Size = UDim2.new(1, 0, 0, 42),
     BackgroundColor3 = COLORS.panel2, TextColor3 = COLORS.white,
     PlaceholderColor3 = COLORS.muted,
-    PlaceholderText = "ابحث عن اسم لقب ظاهر...", Text = "", ClearTextOnFocus = false,
+    PlaceholderText = "ابحث في ألقاب VOLL والألقاب الظاهرة...", Text = "", ClearTextOnFocus = false,
     Font = Enum.Font.Gotham, TextSize = 13,
 }, scroller)
 round(titleSearch, 9)
-titleStatus = note("افحص الألقاب المتاحة للعرض في بيانات الماب.")
+titleStatus = note("قائمة VOLL المرجعية: 11 لقبًا من الصور. اضغط فحص الألقاب للحصول على بيانات ظاهرة حاليًا.")
 titleStatus.Size = UDim2.new(1, 0, 0, 61)
 titleMenuStatus = note("زر نظام الألقاب الأصلي: لم يُفحص بعد")
+catalogSelectionNote = note("اختر لقبًا من القائمة؛ يتم عرض شرطه، ثم افتح قائمة الماب الأصلية لتجهيزه إن كان متاحًا.")
+catalogSelectionNote.Size = UDim2.new(1, 0, 0, 56)
 action("🔍 فحص الألقاب الظاهرة الآن", scanVisibleTitles)
 action("🎮 ابحث عن زر الألقاب الأصلي", function()
     local n = refreshNativeTitleButtons()
     say(n > 0 and "وجدت زرًا أصليًا؛ اضغط فتح الواجهة للانتقال إليه" or
         "لا يوجد زر ألقاب أصلي ظاهر حاليًا", n > 0)
 end)
-action("🏷️ الانتقال إلى قائمة الألقاب الأصلية", openNativeTitleMenu, 47)
+action("🏷️ فتح نظام الألقاب الأصلي للتجهيز الحقيقي", openNativeTitleMenu, 47)
 action("✅ قراءة لقبي المسجل في بيانات اللعبة", function()
     local active, source = currentTitleFromReplicatedData()
     if active then
@@ -1388,30 +1408,54 @@ refreshTitleList = function()
     end
     local results = {}
     local query = titleSearch.Text:lower()
-    for key, entry in pairs(titleEntries) do
-        if query == "" or key:find(query, 1, true) then
-            table.insert(results, entry)
+    local knownNames = {}
+    -- Static reference titles remain visible even before client-side scanning.
+    for _, entry in ipairs(vollTitleCatalog) do
+        local lower = entry.name:lower()
+        knownNames[lower] = true
+        if query == "" or lower:find(query, 1, true) or entry.requirement:lower():find(query, 1, true) then
+            table.insert(results, {
+                name = entry.name, source = "VOLL | من صورك", description = entry.requirement,
+                screenshotState = entry.screenshotState, catalog = true,
+            })
         end
     end
-    table.sort(results, function(a,b) return a.name:lower() < b.name:lower() end)
+    local live = {}
+    for key, entry in pairs(titleEntries) do
+        if not knownNames[key] and (query == "" or key:find(query, 1, true)) then
+            table.insert(live, entry)
+        end
+    end
+    table.sort(live, function(a,b) return a.name:lower() < b.name:lower() end)
+    for _, entry in ipairs(live) do table.insert(results, entry) end
     for i=1, math.min(#results, 90) do
         local entry = results[i]
+        local isCatalog = entry.catalog
+        local desc = isCatalog and (entry.screenshotState .. " | " .. entry.requirement) or ("مرصود: " .. entry.source)
         local b = make("TextButton", {
-            Size = UDim2.new(1, -5, 0, 48), BackgroundColor3 = COLORS.panel2,
+            Size = UDim2.new(1, -5, 0, isCatalog and 68 or 50),
+            BackgroundColor3 = COLORS.panel2,
             TextColor3 = COLORS.white, TextWrapped = true,
-            Text = "🏷️ " .. entry.name .. "\nمصدر: " .. entry.source,
+            Text = (isCatalog and "🏷️ " or "🔎 ") .. entry.name .. "\n" .. desc,
             TextSize = 12, Font = Enum.Font.GothamMedium,
         }, titleList)
         round(b, 8)
         listen(b.MouseButton1Click, function()
             selectedTitle = entry.name
-            say("وجدت «" .. selectedTitle .. "» ضمن البيانات الظاهرة؛ للتفعيل استخدم قائمة الماب الأصلية", true)
+            if isCatalog then
+                catalogSelectionNote.Text = "اللقب: " .. entry.name .. " | الشرط: " .. entry.requirement
+                    .. " | الحالة بالصور: " .. entry.screenshotState
+                say("اخترت «" .. selectedTitle .. "». للتجهيز الحقيقي استخدم زر نظام الألقاب الرسمي في VOLL", true)
+            else
+                catalogSelectionNote.Text = "اللقب المرصود: " .. entry.name .. " | " .. entry.source
+                say("رُصد «" .. selectedTitle .. "» في بيانات ظاهرة، ولا يعني أنه متاح لحسابك", true)
+            end
         end)
     end
     if #results == 0 then
         make("TextLabel", {
             Size = UDim2.new(1, 0, 0, 44), BackgroundTransparency = 1,
-            TextColor3 = COLORS.muted, Text = "ما فيه نتائج. اضغط فحص الألقاب أو غيّر البحث.",
+            TextColor3 = COLORS.muted, Text = "لا توجد ألقاب مطابقة للبحث.",
             TextWrapped = true, TextSize = 12,
         }, titleList)
     end
@@ -1476,14 +1520,14 @@ local function cleanup()
     for player in pairs(adminVisuals) do clearAdminVisual(player) end
     for _, conn in ipairs(connections) do conn:Disconnect() end
     gui:Destroy()
-    if rawget(_G, "NOVA_SuiteV15Cleanup") == cleanup then
-        _G.NOVA_SuiteV15Cleanup = nil
+    if rawget(_G, "NOVA_SuiteV16Cleanup") == cleanup then
+        _G.NOVA_SuiteV16Cleanup = nil
     end
 end
-_G.NOVA_SuiteV15Cleanup = cleanup
+_G.NOVA_SuiteV16Cleanup = cleanup
 listen(close.MouseButton1Click, cleanup)
 -- Initial scan covers tools already present when joining a supported experience.
 task.defer(scheduleToolScan)
 task.defer(scanVisibleTitles)
 task.defer(refreshToolUI)
-print("NOVA SUITE v15 loaded: grouped actions and native title UI discovery. No client-only titles created.")
+print("NOVA SUITE v16 loaded: VOLL screenshot titles catalog + official UI navigation. No client-only titles created.")
