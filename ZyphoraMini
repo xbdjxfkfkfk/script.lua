@@ -3,7 +3,7 @@
 -- Flight: left stick + camera direction, including ascent/descent when looking up/down.
 -- Keyboard: WASD + mouse look. Both movement speeds adjustable +/-.
 -- Admin Vision: owner/group-rank public signals ONLY, never private admin certainty.
--- Drag: only activates a server-granted native tool; never locally teleports other players.
+-- Drag: client-only visual avatar copy follows you; the real player is never moved.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -135,7 +135,7 @@ make("Frame", {
     BackgroundTransparency = .28,
 }, header)
 make("TextLabel", {
-    Text = "NOVA SUITE  |  V16 PRO · DRAG FIX", Font = Enum.Font.GothamBold,
+    Text = "NOVA SUITE  |  V16 PRO · VISUAL DRAG", Font = Enum.Font.GothamBold,
     TextColor3 = COLORS.white, TextSize = 20,
     Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -80, 0, 27),
     BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
@@ -867,15 +867,151 @@ refreshAdminVision = function()
     end
 end
 
--- Native Tool controls: use only Tools genuinely granted to this character.
--- No local writes to another player's CFrame: those don't replicate reliably.
+-- Visual Drag: clone only the target's visible avatar for the current client.
+-- The real target is never moved, hidden, or modified (except a temporary local
+-- Archivable flag to permit cloning, which is restored immediately).
 local activeDragTool = nil
+local dragClone = nil
+local dragSourceCharacter = nil
+local dragVisualTag = nil
+local dragButton = nil
+local nativeDragButton = nil
+local NATIVE_DRAG_BUTTON_TEXT = "🧰 تفعيل أداة سحب الماب (إن وجدت)"
+local VISUAL_DRAG_BUTTON_TEXT = "🧲 سحب شكلي: خذ سكن اللاعب معك"
+
+local function clearVisualDrag()
+    if dragVisualTag then
+        dragVisualTag:Destroy()
+        dragVisualTag = nil
+    end
+    if dragClone then
+        dragClone:Destroy()
+        dragClone = nil
+    end
+    dragSourceCharacter = nil
+end
+
 local function stopDrag()
     dragTarget = nil
+    clearVisualDrag()
     if activeDragTool then
         pcall(function() activeDragTool:Deactivate() end)
         activeDragTool = nil
     end
+    if dragButton and dragButton.Parent then
+        dragButton.Text = VISUAL_DRAG_BUTTON_TEXT
+    end
+    if nativeDragButton and nativeDragButton.Parent then
+        nativeDragButton.Text = NATIVE_DRAG_BUTTON_TEXT
+    end
+end
+
+local function buildVisualAvatar(player)
+    local source = player and player.Character
+    local head = source and source:FindFirstChild("Head")
+    local sourceRoot = source and source:FindFirstChild("HumanoidRootPart")
+    if not source or not head or not sourceRoot then
+        return false, "شخصية اللاعب لم تكتمل بعد. انتظر ظهوره وجرب مرة ثانية"
+    end
+    local descendants = source:GetDescendants()
+    if #descendants > 450 then
+        return false, "سكن اللاعب يحتوي عناصر كثيرة؛ تم إلغاء النسخ لتجنب التعليق"
+    end
+
+    local oldArchivable = source.Archivable
+    source.Archivable = true
+    local ok, copy = pcall(function() return source:Clone() end)
+    source.Archivable = oldArchivable
+    if not ok or not copy then
+        return false, "ما قدرت أنسخ سكن اللاعب الظاهر على جهازك"
+    end
+
+    copy.Name = "NOVA_VisualCarry_" .. safeText(player.UserId)
+    for _, obj in ipairs(copy:GetDescendants()) do
+        if obj:IsA("LuaSourceContainer") or obj:IsA("Tool") then
+            obj:Destroy()
+        elseif obj:IsA("BasePart") then
+            obj.Anchored = true
+            obj.CanCollide = false
+            obj.CanTouch = false
+            obj.CanQuery = false
+            obj.CastShadow = false
+            if obj.Name == "HumanoidRootPart" then obj.Transparency = 1 end
+        elseif obj:IsA("Sound") or obj:IsA("ParticleEmitter")
+            or obj:IsA("Trail") or obj:IsA("Beam") then
+            obj:Destroy()
+        end
+    end
+    local hum = copy:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+        hum.NameDisplayDistance = 0
+        hum.HealthDisplayDistance = 0
+    end
+
+    local myRoot = localRoot()
+    if not myRoot then
+        copy:Destroy()
+        return false, "شخصيتك لم تكتمل بعد"
+    end
+    local position = myRoot.CFrame * CFrame.new(3.2, 0, -1.5)
+    copy:PivotTo(position)
+    copy.Parent = Workspace
+
+    local copyHead = copy:FindFirstChild("Head")
+    if copyHead then
+        local tag = make("BillboardGui", {
+            Name = "NOVA_VisualCarryLabel",
+            Adornee = copyHead,
+            Size = UDim2.fromOffset(250, 44),
+            StudsOffsetWorldSpace = Vector3.new(0, 2.5, 0),
+            AlwaysOnTop = true,
+        }, gui)
+        make("TextLabel", {
+            Name = "Label", Size = UDim2.fromScale(1, 1),
+            Text = "نسخة شكلية • @" .. safeText(player.Name),
+            TextColor3 = COLORS.purple,
+            TextStrokeColor3 = Color3.new(0, 0, 0),
+            TextStrokeTransparency = .2,
+            TextWrapped = true,
+            BackgroundTransparency = 1,
+            Font = Enum.Font.GothamBold, TextSize = 13,
+        }, tag)
+        dragVisualTag = tag
+    end
+
+    dragClone = copy
+    dragSourceCharacter = source
+    return true
+end
+
+local function startVisualDrag(player)
+    if not player or player.Parent ~= Players or player == LocalPlayer then
+        say("اختر لاعبًا من القائمة أولًا", false)
+        return false
+    end
+    stopDrag()
+    local ok, reason = buildVisualAvatar(player)
+    if not ok then
+        say(reason, false)
+        return false
+    end
+    dragTarget = player
+    say("نسخة من سكن @" .. safeText(player.Name) .. " صارت بجانبك وتتحرك معك. هذا محلي فقط", true)
+    return true
+end
+
+local function updateVisualDrag()
+    if not dragClone or not dragTarget then return end
+    if dragTarget.Parent ~= Players or not dragClone.Parent then
+        stopDrag()
+        return
+    end
+    local root = localRoot()
+    if not root then return end
+    local targetCFrame = root.CFrame * CFrame.new(3.2, 0, -1.5)
+    -- A single pivot operation per frame keeps the visual copy attached smoothly.
+    dragClone:PivotTo(targetCFrame)
 end
 local dragWords = {"drag", "grab", "carry", "bring", "pull", "rope", "lasso", "سحب", "حمل", "شد", "حبل"}
 local function findNativeDragTool()
@@ -933,7 +1069,6 @@ local function useNativeDragTool(player)
         say("تعذّر تشغيل أداة السحب الأصلية", false)
         return false
     end
-    dragTarget = player
     activeDragTool = tool
     say("طلبت تشغيل «" .. safeText(tool.Name) .. "» للاعب @" .. safeText(player.Name)
         .. ". وجّه الأداة إلى اللاعب؛ نجاح السحب يتحدد من نظام الماب", true)
@@ -1251,30 +1386,45 @@ note("اختر لاعبًا من القائمة أدناه أولًا، ثم ا�
 action("📍 الانتقال إلى اللاعب المحدد", function()
     tryTeleport(selectedPlayer)
 end)
-title("🧲 السحب عبر أداة الماب الأصلية")
-note("اختر اللاعب من القائمة، ثم جهّز أداة السحب الأصلية وشغّلها. الأداة قد تحتاج توجيه المؤشر للاعب. لا يمكن فرض سحب لاعب بدون سماح السيرفر.")
-local dragButton
-dragButton = action("🧲 تجهيز وتفعيل أداة السحب", function()
-    if activeDragTool then
+title("🧲 سحب السكن الشكلي معك")
+note("اختر لاعبًا من القائمة. نسخة من سكنه تظهر بجانب شخصيتك وتتحرك معك في المشي والطيران. اللاعب الحقيقي يبقى بمكانه، ولا يراها غيرك.")
+dragButton = action(VISUAL_DRAG_BUTTON_TEXT, function()
+    if dragClone then
         stopDrag()
-        dragButton.Text = "🧲 تجهيز وتفعيل أداة السحب"
-        say("أوقفت تفعيل أداة السحب", true)
+        say("أوقفت السحب الشكلي وأزلت نسخة السكن", true)
+        return
+    end
+    if startVisualDrag(selectedPlayer) then
+        dragButton.Text = "⏹ إيقاف السحب الشكلي"
+    end
+end)
+action("🧹 إزالة نسخة السكن", function()
+    stopDrag()
+    say("تمت إزالة النسخة الشكلية", true)
+end)
+
+title("🧰 سحب الماب الأصلي (اختياري)")
+note("هذا زر منفصل لاستخدام أداة أصلية موجودة عندك فقط. لا يؤثر على النسخة الشكلية عند إيقافها؛ السحب الحقيقي يعتمد على سيرفر الماب.")
+nativeDragButton = action(NATIVE_DRAG_BUTTON_TEXT, function()
+    if activeDragTool then
+        pcall(function() activeDragTool:Deactivate() end)
+        activeDragTool = nil
+        nativeDragButton.Text = NATIVE_DRAG_BUTTON_TEXT
+        say("أوقفت تشغيل أداة سحب الماب", true)
         return
     end
     if useNativeDragTool(selectedPlayer) then
-        dragButton.Text = "⏹ إيقاف استخدام أداة السحب"
+        nativeDragButton.Text = "⏹ إيقاف أداة سحب الماب"
     end
 end)
-local dragToolStatus = note("حالة السحب: يتحقق من أداة أصلية في حقيبتك، وليس من نسخة محلية")
-action("🔎 فحص أداة السحب المتاحة", function()
+local dragToolStatus = note("سحب السكن الشكلي يعمل بدون أداة، وسحب الماب الأصلي يحتاج أداة متاحة")
+action("🔎 فحص أداة السحب الأصلية", function()
     local tool = findNativeDragTool()
     if tool then
-        dragToolStatus.Text = "أداة سحب أصلية مرصودة: " .. safeText(tool.Name)
-            .. " | " .. (tool.Enabled and "مفعلة" or "معطلة")
-        say("الأداة موجودة، لكن تحريك اللاعب يعتمد على خادم اللعبة", true)
+        dragToolStatus.Text = "أداة أصلية: " .. safeText(tool.Name)
+            .. " | " .. (tool.Enabled and "مفعّلة" or "معطلة")
     else
-        dragToolStatus.Text = "لم تُعثر على أداة سحب أصلية في حقيبتك"
-        say("لا يوجد سحب حقيقي متاح من هذه النسخة في الماب الحالي", false)
+        dragToolStatus.Text = "ما عندك أداة سحب أصلية، لكن السحب الشكلي متاح"
     end
 end)
 local listBox = make("ScrollingFrame", {
@@ -1357,14 +1507,14 @@ listen(Players.PlayerRemoving, function(player)
     end
     if dragTarget == player then
         stopDrag()
-        dragButton.Text = "🧲 تجهيز وتفعيل أداة السحب"
+        dragButton.Text = VISUAL_DRAG_BUTTON_TEXT
     end
     clearAdminVisual(player)
     rankCache[player.UserId] = nil
     refreshList()
 end)
 refreshList()
-note("السحب الحقيقي يتم عبر أداة أو صلاحية يمنحها سيرفر الماب. محاولات تغيير موقع اللاعبين محليًا ليست سحبًا فعليًا.")
+note("السحب الشكلي يعرض نسخة مرئية من سكن اللاعب على جهازك فقط. أداة السحب الأصلية منفصلة وتتبع صلاحيات الماب.")
 
 -- Titles in Roblox are experience-specific. This is a client-side discovery and
 -- navigation panel, NOT a title-granting API. Server-granted titles must be
@@ -1767,6 +1917,7 @@ end)
 listen(RunService.RenderStepped, function(dt)
     if not alive then return end
     updateFlight()
+    updateVisualDrag()
     elapsed = elapsed + dt
     adminElapsed = adminElapsed + dt
     if elapsed >= .5 then
@@ -1826,4 +1977,4 @@ task.defer(function()
         if not ok then warn("NOVA initial tool list: " .. safeText(err)) end
     end
 end)
-print("NOVA SUITE V16 PRO Drag Fix loaded: native drag Tool activation, no fake player movement.")
+print("NOVA SUITE V16 PRO Visual Drag: client-side avatar copy follows player; real players unchanged.")
