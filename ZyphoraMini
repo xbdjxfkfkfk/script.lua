@@ -1,342 +1,1730 @@
--- NOVA Admin Discovery Add-on v2 LIGHT: on-demand scan and bounded display
--- Client-side inspector for genuinely accessible Tools and possible admin UI.
--- Does NOT unlock administrative privileges, access server-only Tools, or bypass ranks.
--- Run as a LocalScript in StarterPlayerScripts in an experience you manage,
--- or in another authorized client scripting environment.
+-- NOVA SUITE v18 VISIBLE / compatibility build
+-- Flight, speed, admin discovery and titles are kept; no permissions bypass.
+local function runNovaSuiteV18()
+-- NOVA SUITE v17 LIGHT | On-demand scans, responsive UI, evidence-based admin discovery
+-- Roblox Luau. No server admin/permissions bypass; server controls other players.
+-- Flight: left stick + camera direction, including ascent/descent when looking up/down.
+-- Keyboard: WASD + mouse look. Both movement speeds adjustable +/-.
+-- Admin Vision: owner/group-rank public signals ONLY, never private admin certainty.
+-- Drag: optional local-only experiment; it will usually be overridden by the server.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-local player = Players.LocalPlayer
-if not player then return end
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
+if not PlayerGui then return end
 
-local playerGui = player:WaitForChild("PlayerGui")
-local backpack = player:WaitForChild("Backpack")
-local GUI_NAME = "NOVA_Admin_Discovery_Addon"
+-- Re-running cleans up prior UI and loops.
+for _, oldKey in ipairs({"NOVA_SuiteV18Cleanup", "NOVA_SuiteV18Cleanup", "NOVA_SuiteV16Cleanup", "NOVA_SuiteV15Cleanup", "NOVA_SuiteV14Cleanup", "NOVA_SuiteV13Cleanup", "NOVA_SuiteV12Cleanup", "NOVA_SuiteV11Cleanup", "NOVA_SuiteV10Cleanup", "NOVA_SuiteV9Cleanup", "NOVA_SuiteV8Cleanup"}) do
+    local previous = rawget(_G, oldKey)
+    if type(previous) == "function" then pcall(previous) end
+end
+local OLD_GUI = "NOVA_Suite_v18_Visible"
+local old = PlayerGui:FindFirstChild(OLD_GUI)
+if old then old:Destroy() end
 
--- Re-running the add-on removes its old interface.
-local oldGui = playerGui:FindFirstChild(GUI_NAME)
-if oldGui then oldGui:Destroy() end
+local alive = true
+local connections = {}
+local function listen(signal, callback)
+    local c = signal:Connect(callback)
+    table.insert(connections, c)
+    return c
+end
 
-local ui = Instance.new("ScreenGui")
-ui.Name = GUI_NAME
-ui.ResetOnSpawn = false
-ui.IgnoreGuiInset = true
-ui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ui.Parent = playerGui
+local COLORS = {
+    bg = Color3.fromRGB(11, 17, 26),
+    panel = Color3.fromRGB(23, 33, 47),
+    panel2 = Color3.fromRGB(33, 47, 63),
+    purple = Color3.fromRGB(71, 186, 226),
+    white = Color3.fromRGB(247, 245, 255),
+    muted = Color3.fromRGB(174, 193, 207),
+    green = Color3.fromRGB(124, 236, 169),
+    orange = Color3.fromRGB(255, 186, 108),
+}
+local function make(class, props, parent)
+    local v = Instance.new(class)
+    for k, value in pairs(props or {}) do v[k] = value end
+    v.Parent = parent
+    return v
+end
+local function round(frame, size)
+    make("UICorner", {CornerRadius = UDim.new(0, size or 10)}, frame)
+end
+local function localCharacter()
+    return LocalPlayer.Character
+end
+local function localHumanoid()
+    local c = localCharacter()
+    return c and c:FindFirstChildOfClass("Humanoid")
+end
+local function localRoot()
+    local c = localCharacter()
+    return c and c:FindFirstChild("HumanoidRootPart")
+end
 
-local function make(className, props, parent)
-    local obj = Instance.new(className)
-    for prop, value in pairs(props or {}) do
-        obj[prop] = value
+local state = {
+    Fly = false,
+    FlySpeed = 55,
+    Speed = false,
+    WalkSpeed = 50,
+    LocalInvisible = false,
+    ESP = false,
+    AdminESP = false,
+    Noclip = false,
+    AutoTools = false, -- Default OFF: never sweep the whole map at startup.
+}
+local original = {WalkSpeed = nil}
+local collisionOriginal = {}
+local fly = {attach = nil, velocity = nil, orient = nil, humanoid = nil, autoRotate = nil}
+local highlighted = {}
+local adminVisuals = {}
+local selectedPlayer = nil
+local dragTarget = nil
+local selectedTitle = nil
+
+local gui = make("ScreenGui", {
+    Name = OLD_GUI, ResetOnSpawn = false, DisplayOrder = 100,
+    IgnoreGuiInset = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+}, PlayerGui)
+
+local screen = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1200, 700)
+local width = math.min(475, math.max(290, screen.X - 35))
+local height = math.min(690, math.max(320, screen.Y - 85))
+local main = make("Frame", {
+    Size = UDim2.fromOffset(width, height),
+    Position = UDim2.fromScale(.5, .5),
+    AnchorPoint = Vector2.new(.5, .5),
+    Active = true, Draggable = true,
+    BackgroundColor3 = COLORS.bg, BorderSizePixel = 0,
+}, gui)
+round(main, 16)
+make("UIStroke", {Color = COLORS.purple, Thickness = 2}, main)
+make("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(19, 30, 44)),
+        ColorSequenceKeypoint.new(1, COLORS.bg)
+    }), Rotation = 120,
+}, main)
+
+local header = make("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundTransparency = 1}, main)
+make("TextLabel", {
+    Text = "NOVA SUITE  v18 • LIGHT", Font = Enum.Font.GothamBold,
+    TextColor3 = COLORS.white, TextSize = 20,
+    Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -80, 0, 27),
+    BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+}, header)
+make("TextLabel", {
+    Text = "كل الأدوات في صفحة واحدة • أزرار منفصلة", Font = Enum.Font.Gotham,
+    TextColor3 = COLORS.muted, TextSize = 11,
+    Position = UDim2.fromOffset(16, 32), Size = UDim2.new(1, -80, 0, 16),
+    BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+}, header)
+local close = make("TextButton", {
+    Text = "×", Font = Enum.Font.GothamBold, TextSize = 24,
+    Position = UDim2.new(1, -42, 0, 10), Size = UDim2.fromOffset(32, 32),
+    BackgroundColor3 = Color3.fromRGB(83, 56, 68), TextColor3 = COLORS.white,
+}, header)
+round(close, 8)
+
+-- Single vertically stacked dashboard: every category has a visible header button.
+-- Each feature inside a category keeps its OWN independent action/toggle button.
+local dashboard = make("ScrollingFrame", {
+    Position = UDim2.fromOffset(12, 68), Size = UDim2.new(1, -24, 1, -123),
+    BackgroundTransparency = 1, BorderSizePixel = 0,
+    ScrollingDirection = Enum.ScrollingDirection.Y,
+    ScrollBarThickness = 5, ScrollBarImageColor3 = COLORS.purple,
+    CanvasSize = UDim2.fromOffset(0, 800),
+}, main)
+local dashboardLayout = make("UIListLayout", {
+    Padding = UDim.new(0, 9), SortOrder = Enum.SortOrder.LayoutOrder,
+}, dashboard)
+make("UIPadding", {
+    PaddingLeft = UDim.new(0, 1), PaddingRight = UDim.new(0, 8),
+    PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 14),
+}, dashboard)
+local function updateCanvas()
+    if dashboard.Parent then
+        dashboard.CanvasSize = UDim2.fromOffset(0, dashboardLayout.AbsoluteContentSize.Y + 40)
     end
-    obj.Parent = parent
-    return obj
+end
+listen(dashboardLayout:GetPropertyChangedSignal("AbsoluteContentSize"), updateCanvas)
+
+local scroller = dashboard
+local sectionCount = 0
+local function newSection(name, initiallyOpen)
+    sectionCount = sectionCount + 1
+    local panel = make("Frame", {
+        Name = "Panel" .. sectionCount,
+        Size = UDim2.new(1, 0, 0, 60),
+        BackgroundColor3 = COLORS.panel, BorderSizePixel = 0,
+        LayoutOrder = sectionCount,
+    }, dashboard)
+    round(panel, 11)
+    make("UIStroke", {Color = Color3.fromRGB(47, 70, 85), Thickness = 1}, panel)
+    make("UIListLayout", {
+        Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder,
+    }, panel)
+    make("UIPadding", {
+        PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5),
+        PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5),
+    }, panel)
+    local headerButton = make("TextButton", {
+        Size = UDim2.new(1, 0, 0, 50), LayoutOrder = 1,
+        BackgroundColor3 = COLORS.panel2, TextColor3 = COLORS.white,
+        Font = Enum.Font.GothamBold, TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Center, TextWrapped = true,
+    }, panel)
+    round(headerButton, 9)
+    local contents = make("Frame", {
+        Size = UDim2.new(1, 0, 0, 0),
+        BackgroundTransparency = 1, LayoutOrder = 2,
+        Visible = initiallyOpen == true,
+    }, panel)
+    local innerLayout = make("UIListLayout", {
+        Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder,
+    }, contents)
+    make("UIPadding", {
+        PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5),
+        PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8),
+    }, contents)
+    local function updatePanel()
+        if not panel.Parent then return end
+        local expanded = contents.Visible
+        local innerHeight = expanded and (innerLayout.AbsoluteContentSize.Y + 16) or 0
+        contents.Size = UDim2.new(1, 0, 0, innerHeight)
+        panel.Size = UDim2.new(1, 0, 0, 60 + (expanded and 3 + innerHeight or 0))
+        updateCanvas()
+    end
+    local function labelHeader()
+        headerButton.Text = (contents.Visible and "▾  " or "▸  ") .. name
+    end
+    labelHeader()
+    listen(innerLayout:GetPropertyChangedSignal("AbsoluteContentSize"), updatePanel)
+    listen(headerButton.MouseButton1Click, function()
+        if not alive then return end
+        contents.Visible = not contents.Visible
+        labelHeader()
+        updatePanel()
+    end)
+    scroller = contents
+    task.defer(updatePanel)
+    return contents
 end
 
-local function corner(obj, radius)
-    make("UICorner", {CornerRadius = UDim.new(0, radius or 10)}, obj)
+-- Small persistent tab: even when the dashboard is hidden, it can be reopened.
+local launcher = make("TextButton", {
+    Name = "NOVA_Open", Text = "NOVA", Font = Enum.Font.GothamBold,
+    TextColor3 = COLORS.white, TextSize = 13,
+    Size = UDim2.fromOffset(74, 34), Position = UDim2.fromOffset(12, 9),
+    BackgroundColor3 = Color3.fromRGB(34, 97, 127), ZIndex = 50,
+    Visible = true,
+}, gui)
+round(launcher, 8)
+listen(launcher.MouseButton1Click, function()
+    if alive then main.Visible = not main.Visible end
+end)
+listen(close.MouseButton1Click, function()
+    if alive then main.Visible = false end
+end)
+
+local status = make("TextLabel", {
+    Position = UDim2.new(0, 12, 1, -43), Size = UDim2.new(1, -24, 0, 32),
+    Text = "الوضع الخفيف: الفحص الثقيل يدوي • كشف الإدمن بمؤشرات عامة",
+    BackgroundColor3 = COLORS.panel, TextColor3 = COLORS.muted,
+    Font = Enum.Font.Gotham, TextSize = 11, TextWrapped = true,
+}, main)
+round(status, 8)
+local function say(txt, good)
+    status.Text = txt
+    status.TextColor3 = good and COLORS.green or COLORS.orange
 end
 
-local function textLabel(parent, contents, size, position, color, textSize)
-    return make("TextLabel", {
+local function title(text)
+    local l = make("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 26), Text = text,
+        TextColor3 = COLORS.purple, Font = Enum.Font.GothamBold,
+        TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left,
         BackgroundTransparency = 1,
-        Text = contents,
-        Size = size,
-        Position = position,
-        Font = Enum.Font.Gotham,
-        TextColor3 = color or Color3.fromRGB(234, 240, 247),
-        TextSize = textSize or 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextYAlignment = Enum.TextYAlignment.Center,
-        TextWrapped = true,
-    }, parent)
+    }, scroller)
+    return l
 end
-
-local function button(parent, contents, size, position, bg)
+local function action(text, callback, heightArg)
     local b = make("TextButton", {
-        Text = contents,
-        Size = size,
-        Position = position,
-        BackgroundColor3 = bg or Color3.fromRGB(50, 61, 84),
-        TextColor3 = Color3.fromRGB(255, 255, 255),
-        BorderSizePixel = 0,
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        AutoButtonColor = true,
-    }, parent)
-    corner(b, 8)
+        Size = UDim2.new(1, 0, 0, heightArg or 40),
+        Text = text, TextColor3 = COLORS.white,
+        BackgroundColor3 = COLORS.panel2,
+        Font = Enum.Font.GothamMedium, TextSize = 13, TextWrapped = true,
+    }, scroller)
+    round(b, 9)
+    listen(b.MouseButton1Click, function()
+        if alive then callback(b) end
+    end)
     return b
 end
+local function toggle(text, key, onChanged)
+    local base = text
+    local b
+    b = action((state[key] and "●  " or "○  ") .. base, function()
+        state[key] = not state[key]
+        b.Text = (state[key] and "●  " or "○  ") .. base
+        b.BackgroundColor3 = state[key] and Color3.fromRGB(34, 97, 127) or COLORS.panel2
+        if onChanged then onChanged(state[key]) end
+    end)
+    if state[key] then b.BackgroundColor3 = Color3.fromRGB(34, 97, 127) end
+    return b
+end
+local function note(text)
+    return make("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 40), Text = text,
+        TextWrapped = true, TextColor3 = COLORS.muted,
+        Font = Enum.Font.Gotham, TextSize = 11,
+        BackgroundTransparency = 1,
+    }, scroller)
+end
 
-local container = make("Frame", {
-    Name = "Panel",
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    Size = UDim2.new(0, 470, 0, 510),
-    Position = UDim2.fromScale(0.5, 0.5),
-    BackgroundColor3 = Color3.fromRGB(23, 29, 42),
-    BorderSizePixel = 0,
-}, ui)
-corner(container, 15)
-make("UIStroke", {Color = Color3.fromRGB(63, 79, 111), Thickness = 1}, container)
-make("UISizeConstraint", {MaxSize = Vector2.new(470, 510), MinSize = Vector2.new(310, 55)}, container)
+local function adjuster(labelText, key, min, max, increment, onChanged)
+    local rowFrame = make("Frame", {
+        Size = UDim2.new(1, 0, 0, 46), BackgroundColor3 = COLORS.panel,
+        BorderSizePixel = 0,
+    }, scroller)
+    round(rowFrame, 9)
+    local minus = make("TextButton", {
+        Size = UDim2.fromOffset(44, 36), Position = UDim2.fromOffset(5, 5),
+        Text = "−", TextSize = 23, TextColor3 = COLORS.white,
+        Font = Enum.Font.GothamBold, BackgroundColor3 = COLORS.panel2,
+    }, rowFrame)
+    round(minus, 8)
+    local plus = make("TextButton", {
+        Size = UDim2.fromOffset(44, 36), Position = UDim2.new(1, -49, 0, 5),
+        Text = "+", TextSize = 23, TextColor3 = COLORS.white,
+        Font = Enum.Font.GothamBold, BackgroundColor3 = COLORS.panel2,
+    }, rowFrame)
+    round(plus, 8)
+    local val = make("TextLabel", {
+        Size = UDim2.new(1, -112, 1, 0), Position = UDim2.fromOffset(56, 0),
+        Text = labelText .. ": " .. tostring(state[key]),
+        Font = Enum.Font.GothamMedium, TextSize = 13,
+        TextColor3 = COLORS.white, BackgroundTransparency = 1,
+    }, rowFrame)
+    local function update(delta)
+        state[key] = math.clamp(state[key] + delta, min, max)
+        val.Text = labelText .. ": " .. tostring(state[key])
+        if onChanged then onChanged() end
+    end
+    listen(minus.MouseButton1Click, function() if alive then update(-increment) end end)
+    listen(plus.MouseButton1Click, function() if alive then update(increment) end end)
+end
 
-local title = textLabel(container, "NOVA  |  Admin Discovery", UDim2.new(1, -96, 0, 38), UDim2.fromOffset(16, 10), Color3.fromRGB(240, 246, 255), 18)
-title.Font = Enum.Font.GothamBold
-local closeButton = button(container, "×", UDim2.fromOffset(29, 29), UDim2.new(1, -39, 0, 14), Color3.fromRGB(120, 46, 57))
-local miniButton = button(container, "−", UDim2.fromOffset(29, 29), UDim2.new(1, -73, 0, 14))
-local hint = textLabel(container, "يعرض أدواتك الفعلية والواجهات المحتملة، ولا يمنح صلاحيات أدمن.", UDim2.new(1, -32, 0, 36), UDim2.fromOffset(16, 49), Color3.fromRGB(172, 190, 213), 12)
+local function stopFlight()
+    if fly.velocity then fly.velocity:Destroy() end
+    if fly.orient then fly.orient:Destroy() end
+    if fly.attach then fly.attach:Destroy() end
+    if fly.humanoid and fly.humanoid.Parent then
+        fly.humanoid.PlatformStand = false
+        fly.humanoid.AutoRotate = (fly.autoRotate ~= false)
+    end
+    fly.attach, fly.velocity, fly.orient, fly.humanoid = nil, nil, nil, nil
+end
+local function startFlight()
+    stopFlight()
+    local hrp = localRoot()
+    local hum = localHumanoid()
+    if not hrp or not hum then
+        state.Fly = false
+        say("الشخصية غير جاهزة للطيران", false)
+        return false
+    end
+    fly.humanoid = hum
+    fly.autoRotate = hum.AutoRotate
+    fly.attach = make("Attachment", {Name = "NovaFlightAttachment"}, hrp)
+    fly.velocity = make("LinearVelocity", {
+        Name = "NovaFlightVelocity", Attachment0 = fly.attach,
+        RelativeTo = Enum.ActuatorRelativeTo.World,
+        VectorVelocity = Vector3.zero,
+        MaxForce = math.huge,
+    }, hrp)
+    pcall(function() fly.velocity.ForceLimitsEnabled = false end)
+    fly.orient = make("AlignOrientation", {
+        Name = "NovaFlightOrientation", Attachment0 = fly.attach,
+        Mode = Enum.OrientationAlignmentMode.OneAttachment,
+        MaxTorque = math.huge, Responsiveness = 14,
+    }, hrp)
+    hum.AutoRotate = false
+    hum.PlatformStand = true
+    say("الطيران: وجّه الكاميرا للأعلى أو للأسفل وتحرك للأمام بالقير", true)
+    return true
+end
 
-local toolsTab = button(container, "أدواتي", UDim2.new(0.28, -4, 0, 33), UDim2.fromOffset(16, 91), Color3.fromRGB(35, 119, 164))
-local panelsTab = button(container, "لوحات الأدمن", UDim2.new(0.34, -4, 0, 33), UDim2.new(0.31, 0, 0, 91))
-local scanButton = button(container, "تحديث الفحص", UDim2.new(0.29, -9, 0, 33), UDim2.new(0.69, 0, 0, 91), Color3.fromRGB(44, 118, 78))
-
-local search = make("TextBox", {
-    Name = "Search",
-    PlaceholderText = "ابحث عن أداة أو اسم لوحة...",
-    Text = "",
-    ClearTextOnFocus = false,
-    TextColor3 = Color3.fromRGB(245, 247, 252),
-    PlaceholderColor3 = Color3.fromRGB(161, 177, 196),
-    Font = Enum.Font.Gotham,
-    TextSize = 13,
-    BackgroundColor3 = Color3.fromRGB(35, 44, 62),
-    BorderSizePixel = 0,
-    Size = UDim2.new(1, -32, 0, 34),
-    Position = UDim2.fromOffset(16, 134),
-}, container)
-corner(search, 8)
-make("UIPadding", {PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, search)
-
-local resultArea = make("ScrollingFrame", {
-    Name = "Results",
-    Size = UDim2.new(1, -32, 1, -242),
-    Position = UDim2.fromOffset(16, 176),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 5,
-    CanvasSize = UDim2.new(0, 0, 0, 0),
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-}, container)
-local layout = make("UIListLayout", {
-    Padding = UDim.new(0, 7),
-    SortOrder = Enum.SortOrder.LayoutOrder,
-}, resultArea)
-
-local statusText = textLabel(container, "جاهز. اضغط تحديث الفحص لقراءة الأدوات ولوحات الإدارة دون مسح الماب.", UDim2.new(1, -32, 0, 50), UDim2.new(0, 16, 1, -59), Color3.fromRGB(180, 202, 221), 12)
-
-local adminKeywords = {"admin", "adonis", "kohls", "command", "moderator", "staff", "moderation", "ادمن", "أدمن", "ادارة", "إدارة", "اوامر", "أوامر", "مشرف"}
-local function looksAdministrative(str)
-    str = string.lower(tostring(str or ""))
-    for _, keyword in ipairs(adminKeywords) do
-        if string.find(str, string.lower(keyword), 1, true) then
-            return true
+-- Gamepad thumbstick readings directly to work even if Humanoid is in PlatformStand.
+local thumb = Vector2.zero
+local function currentThumb()
+    -- Poll prevents stale stick values when input focus changes.
+    local success, inputs = pcall(UserInputService.GetGamepadState, UserInputService, Enum.UserInputType.Gamepad1)
+    if success then
+        local found = false
+        for _, input in ipairs(inputs) do
+            if input.KeyCode == Enum.KeyCode.Thumbstick1 then
+                thumb = Vector2.new(input.Position.X, input.Position.Y)
+                found = true
+                break
+            end
         end
+        if not found then thumb = Vector2.zero end
+    else
+        thumb = Vector2.zero
+    end
+    if thumb.Magnitude < 0.14 then return Vector2.zero end
+    return thumb
+end
+local function keyDown(key)
+    return UserInputService:IsKeyDown(key)
+end
+local function updateFlight()
+    if not state.Fly then return end
+    local root = localRoot()
+    if not root or not fly.velocity or fly.velocity.Parent ~= root then
+        startFlight()
+        return
+    end
+    local cam = Workspace.CurrentCamera
+    if not cam then return end
+
+    -- FULL camera LookVector, including pitch: up/down naturally follows your aim.
+    local look = cam.CFrame.LookVector
+    local right = cam.CFrame.RightVector
+    local stick = currentThumb()
+    local forwardInput = stick.Y
+    local sidewaysInput = stick.X
+
+    if keyDown(Enum.KeyCode.W) then forwardInput = forwardInput + 1 end
+    if keyDown(Enum.KeyCode.S) then forwardInput = forwardInput - 1 end
+    if keyDown(Enum.KeyCode.D) then sidewaysInput = sidewaysInput + 1 end
+    if keyDown(Enum.KeyCode.A) then sidewaysInput = sidewaysInput - 1 end
+
+    -- Strafe remains horizontal to avoid accidental climbing while turning.
+    local horizontalRight = Vector3.new(right.X, 0, right.Z)
+    if horizontalRight.Magnitude > 0.01 then
+        horizontalRight = horizontalRight.Unit
+    else
+        horizontalRight = Vector3.xAxis
+    end
+    local movement = (look * forwardInput) + (horizontalRight * sidewaysInput)
+    if movement.Magnitude > 1 then movement = movement.Unit end
+    if movement.Magnitude < 0.03 then movement = Vector3.zero end
+    fly.velocity.VectorVelocity = movement * state.FlySpeed
+
+    -- The character faces where you aim, including looking up/down.
+    fly.orient.CFrame = cam.CFrame.Rotation
+end
+
+local function applySpeed()
+    local hum = localHumanoid()
+    if hum and not state.Fly then
+        if not original.WalkSpeed then original.WalkSpeed = hum.WalkSpeed end
+        hum.WalkSpeed = state.Speed and state.WalkSpeed or original.WalkSpeed
+    end
+end
+local function applyLocalInvisible()
+    local character = localCharacter()
+    if not character then return end
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.LocalTransparencyModifier = state.LocalInvisible and 1 or 0
+        end
+    end
+end
+
+-- Local noclip: keep each part's original collision state for an honest reset.
+local function applyNoclip()
+    if not state.Noclip then return end
+    local char = localCharacter()
+    if not char then return end
+    for _, obj in ipairs(char:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            if collisionOriginal[obj] == nil then
+                collisionOriginal[obj] = obj.CanCollide
+            end
+            obj.CanCollide = false
+        end
+    end
+end
+local function restoreCollisions()
+    for part, originalState in pairs(collisionOriginal) do
+        if part and part.Parent then
+            pcall(function() part.CanCollide = originalState end)
+        end
+        collisionOriginal[part] = nil
+    end
+end
+
+-- Tool discovery is client-side and works only with replicated Tool instances.
+-- No promise of server-granted weapons, protected tools or hidden ServerStorage.
+local TOOL_CONTAINERS = {
+    ReplicatedStorage,
+    game:GetService("StarterPack"),
+    Workspace,
+    game:GetService("ReplicatedFirst"),
+    game:GetService("Lighting"),
+}
+-- Favorites persist in the executor filesystem when its file APIs are available.
+-- Otherwise _G saves the selection only for this Roblox client session.
+local HttpService = game:GetService("HttpService")
+local favoritesFile = "NOVA_Suite_Favorites_" .. tostring(LocalPlayer.UserId) .. ".json"
+local favorites = {}
+local filesystemSaving = (type(readfile) == "function" and type(writefile) == "function")
+if type(_G.NOVA_SuiteFavorites) == "table" then
+    for key, name in pairs(_G.NOVA_SuiteFavorites) do favorites[key] = name end
+end
+if filesystemSaving then
+    pcall(function()
+        local loaded = HttpService:JSONDecode(readfile(favoritesFile))
+        if type(loaded) == "table" then favorites = loaded end
+    end)
+end
+local function saveFavorites()
+    _G.NOVA_SuiteFavorites = favorites
+    if filesystemSaving then
+        local ok = pcall(function()
+            writefile(favoritesFile, HttpService:JSONEncode(favorites))
+        end)
+        return ok
     end
     return false
 end
-
-local tools = {}
-local panels = {}
-local activeTab = "tools"
-local connections = {}
-local closed = false
-
-local function setStatus(msg)
-    if not closed and statusText.Parent then
-        statusText.Text = msg
-    end
+local refreshToolUI = function() end
+local toolsInfo = nil
+local toolScanRunning = false
+local toolCache = {} -- Only populated by a user-triggered scan. Search never traverses the map.
+local function toolKey(name)
+    -- One instance per normalized name, regardless of how many templates exist.
+    return name:gsub("^%s+", ""):gsub("%s+$", ""):lower()
 end
-
-local function clearRows()
-    for _, child in ipairs(resultArea:GetChildren()) do
-        if child:IsA("Frame") then child:Destroy() end
+local function toolInSomeoneCharacter(obj)
+    if not obj:IsDescendantOf(Workspace) then return false end
+    for _, player in ipairs(Players:GetPlayers()) do
+        local character = player.Character
+        if character and obj:IsDescendantOf(character) then return true end
     end
+    return false
 end
-
-local function listRow(name, description, actionLabel, callback, enabled)
-    local row = make("Frame", {
-        Size = UDim2.new(1, -8, 0, 76),
-        BackgroundColor3 = Color3.fromRGB(34, 44, 63),
-        BorderSizePixel = 0,
-    }, resultArea)
-    corner(row, 8)
-    local nm = textLabel(row, name, UDim2.new(1, -125, 0, 25), UDim2.fromOffset(12, 7), Color3.fromRGB(246, 248, 252), 13)
-    nm.Font = Enum.Font.GothamBold
-    textLabel(row, description, UDim2.new(1, -135, 0, 39), UDim2.fromOffset(12, 31), Color3.fromRGB(177, 194, 211), 11)
-    if actionLabel then
-        local b = button(row, actionLabel, UDim2.fromOffset(104, 32), UDim2.new(1, -115, 0.5, -16), enabled and Color3.fromRGB(38, 130, 100) or Color3.fromRGB(75, 78, 91))
-        b.Active = enabled
-        b.AutoButtonColor = enabled
-        if enabled and callback then b.MouseButton1Click:Connect(callback) end
+local function ownedToolNames()
+    local owned = {}
+    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+    for _, holder in ipairs({backpack, LocalPlayer.Character}) do
+        if holder then
+            for _, item in ipairs(holder:GetChildren()) do
+                if item:IsA("Tool") then owned[toolKey(item.Name)] = true end
+            end
+        end
     end
-    return row
+    return owned, backpack
 end
-
-local render
-render = function()
-    if closed then return end
-    clearRows()
-    toolsTab.BackgroundColor3 = activeTab == "tools" and Color3.fromRGB(35, 119, 164) or Color3.fromRGB(50, 61, 84)
-    panelsTab.BackgroundColor3 = activeTab == "panels" and Color3.fromRGB(35, 119, 164) or Color3.fromRGB(50, 61, 84)
-    local query = string.lower(search.Text)
-    local shown = 0
-    if activeTab == "tools" then
-        for _, tool in ipairs(tools) do
-            if tool.Parent and string.find(string.lower(tool.Name .. " " .. tool.ToolTip), query, 1, true) then
-                shown = shown + 1
-                if shown > 30 then break end
-                local equipped = player.Character and tool.Parent == player.Character
-                local adminFlag = looksAdministrative(tool.Name .. " " .. tool.ToolTip) and " | اسم مرتبط بالأدمن" or ""
-                local location = equipped and "مجهزة حاليًا" or "في حقيبتك"
-                local canEquip = tool.Enabled
-                local label = equipped and "مجهزة" or (canEquip and "تجهيز" or "معطلة")
-                listRow(tool.Name, location .. adminFlag .. (tool.ToolTip ~= "" and ("\n" .. tool.ToolTip) or ""), label, function()
-                    local character = player.Character
-                    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-                    if not humanoid or humanoid.Health <= 0 then
-                        setStatus("لا يمكن تجهيز الأداة قبل ظهور الشخصية.")
-                        return
+local function copyToolOnce(source, owned)
+    if not source:IsA("Tool") or toolInSomeoneCharacter(source) then
+        return false, "skipped"
+    end
+    local name = toolKey(source.Name)
+    if name == "" or owned[name] then
+        return false, "duplicate"
+    end
+    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+    if not backpack then return false, "no-backpack" end
+    local success, clone = pcall(function() return source:Clone() end)
+    if not success or not clone then return false, "failed" end
+    -- Mark client-created copies so the UI does not count them as server grants.
+    pcall(function() clone:SetAttribute("NOVA_LocalCopy", true) end)
+    local put = pcall(function() clone.Parent = backpack end)
+    if not put or clone.Parent ~= backpack then
+        pcall(function() clone:Destroy() end)
+        return false, "failed"
+    end
+    owned[name] = true
+    return true, "copied"
+end
+local function currentInventoryCounts()
+    local keys, copiedKeys = {}, {}
+    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+    for _, holder in ipairs({backpack, LocalPlayer.Character}) do
+        if holder then
+            for _, item in ipairs(holder:GetChildren()) do
+                if item:IsA("Tool") then
+                    local key = toolKey(item.Name)
+                    if key ~= "" then
+                        keys[key] = true
+                        if item:GetAttribute("NOVA_LocalCopy") == true then copiedKeys[key] = true end
                     end
-                    if not tool:IsDescendantOf(backpack) and not tool:IsDescendantOf(character) then
-                        setStatus("الأداة لم تعد موجودة في حقيبتك. اضغط تحديث الفحص.")
-                        return
-                    end
-                    if tool.Enabled then
-                        local ok = pcall(function() humanoid:EquipTool(tool) end)
-                        if ok then
-                            setStatus("تم طلب تجهيز: " .. tool.Name .. ". استخدمها بالطريقة الأصلية في الماب؛ نجاح تأثيرها يعتمد على السيرفر.")
-                            task.defer(render)
-                        else
-                            setStatus("تعذر تجهيز الأداة.")
+                end
+            end
+        end
+    end
+    local total, localCount = 0, 0
+    for _ in pairs(keys) do total = total + 1 end
+    for _ in pairs(copiedKeys) do localCount = localCount + 1 end
+    return total, localCount
+end
+local function copyVisibleTools(silent)
+    if not alive then return end
+    if toolScanRunning then
+        if not silent then say("فحص الأدوات جارٍ بالفعل. لا حاجة لتشغيله مرتين", false) end
+        return
+    end
+    local owned, backpack = ownedToolNames()
+    if not backpack then
+        if not silent then say("الحقيبة لم تجهز بعد", false) end
+        return
+    end
+    toolScanRunning = true
+    if toolsInfo then toolsInfo.Text = "جارٍ فحص الأدوات على دفعات لتقليل التعليق..." end
+    task.spawn(function()
+        local copied, duplicates, failed, discovered = 0, 0, 0, 0
+        local visited, capped, maxVisited, copyLimit = 0, false, 12000, 12
+        local distinct = {}
+        local scanSucceeded, scanError = pcall(function()
+            for _, container in ipairs(TOOL_CONTAINERS) do
+                if not alive or capped then break end
+                -- This allocation happens only when user presses Scan or enables Auto.
+                for _, candidate in ipairs(container:GetDescendants()) do
+                    if not alive then break end
+                    visited = visited + 1
+                    if visited > maxVisited then capped = true; break end
+                    if visited % 180 == 0 then task.wait() end
+                    if candidate:IsA("Tool") and not toolInSomeoneCharacter(candidate) then
+                        discovered = discovered + 1
+                        local key = toolKey(candidate.Name)
+                        if key ~= "" then
+                            distinct[key] = true
+                            toolCache[key] = candidate.Name
+                        end
+                        if copied < copyLimit then
+                            local didCopy, why = copyToolOnce(candidate, owned)
+                            if didCopy then copied = copied + 1
+                            elseif why == "duplicate" then duplicates = duplicates + 1
+                            elseif why == "failed" then failed = failed + 1 end
                         end
                     end
-                end, canEquip and not equipped)
+                end
             end
+        end)
+        toolScanRunning = false
+        if not alive then return end
+        local uniqueNames = 0
+        for _ in pairs(distinct) do uniqueNames = uniqueNames + 1 end
+        local nowOwned, nowLocal = currentInventoryCounts()
+        refreshToolUI()
+        if toolsInfo then
+            toolsInfo.Text = "الحقيبة: " .. nowOwned .. " أسماء (" .. nowLocal .. " نسخ محلية)"
+                .. " | المرصودة: " .. uniqueNames .. " | المنسوخة: " .. copied
+                .. " | فشل النسخ: " .. failed
+                .. (capped and " | تم إيقاف الفحص عند حد الأمان" or "")
+            toolsInfo.Size = UDim2.new(1, 0, 0, 80)
         end
-    else
-        for _, panelInfo in ipairs(panels) do
-            local panel = panelInfo.gui
-            if panel.Parent and string.find(string.lower(panel.Name), query, 1, true) then
-                shown = shown + 1
-                if shown > 30 then break end
-                local state = panel.Enabled and "محمّلة ومفعلة" or "موجودة لكنها غير مفعلة"
-                listRow(panel.Name, state .. "\nتحديد اللوحة لا يمنح إذنًا لاستعمال أوامر الإدارة.", "تفاصيل", function()
-                    setStatus("اللوحة: " .. panel.Name .. " | " .. state .. ". افتحها من زر الماب الأصلي إذا كان متاحًا لك.")
-                end, true)
-            end
+        if not scanSucceeded then
+            if not silent then say("خطأ أثناء فحص الأدوات: " .. tostring(scanError):sub(1, 90), false) end
+        elseif copied > 0 and not silent then
+            say("نُسخت " .. copied .. " أداة محليًا فقط؛ السيرفر لم يمنح صلاحيات باستخدامها", true)
+        elseif not silent then
+            say("اكتمل فحص " .. math.min(visited, maxVisited) .. " عنصر على دفعات" .. (capped and " (فحص محدود للأداء)" or ""), true)
         end
-    end
-    if shown == 0 then
-        listRow("لا توجد نتائج", "اضغط تحديث الفحص أو جرّب اسمًا آخر.", nil, nil, false)
-    elseif shown > 30 then
-        listRow("قائمة محدودة للأداء", "يُعرض أول 30 نتيجة. استخدم البحث لتصفية البقية.", nil, nil, false)
+    end)
+end
+
+-- Auto-scan is opt-in. No global DescendantAdded listener while disabled.
+local pendingToolScan = false
+local toolWatchConnections = {}
+local lastToolScan = 0
+local function scheduleToolScan()
+    if not alive or not state.AutoTools or pendingToolScan then return end
+    pendingToolScan = true
+    local delaySeconds = math.max(2, 10 - (os.clock() - lastToolScan))
+    task.delay(delaySeconds, function()
+        pendingToolScan = false
+        if alive and state.AutoTools and not toolScanRunning then
+            lastToolScan = os.clock()
+            copyVisibleTools(true)
+        end
+    end)
+end
+local function setToolWatching(enabled)
+    for _, conn in ipairs(toolWatchConnections) do conn:Disconnect() end
+    toolWatchConnections = {}
+    if not enabled then return end
+    for _, container in ipairs(TOOL_CONTAINERS) do
+        local conn = container.DescendantAdded:Connect(function(obj)
+            if alive and state.AutoTools and obj:IsA("Tool") then scheduleToolScan() end
+        end)
+        table.insert(toolWatchConnections, conn)
     end
 end
 
-local scanBusy = false
-local function scan()
-    if closed or scanBusy then return end
-    scanBusy = true
-    task.spawn(function()
-    if closed then scanBusy = false; return end
-    local seen = {}
-    tools, panels = {}, {}
-    local character = player.Character
-    for _, parent in ipairs({backpack, character}) do
-        if parent then
-            for _, obj in ipairs(parent:GetChildren()) do
-                if obj:IsA("Tool") and not seen[obj] then
-                    seen[obj] = true
-                    table.insert(tools, obj)
+local adminToolTokens = {
+    "admin", "moderator", "mod panel", "ban hammer", "banhammer",
+    "kick tool", "kicktool", "owner tool", "admin wand",
+    "ادمن", "أدمن", "مشرف"
+}
+local function visibleAdminTool(player)
+    local char = player.Character
+    if not char then return nil end
+    -- Other players' Backpacks are normally not visible on the client.
+    for _, tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            local lower = tool.Name:lower()
+            for _, token in ipairs(adminToolTokens) do
+                if lower:find(token, 1, true) then
+                    return tool.Name
                 end
             end
         end
     end
-    table.sort(tools, function(a, b) return string.lower(a.Name) < string.lower(b.Name) end)
+    return nil
+end
+local refreshAdminVision -- forward declaration for asynchronous group-rank callbacks
+local groupRankCache = {}
+local rankQueue, rankWorkerRunning = {}, false
+local function cachedGroupRank(player)
+    local entry = groupRankCache[player.UserId]
+    if entry then return entry.rank, entry.ready end
+    groupRankCache[player.UserId] = {rank = nil, ready = false}
+    table.insert(rankQueue, player)
+    if not rankWorkerRunning then
+        rankWorkerRunning = true
+        task.spawn(function()
+            while alive and #rankQueue > 0 do
+                local p = table.remove(rankQueue, 1)
+                if p.Parent == Players then
+                    local ok, rank = pcall(function() return p:GetRankInGroup(game.CreatorId) end)
+                    groupRankCache[p.UserId] = {rank = ok and rank or -1, ready = true}
+                    if state.AdminESP and refreshAdminVision then task.defer(refreshAdminVision) end
+                end
+                task.wait(.12)
+            end
+            rankWorkerRunning = false
+        end)
+    end
+    return nil, false
+end
+local function getRole(player)
+    if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
+        return "ناشر التجربة (هوية مؤكدة، لا تثبت رتبة أدمن)", "owner"
+    end
+    if game.CreatorType == Enum.CreatorType.Group then
+        local rank, ready = cachedGroupRank(player)
+        if not ready then
+            return "رتبة المجموعة قيد الفحص", "pending"
+        end
+        if rank == -1 then
+            return "تعذر التحقق من رتبة القروب", "unknown"
+        elseif rank == 255 then
+            return "رتبة المجموعة 255 (دليل ملكية، ليس تصريح أدمن)", "owner"
+        elseif rank and rank >= 200 then
+            return "رتبة قروب " .. tostring(rank) .. " (إشارة وليست إثبات أدمن)", "possible"
+        end
+    end
+    local candidate = visibleAdminTool(player)
+    if candidate then
+        return "أداة ظاهرة: " .. candidate .. " (مؤشر فقط)", "tool"
+    end
+    return "لا يوجد دليل عام على الصلاحية", "unknown"
+end
 
-    for _, gui in ipairs(playerGui:GetChildren()) do
-        if gui:IsA("ScreenGui") and gui ~= ui then
-            local match = looksAdministrative(gui.Name)
-            if not match then
-                local inspected = 0
-                for _, desc in ipairs(gui:GetDescendants()) do
-                    inspected = inspected + 1
-                    if inspected > 60 then break end
-                    if inspected % 30 == 0 then task.wait() end
-                    if (desc:IsA("Frame") or desc:IsA("TextButton") or desc:IsA("ImageButton")) and looksAdministrative(desc.Name) then
-                        match = true
-                        break
+local function clearHighlights()
+    for player, data in pairs(highlighted) do
+        if data and data.Parent then data:Destroy() end
+        highlighted[player] = nil
+    end
+end
+local function refreshHighlights()
+    if not state.ESP then
+        clearHighlights()
+        return
+    end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            if char and not highlighted[player] then
+                highlighted[player] = make("Highlight", {
+                    Name = "NovaLocalESP", Adornee = char,
+                    FillColor = COLORS.purple, OutlineColor = COLORS.white,
+                    FillTransparency = .66, DepthMode = Enum.HighlightDepthMode.AlwaysOnTop,
+                }, gui)
+            elseif highlighted[player] and highlighted[player].Adornee ~= char then
+                highlighted[player]:Destroy()
+                highlighted[player] = nil
+            end
+        end
+    end
+end
+
+local function clearAdminVisual(player)
+    local data = adminVisuals[player]
+    if data then
+        if data.highlight then data.highlight:Destroy() end
+        if data.billboard then data.billboard:Destroy() end
+        adminVisuals[player] = nil
+    end
+end
+refreshAdminVision = function()
+    if not state.AdminESP then
+        for player in pairs(adminVisuals) do clearAdminVisual(player) end
+        return
+    end
+    for player in pairs(adminVisuals) do
+        if player.Parent ~= Players then clearAdminVisual(player) end
+    end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            local head = char and char:FindFirstChild("Head")
+            local role, kind = getRole(player)
+            if kind ~= "owner" and kind ~= "possible" and kind ~= "tool" then
+                clearAdminVisual(player)
+            elseif not char or not head then
+                clearAdminVisual(player)
+            else
+                local existing = adminVisuals[player]
+                if existing and (existing.char ~= char or existing.kind ~= kind) then
+                    clearAdminVisual(player)
+                    existing = nil
+                end
+                if not existing then
+                    local isOwner = kind == "owner"
+                    local color = isOwner and COLORS.green or (kind == "tool" and Color3.fromRGB(245, 216, 105) or COLORS.orange)
+                    local tag = isOwner and "👑 مالك التجربة / المجموعة" or
+                        (kind == "tool" and "🔎 أداة إدارية محتملة (غير مؤكدة)" or "🛡️ رتبة قروب عالية (غير مؤكدة)")
+                    local highlight = make("Highlight", {
+                        Name = "NovaAdminVisionLocal", Adornee = char,
+                        FillColor = color, OutlineColor = color,
+                        FillTransparency = .7, OutlineTransparency = 0,
+                        DepthMode = Enum.HighlightDepthMode.AlwaysOnTop,
+                    }, gui)
+                    local billboard = make("BillboardGui", {
+                        Name = "NovaAdminVisionTag", Adornee = head,
+                        AlwaysOnTop = true, Size = UDim2.fromOffset(300, 48),
+                        StudsOffsetWorldSpace = Vector3.new(0, 2.8, 0),
+                    }, gui)
+                    local label = make("TextLabel", {
+                        Name = "RoleText", Size = UDim2.fromScale(1, 1),
+                        Text = tag .. "\n@" .. player.Name,
+                        TextColor3 = color, TextStrokeColor3 = Color3.new(0, 0, 0),
+                        TextStrokeTransparency = .15, BackgroundTransparency = 1,
+                        Font = Enum.Font.GothamBold, TextSize = 13,
+                        TextWrapped = true,
+                    }, billboard)
+                    adminVisuals[player] = {char = char, kind = kind, highlight = highlight, billboard = billboard, label = label}
+                end
+            end
+        end
+    end
+end
+
+local function stopDrag()
+    dragTarget = nil
+end
+local function attemptLocalDrag()
+    if not dragTarget then return end
+    if dragTarget.Parent ~= Players or dragTarget == LocalPlayer then
+        stopDrag()
+        return
+    end
+    local myRoot = localRoot()
+    local theirRoot = dragTarget.Character and dragTarget.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot or not theirRoot then return end
+    -- This is deliberately local-only and is NOT an authorized server Bring command.
+    -- Most experiences instantly correct remote players' positions.
+    pcall(function()
+        theirRoot.CFrame = myRoot.CFrame * CFrame.new(0, 0, -5)
+    end)
+end
+
+local function tryTeleport(player)
+    if not player or player == LocalPlayer or player.Parent ~= Players then
+        say("اختر لاعبًا موجودًا أولًا", false)
+        return
+    end
+    local fromRoot = localRoot()
+    local toRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not fromRoot or not toRoot then
+        say("ما قدرت أوصل لموقع اللاعب الآن", false)
+        return
+    end
+    fromRoot.CFrame = toRoot.CFrame * CFrame.new(0, 0, 4)
+    say("انتقلت قرب " .. player.Name .. " محليًا؛ قد يعيدك السيرفر", true)
+end
+
+newSection("👁️ رؤية اللاعبين والأدمنية")
+title("👁️ رؤية مواقع اللاعبين")
+toggle("إبراز مواقع اللاعبين (ESP محلي)", "ESP", function(on)
+    refreshHighlights()
+    say(on and "إبراز اللاعبين على شاشتك مفعل" or "إبراز اللاعبين متوقف", true)
+end)
+title("🛡️ رؤية مؤشرات الأدمنية")
+toggle("🛡️ كشف الأدمنية وإظهار أسمائهم على الماب", "AdminESP", function(on)
+    refreshAdminVision()
+    if on then
+        local count = 0
+        for _ in pairs(adminVisuals) do count = count + 1 end
+        say("تم تمييز " .. count .. " لاعب بدليل ظاهر. المالك مؤكد؛ الرتب والأدوات ليست إثبات أدمن", true)
+    else
+        say("تم إيقاف رؤية الأدمنية", true)
+    end
+end)
+note("ألوان الكشف: مالك أو ناشر معروف، رتبة مجموعة مرتفعة، أو أداة تحمل اسمًا إداريًا. كل هذا مؤشرات عامة؛ صلاحيات الأدمن الفعلية لا تظهر للعميل بالضرورة.")
+local adminReport = note("لم يبدأ الكشف. اضغط الزر لفحص المؤشرات والأدوات ولوحات الإدارة الموجودة لديك.")
+local adminPanelKeywords = {"admin", "adonis", "kohls", "command", "moderator", "staff", "أدمن", "ادمن", "إدارة", "ادارة", "مشرف", "أوامر"}
+local function looksLikeAdminName(value)
+    local lower = string.lower(tostring(value or ""))
+    for _, term in ipairs(adminPanelKeywords) do
+        if lower:find(term, 1, true) then return true end
+    end
+    return false
+end
+local adminReportBusy = false
+action("🛡️ كشف الأدمنية والأدوات ولوحات الإدارة (يدوي وخفيف)", function()
+    if adminReportBusy then say("الكشف قيد العمل", false); return end
+    adminReportBusy = true
+    task.spawn(function()
+        local owners, ranks, tools, pending, unknown = 0, 0, 0, 0, 0
+        local clues = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if not alive then adminReportBusy = false; return end
+            local label, kind = getRole(p)
+            if kind == "owner" then owners = owners + 1
+            elseif kind == "possible" then ranks = ranks + 1
+            elseif kind == "tool" then tools = tools + 1
+            elseif kind == "pending" then pending = pending + 1
+            else unknown = unknown + 1 end
+            if kind ~= "unknown" and #clues < 5 then
+                table.insert(clues, p.Name .. ": " .. label)
+            end
+        end
+        local foundPanels = {}
+        local inspectedGuis = 0
+        for _, root in ipairs(PlayerGui:GetChildren()) do
+            if root:IsA("ScreenGui") and root ~= gui then
+                inspectedGuis = inspectedGuis + 1
+                local matched = looksLikeAdminName(root.Name)
+                if not matched then
+                    local inspected = 0
+                    for _, child in ipairs(root:GetDescendants()) do
+                        inspected = inspected + 1
+                        if inspected > 80 then break end
+                        if (child:IsA("GuiButton") or child:IsA("Frame"))
+                            and looksLikeAdminName(child.Name) then
+                            matched = true
+                            break
+                        end
+                    end
+                end
+                if matched and #foundPanels < 6 then table.insert(foundPanels, root.Name) end
+                if inspectedGuis % 8 == 0 then task.wait() end
+                if inspectedGuis >= 60 then break end
+            end
+        end
+        local ownedAdminTools = {}
+        for _, holder in ipairs({LocalPlayer:FindFirstChildOfClass("Backpack"), LocalPlayer.Character}) do
+            if holder then
+                for _, t in ipairs(holder:GetChildren()) do
+                    if t:IsA("Tool") and looksLikeAdminName(t.Name) then
+                        if #ownedAdminTools < 6 then table.insert(ownedAdminTools, t.Name) end
                     end
                 end
             end
-            if match then table.insert(panels, {gui = gui}) end
+        end
+        if not alive then adminReportBusy = false; return end
+        local textSummary = "المؤشرات المرصودة: " .. owners .. " ناشر/مالك، " .. ranks
+            .. " رتب عالية، " .. tools .. " أدوات ظاهرة | قيد فحص الرتبة: " .. pending
+            .. " | غير معروف: " .. unknown
+            .. "\nلوحات إدارة محتملة على جهازك: " .. #foundPanels
+            .. (#foundPanels > 0 and (" (" .. table.concat(foundPanels, "، ") .. ")") or "")
+            .. "\nأدواتك بأسماء إدارية: " .. #ownedAdminTools
+            .. (#ownedAdminTools > 0 and (" (" .. table.concat(ownedAdminTools, "، ") .. ")") or "")
+            .. "\n" .. (#clues > 0 and table.concat(clues, " | ") or "لا توجد مؤشرات عامة إضافية")
+            .. "\nهذه نتائج رصد وليست إثباتًا لصلاحيات مخفية. استخدام الأدوات يخضع للسيرفر."
+        adminReport.Text = textSummary
+        adminReport.Size = UDim2.new(1, 0, 0, 170)
+        adminReportBusy = false
+        say("اكتمل كشف الإدارة دون تفتيش عناصر الماب كاملًا" .. (pending > 0 and "؛ رتب المجموعة تُفحص بالخلفية" or ""), true)
+        if state.AdminESP then refreshAdminVision() end
+    end)
+end)
+
+
+newSection("🚀 الطيران والسرعة", true)
+title("🚀 الطيران والتحكم")
+local flyButton
+flyButton = toggle("الطيران الحر — يد سوني وكيبورد", "Fly", function(on)
+    if on then
+        if not startFlight() then
+            flyButton.Text = "○  الطيران الحر — يد سوني وكيبورد"
+            flyButton.BackgroundColor3 = COLORS.panel2
+        end
+    else
+        stopFlight()
+        say("تم إيقاف الطيران ويمكنك المشي والنزول طبيعي", true)
+    end
+end)
+note("يد السوني: وجّه الكاميرا بالعصا اليمنى، وادفع العصا اليسرى للأمام: ترتفع إذا تناظر فوق وتنزل إذا تناظر تحت. إذا وقفت الحركة تثبت. بدون R1 أو L1. على الكيبورد: WASD مع الماوس.")
+adjuster("سرعة الطيران", "FlySpeed", 10, 500, 10)
+
+title("⚡ السرعة والتحكم بالمشي")
+toggle("السرعة الإضافية", "Speed", function() applySpeed() end)
+adjuster("سرعة المشي", "WalkSpeed", 10, 200, 5, applySpeed)
+newSection("👻 الإخفاء والجدران")
+title("👻 الإخفاء المحلي")
+toggle("إخفاء الشخصية من شاشتك فقط", "LocalInvisible", function()
+    applyLocalInvisible()
+    say("هذا اختفاء محلي فقط؛ بقية اللاعبين قد يشاهدون شخصيتك", false)
+end)
+
+title("🧱 تجاوز الجدران (محلي)")
+toggle("👻 تجاوز الجدران / Noclip", "Noclip", function(on)
+    if on then
+        applyNoclip()
+        say("تجاوز الجدران مفعّل عندك محليًا؛ قد يمنعه السيرفر أو يعيد موقعك", true)
+    else
+        restoreCollisions()
+        say("تم إيقاف تجاوز الجدران واستعادة التصادم", true)
+    end
+end)
+
+newSection("🎒 مدير الأدوات")
+title("🎒 مدير الأدوات — بدون تكرار")
+action("🎒 فحص ونسخ الأدوات الظاهرة محليًا — دون تكرار", function()
+    copyVisibleTools(false)
+end)
+toggle("جمع الأدوات تلقائيًا عند ظهورها", "AutoTools", function(on)
+    setToolWatching(on)
+    if on then
+        scheduleToolScan()
+        say("التجميع التلقائي مفعّل بإرادتك؛ يُفحص على دفعات مع حد أمان", true)
+    else
+        say("التجميع التلقائي متوقف، ولن يُجرى فحص شامل عند بداية السكربت", true)
+    end
+end)
+toolsInfo = note("لم يبدأ فحص الأدوات بعد. الزر يضيف نسخًا محلية فقط، ولا يمنح صلاحيات السيرفر.")
+note("يفحص الأدوات المتاحة لجهازك فقط. ظهور أداة في القائمة لا يعني أن السيرفر سيسمح باستخدامها.")
+local toolSearch = make("TextBox", {
+    Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = COLORS.panel2,
+    TextColor3 = COLORS.white, PlaceholderColor3 = COLORS.muted,
+    PlaceholderText = "🔎 بحث باسم الأداة...", Text = "", ClearTextOnFocus = false,
+    Font = Enum.Font.Gotham, TextSize = 13,
+}, scroller)
+round(toolSearch, 9)
+local favoritesOnly = false
+local favoritesFilter = action("☆ عرض المفضلة فقط: إيقاف", function(button)
+    favoritesOnly = not favoritesOnly
+    button.Text = favoritesOnly and "★ عرض المفضلة فقط: تشغيل" or "☆ عرض المفضلة فقط: إيقاف"
+    refreshToolUI()
+end)
+action("🔄 تحديث قائمة الأدوات", function()
+    refreshToolUI()
+    say("تم تحديث الأسماء المرئية. الجلب الفعلي يعتمد على إتاحة السيرفر", true)
+end)
+local nearbyToolsInfo = note("الأدوات القريبة: لم يبدأ البحث بعد")
+action("📍 عرض الأدوات القريبة من شخصيتي", function()
+    local root = localRoot()
+    if not root then say("الشخصية غير جاهزة", false); return end
+    local seen, found = {}, {}
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Tool") and not toolInSomeoneCharacter(obj) then
+            local part = obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart", true)
+            if part then
+                local distance = (part.Position - root.Position).Magnitude
+                local key = toolKey(obj.Name)
+                if key ~= "" and distance <= 100 and (not seen[key] or distance < seen[key].distance) then
+                    seen[key] = {name = obj.Name, distance = distance}
+                end
+            end
         end
     end
-    table.sort(panels, function(a, b) return string.lower(a.gui.Name) < string.lower(b.gui.Name) end)
-    if not closed then
-        setStatus(string.format("الفحص: %d أداة تملكها + %d واجهة إدارة محتملة. صلاحيات السيرفر لا يمكن إثباتها من العميل.", #tools, #panels))
-        render()
+    for _, item in pairs(seen) do table.insert(found, item) end
+    table.sort(found, function(a, b) return a.distance < b.distance end)
+    local names = {}
+    for i = 1, math.min(5, #found) do
+        table.insert(names, found[i].name .. " (" .. math.floor(found[i].distance) .. "m)")
     end
-    scanBusy = false
+    nearbyToolsInfo.Text = (#found == 0) and "لا توجد أدوات مرئية ضمن 100 وحدة من موقعك"
+        or ("أقرب الأدوات (" .. #found .. "): " .. table.concat(names, "، "))
+    nearbyToolsInfo.Size = UDim2.new(1, 0, 0, 72)
+end)
+local itemsList = make("ScrollingFrame", {
+    Size = UDim2.new(1, 0, 0, 240), BackgroundColor3 = COLORS.panel,
+    BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = COLORS.purple,
+    AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(),
+}, scroller)
+round(itemsList, 9)
+make("UIListLayout", {Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder}, itemsList)
+make("UIPadding", {PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5), PaddingTop = UDim.new(0, 5)}, itemsList)
+local favoriteStorageNote = note(filesystemSaving
+    and "المفضلة: سيُحاول حفظها في ملف حتى بعد إعادة تشغيل السكربت."
+    or "المفضلة: تبقى عند إغلاق وفتح السكربت في نفس الجلسة فقط؛ مشغّلك لا يدعم الحفظ في ملف.")
+refreshToolUI = function()
+    if not alive or not itemsList.Parent then return end
+    for _, existing in ipairs(itemsList:GetChildren()) do
+        if existing:IsA("Frame") then existing:Destroy() end
+    end
+    local owned = ownedToolNames()
+    local found = {}
+    for key, name in pairs(toolCache) do
+        found[key] = name
+    end
+    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+    for _, holder in ipairs({backpack, LocalPlayer.Character}) do
+        if holder then
+            for _, obj in ipairs(holder:GetChildren()) do
+                if obj:IsA("Tool") then found[toolKey(obj.Name)] = obj.Name end
+            end
+        end
+    end
+    -- Favorites remain searchable when the current map does not contain them.
+    for key, name in pairs(favorites) do
+        if not found[key] then found[key] = name end
+    end
+    local keys = {}
+    local phrase = toolKey(toolSearch.Text)
+    for key, name in pairs(found) do
+        if (phrase == "" or key:find(phrase, 1, true)) and (not favoritesOnly or favorites[key]) then
+            table.insert(keys, key)
+        end
+    end
+    table.sort(keys, function(a, b) return a < b end)
+    local displayMax = math.min(#keys, 35) -- Show a small batch to avoid UI spikes.
+    for i = 1, displayMax do
+        local key = keys[i]
+        local name = found[key]
+        local ownedNow = owned[key]
+        local row = make("Frame", {
+            Size = UDim2.new(1, -5, 0, 44), BackgroundColor3 = COLORS.panel2,
+            BorderSizePixel = 0,
+        }, itemsList)
+        round(row, 8)
+        local star = make("TextButton", {
+            Size = UDim2.fromOffset(40, 36), Position = UDim2.fromOffset(4, 4),
+            Text = favorites[key] and "★" or "☆",
+            TextColor3 = COLORS.orange, BackgroundTransparency = 1,
+            Font = Enum.Font.GothamBold, TextSize = 22,
+        }, row)
+        local equip = make("TextButton", {
+            Position = UDim2.new(1, -66, 0, 4), Size = UDim2.fromOffset(60, 36),
+            Text = ownedNow and "تجهيز" or "غير متاح",
+            BackgroundColor3 = ownedNow and Color3.fromRGB(34, 97, 127) or COLORS.panel,
+            TextColor3 = ownedNow and COLORS.white or COLORS.muted,
+            Font = Enum.Font.Gotham, TextSize = 11,
+        }, row)
+        round(equip, 7)
+        make("TextLabel", {
+            Position = UDim2.fromOffset(47, 1), Size = UDim2.new(1, -120, 1, -2),
+            BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+            Text = name, TextColor3 = COLORS.white,
+            Font = Enum.Font.GothamMedium, TextSize = 12, TextTruncate = Enum.TextTruncate.AtEnd,
+        }, row)
+        star.MouseButton1Click:Connect(function()
+            if favorites[key] then favorites[key] = nil else favorites[key] = name end
+            local persisted = saveFavorites()
+            say(persisted and "تم حفظ المفضلة في ملف" or "المفضلة محفوظة لهذه الجلسة فقط", persisted)
+            refreshToolUI()
+        end)
+        equip.MouseButton1Click:Connect(function()
+            local hum = localHumanoid()
+            local pack = LocalPlayer:FindFirstChildOfClass("Backpack")
+            local item = nil
+            for _, holder in ipairs({pack, LocalPlayer.Character}) do
+                if holder then
+                    for _, obj in ipairs(holder:GetChildren()) do
+                        if obj:IsA("Tool") and toolKey(obj.Name) == key then item = obj break end
+                    end
+                end
+                if item then break end
+            end
+            if item and hum then
+                local ok = pcall(function() hum:EquipTool(item) end)
+                say(ok and "حاولت تجهيز " .. name or "تعذّر تجهيز هذه الأداة", ok)
+            else
+                say("الأداة ظاهرة بالاسم لكنها غير موجودة بحقيبتك، ولا يمكن فرض منحها من السيرفر", false)
+            end
+        end)
+    end
+    if #keys > displayMax then
+        say("يُعرض أول 35 اسمًا. استخدم البحث لتصفية باقي الأسماء", false)
+    end
+end
+local toolSearchVersion = 0
+listen(toolSearch:GetPropertyChangedSignal("Text"), function()
+    toolSearchVersion = toolSearchVersion + 1
+    local version = toolSearchVersion
+    task.delay(.22, function()
+        if alive and version == toolSearchVersion then refreshToolUI() end
     end)
+end)
+
+newSection("📍 اللاعبون والانتقال والسحب")
+title("🔎 بحث وقائمة اللاعبين")
+local search = make("TextBox", {
+    Size = UDim2.new(1, 0, 0, 42),
+    BackgroundColor3 = COLORS.panel2, TextColor3 = COLORS.white,
+    PlaceholderColor3 = COLORS.muted, PlaceholderText = "اكتب اسم اللاعب أو جزءًا منه...",
+    Text = "", ClearTextOnFocus = false,
+    Font = Enum.Font.Gotham, TextSize = 13,
+}, scroller)
+round(search, 9)
+local chosen = make("TextLabel", {
+    Size = UDim2.new(1, 0, 0, 28),
+    Text = "لم يتم تحديد لاعب", Font = Enum.Font.GothamMedium,
+    TextColor3 = COLORS.orange, TextSize = 12,
+    BackgroundTransparency = 1,
+}, scroller)
+title("📍 الانتقال للاعب")
+note("اختر لاعبًا من القائمة أدناه أولًا، ثم اضغط الزر.")
+action("📍 الانتقال إلى اللاعب المحدد", function()
+    tryTeleport(selectedPlayer)
+end)
+title("🧲 محاولة السحب المحلية")
+note("السحب زر مستقل، وهو تجريبي محلي وليس تحكمًا مؤكدًا بلاعب آخر.")
+local dragButton
+dragButton = action("🧲 سحب تجريبي محلي للاعب المحدد", function()
+    if dragTarget then
+        stopDrag()
+        dragButton.Text = "🧲 سحب تجريبي محلي للاعب المحدد"
+        say("أوقفت محاولة السحب المحلية", true)
+    elseif not selectedPlayer or selectedPlayer.Parent ~= Players then
+        say("اختر لاعبًا من القائمة أولًا", false)
+    else
+        dragTarget = selectedPlayer
+        dragButton.Text = "⏹ إيقاف محاولة السحب المحلية"
+        say("محاولة سحب محلية لـ @" .. selectedPlayer.Name .. "؛ أغلب السيرفرات لن تسمح بتغيير موقعه", false)
+        attemptLocalDrag()
+    end
+end)
+local listBox = make("ScrollingFrame", {
+    Size = UDim2.new(1, 0, 0, 235),
+    BackgroundColor3 = COLORS.panel, BorderSizePixel = 0,
+    ScrollBarThickness = 4, ScrollBarImageColor3 = COLORS.purple,
+    AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(),
+}, scroller)
+round(listBox, 10)
+make("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 5)}, listBox)
+make("UIPadding", {PaddingLeft = UDim.new(0, 5), PaddingTop = UDim.new(0, 5), PaddingRight = UDim.new(0, 5)}, listBox)
+local function refreshList()
+    if not alive then return end
+    for _, item in ipairs(listBox:GetChildren()) do
+        if item:IsA("TextButton") then item:Destroy() end
+    end
+    local phrase = string.lower(search.Text)
+    local all = Players:GetPlayers()
+    table.sort(all, function(a, b) return a.Name:lower() < b.Name:lower() end)
+    for _, player in ipairs(all) do
+        if player ~= LocalPlayer and (phrase == "" or player.Name:lower():find(phrase, 1, true) or player.DisplayName:lower():find(phrase, 1, true)) then
+            local role, roleType = getRole(player)
+            local b = make("TextButton", {
+                Size = UDim2.new(1, -4, 0, 55),
+                Text = player.DisplayName .. " (@" .. player.Name .. ")\n" .. role,
+                TextColor3 = roleType == "owner" and COLORS.green or (roleType == "possible" and COLORS.orange or COLORS.white),
+                BackgroundColor3 = COLORS.panel2,
+                TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true,
+                Font = Enum.Font.GothamMedium, TextSize = 12,
+            }, listBox)
+            round(b, 8)
+            listen(b.MouseButton1Click, function()
+                selectedPlayer = player
+                chosen.Text = "المحدد: @" .. player.Name .. "  |  " .. role
+                chosen.TextColor3 = COLORS.green
+                say("تم اختيار اللاعب؛ استخدم زر الانتقال أو زر السحب", true)
+            end)
+        end
+    end
+end
+listen(search:GetPropertyChangedSignal("Text"), refreshList)
+-- Press Enter after typing a unique name to teleport without another click.
+listen(search.FocusLost, function(enterPressed)
+    if not enterPressed then return end
+    local query = search.Text:lower()
+    if query == "" then return end
+    local matches = {}
+    local exact = nil
+    for _, candidate in ipairs(Players:GetPlayers()) do
+        if candidate ~= LocalPlayer then
+            if candidate.Name:lower() == query or candidate.DisplayName:lower() == query then exact = candidate end
+            if candidate.Name:lower():find(query, 1, true) or candidate.DisplayName:lower():find(query, 1, true) then
+                table.insert(matches, candidate)
+            end
+        end
+    end
+    local match = exact or (#matches == 1 and matches[1] or nil)
+    if match then
+        selectedPlayer = match
+        chosen.Text = "المحدد: @" .. match.Name
+        chosen.TextColor3 = COLORS.green
+        tryTeleport(match)
+    else
+        say("الاسم غير موجود أو يطابق أكثر من لاعب؛ اختر من القائمة", false)
+    end
+end)
+listen(Players.PlayerAdded, refreshList)
+listen(Players.PlayerRemoving, function(player)
+    if selectedPlayer == player then
+        selectedPlayer = nil
+        chosen.Text = "لم يتم تحديد لاعب"
+    end
+    if dragTarget == player then
+        stopDrag()
+        dragButton.Text = "🧲 سحب تجريبي محلي للاعب المحدد"
+    end
+    clearAdminVisual(player)
+    refreshList()
+end)
+refreshList()
+note("زر السحب محاولة محلية تجريبية وقد لا يظهر أثرها للآخرين؛ السحب الحقيقي يحتاج سماح السيرفر. لا تعد هذه الأداة بتحكم أو صلاحيات على لاعبين آخرين.")
+
+-- Titles in Roblox are experience-specific. This is a client-side discovery and
+-- navigation panel, NOT a title-granting API. Server-granted titles must be
+-- equipped through the experience's own supported UI.
+local GuiService = game:GetService("GuiService")
+local titleEntries = {}
+local titleSearch, titleList, titleStatus
+local refreshTitleList
+local originalTitleButtons = {}
+local titleMenuStatus
+
+-- If the native menu is focused, hide NOVA but keep a safe return control.
+local returnToNova = make("TextButton", {
+    Name = "ReturnToNova", Visible = false,
+    Text = "↩ العودة إلى NOVA", Font = Enum.Font.GothamBold,
+    TextSize = 14, TextColor3 = COLORS.white,
+    BackgroundColor3 = COLORS.panel2,
+    AnchorPoint = Vector2.new(1, 1),
+    Position = UDim2.new(1, -15, 1, -15),
+    Size = UDim2.fromOffset(175, 43),
+    ZIndex = 90,
+}, gui)
+round(returnToNova, 10)
+listen(returnToNova.MouseButton1Click, function()
+    returnToNova.Visible = false
+    main.Visible = true
+end)
+
+local function titleField(text)
+    local lower = tostring(text or ""):lower()
+    return lower:find("title", 1, true) ~= nil
+        or lower:find("nametag", 1, true) ~= nil
+        or lower:find("name tag", 1, true) ~= nil
+        or lower:find("لقب", 1, true) ~= nil
+        or lower:find("ألقاب", 1, true) ~= nil
+        or lower:find("القاب", 1, true) ~= nil
+end
+local function titleContainer(object)
+    local current = object
+    for _ = 1, 4 do
+        if not current then break end
+        if titleField(current.Name) then return true end
+        current = current.Parent
+    end
+    return false
+end
+local function usableTitle(txt)
+    if type(txt) ~= "string" then return nil end
+    local trimmed = txt:gsub("^%s+", ""):gsub("%s+$", "")
+    if #trimmed < 2 or #trimmed > 100 or trimmed:find("\n", 1, true) then return nil end
+    local lower = trimmed:lower()
+    if lower == "title" or lower == "titles" or lower == "none"
+        or lower == "default" or lower == "false" or lower == "true" then
+        return nil
+    end
+    return trimmed
+end
+local function addTitleCandidate(label, source)
+    label = usableTitle(label)
+    if not label then return end
+    local key = label:lower()
+    if not titleEntries[key] then
+        titleEntries[key] = {name = label, source = source}
+    end
+end
+local function currentTitleFromReplicatedData()
+    for _, host in ipairs({LocalPlayer, localCharacter()}) do
+        if host then
+            for key, value in pairs(host:GetAttributes()) do
+                if titleField(key) and type(value) == "string" and usableTitle(value) then
+                    return value, "خاصية " .. key
+                end
+            end
+            for _, child in ipairs(host:GetDescendants()) do
+                if child:IsA("StringValue") and titleField(child.Name)
+                    and usableTitle(child.Value) then
+                    return child.Value, "قيمة " .. child.Name
+                end
+            end
+        end
+    end
+    return nil, nil
+end
+local function clearTitlePreview()
+    -- Intentionally a no-op. v15 does not create fake client-side name tags.
 end
 
-local showing = true
-closeButton.MouseButton1Click:Connect(function()
-    closed = true
+local function nativeButtonScore(button)
+    if not button:IsA("GuiButton") or button:IsDescendantOf(gui) then return 0 end
+    local name = button.Name:lower()
+    local txt = button:IsA("TextButton") and button.Text:lower() or ""
+    local parentName = button.Parent and button.Parent.Name:lower() or ""
+    if titleField(txt) then return 10 end
+    if titleField(name) then return 9 end
+    if titleField(parentName) and (name:find("open",1,true) or name:find("menu",1,true)) then
+        return 6
+    end
+    return 0
+end
+local function nativeButtonVisible(button)
+    local current = button
+    while current and current ~= PlayerGui do
+        if current:IsA("GuiObject") and not current.Visible then return false end
+        if current:IsA("LayerCollector") and not current.Enabled then return false end
+        current = current.Parent
+    end
+    return button:IsDescendantOf(PlayerGui)
+end
+local function refreshNativeTitleButtons()
+    originalTitleButtons = {}
+    for _, obj in ipairs(PlayerGui:GetDescendants()) do
+        local score = nativeButtonScore(obj)
+        if score > 0 then
+            table.insert(originalTitleButtons, {
+                object = obj,
+                score = score,
+                visible = nativeButtonVisible(obj),
+            })
+        end
+    end
+    table.sort(originalTitleButtons, function(a,b)
+        if a.visible ~= b.visible then return a.visible end
+        if a.score ~= b.score then return a.score > b.score end
+        return a.object.Name < b.object.Name
+    end)
+    local visibleCount = 0
+    for _, item in ipairs(originalTitleButtons) do
+        if item.visible then visibleCount = visibleCount + 1 end
+    end
+    if titleMenuStatus then
+        titleMenuStatus.Text = "أزرار نظام الألقاب المكتشفة: " .. #originalTitleButtons
+            .. " | الظاهرة والقابلة للوصول: " .. visibleCount
+    end
+    return visibleCount
+end
+local function openNativeTitleMenu()
+    refreshNativeTitleButtons()
+    local target = nil
+    for _, item in ipairs(originalTitleButtons) do
+        if item.visible and item.object.Parent then
+            target = item.object
+            break
+        end
+    end
+    if not target then
+        say("ما لقيت زر ألقاب أصلي ظاهر. افتح قائمة الماب بنفسك، ثم اضغط البحث مرة ثانية", false)
+        return
+    end
+    local success = pcall(function() GuiService.SelectedObject = target end)
+    main.Visible = false
+    returnToNova.Visible = true
+    if success then
+        print("NOVA v16: focused native titles button " .. target:GetFullName() .. "; click it to open the game's title UI")
+    else
+        print("NOVA v16: a title-menu button is visible. Click it manually: " .. target:GetFullName())
+    end
+    -- Do not synthesize a click or send arbitrary remotes: title activation
+    -- must be handled by the game's official, server-authorized flow.
+end
+local function scanVisibleTitles()
+    titleEntries = {}
+    local scanned, maxObjects = 0, 15000
+    for _, root in ipairs({ReplicatedStorage, Workspace, game:GetService("StarterGui"), PlayerGui}) do
+        for _, obj in ipairs(root:GetDescendants()) do
+            scanned = scanned + 1
+            if scanned > maxObjects then break end
+            if scanned % 160 == 0 then task.wait() end
+            if not obj:IsDescendantOf(gui) then
+                if obj:IsA("StringValue") then
+                    if titleField(obj.Name) then
+                        addTitleCandidate(obj.Value, "قيمة ظاهرة")
+                    elseif titleContainer(obj.Parent) then
+                        addTitleCandidate(obj.Name, "قائمة ظاهرة")
+                        addTitleCandidate(obj.Value, "قيمة ظاهرة")
+                    end
+                elseif (obj:IsA("Folder") or obj:IsA("Configuration"))
+                    and titleContainer(obj.Parent) then
+                    addTitleCandidate(obj.Name, "عنصر قائمة ظاهر")
+                elseif obj:IsA("TextLabel") and titleContainer(obj.Parent) then
+                    addTitleCandidate(obj.Text, "واجهة ظاهرة")
+                end
+                if titleContainer(obj) then
+                    for key, value in pairs(obj:GetAttributes()) do
+                        if type(value) == "string" and titleField(key) then
+                            addTitleCandidate(value, "خاصية ظاهرة")
+                        end
+                    end
+                end
+            end
+        end
+        if scanned > maxObjects then break end
+    end
+    -- Many games display the assigned title as a BillboardGui above a player.
+    -- Observe these real, already-displayed tags; never copy/equip another player's title.
+    for _, player in ipairs(Players:GetPlayers()) do
+        local character = player.Character
+        if character then
+            for _, obj in ipairs(character:GetDescendants()) do
+                if obj:IsA("TextLabel") then
+                    local billboard = obj:FindFirstAncestorWhichIsA("BillboardGui")
+                    if billboard and billboard.Name ~= "NovaTitleLocalPreview" then
+                        local labelText = usableTitle(obj.Text)
+                        if labelText and labelText ~= player.Name and labelText ~= player.DisplayName then
+                            if titleField(obj.Name) or titleField(billboard.Name)
+                                or labelText:match("^%[.+%]") then
+                                addTitleCandidate(labelText, "وسم ظاهر فوق " .. player.DisplayName)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    local active = currentTitleFromReplicatedData()
+    if active then addTitleCandidate(active, "لقبي في البيانات الظاهرة") end
+    local total = 0
+    for _ in pairs(titleEntries) do total = total + 1 end
+    if titleStatus then
+        titleStatus.Text = "الألقاب المرصودة بالعميل: " .. total
+            .. " | الفحص: " .. math.min(scanned, maxObjects)
+            .. " عنصر. ظهور لقب عند لاعب آخر لا يعني أنك تملكه."
+    end
+    if refreshTitleList then refreshTitleList() end
+    refreshNativeTitleButtons()
+    if total == 0 then
+        say("ما ظهرت بيانات ألقاب للعميل. جرّب فتح قائمة الألقاب الأصلية في الماب", false)
+    else
+        say("رصدت " .. total .. " اسم لقب ظاهر. منح الألقاب الحقيقية يتم من نظام الماب نفسه", true)
+    end
+end
+
+-- The following names and requirements are transcribed from screenshots supplied
+-- by the user. They are REFERENCE DATA, not server-granted / current entitlements.
+-- All actual equip/unlock/purchase actions remain inside the game's own UI.
+local vollTitleCatalog = {
+    {name = "✨ مميز", requirement = "الانضمام إلى مجموعة ألعاب VOLL على Roblox", screenshotState = "تجهيز (وقت التصوير)", kind = "مجموعة"},
+    {name = "[من أهل المكان]", requirement = "10 ساعات لعب للحصول على الشارة", screenshotState = "مغلق (وقت التصوير)", kind = "إنجاز"},
+    {name = "[منزل قديم]", requirement = "20 ساعة لعب للحصول على الشارة", screenshotState = "مغلق (وقت التصوير)", kind = "إنجاز"},
+    {name = "[👑]", requirement = "شراء من متجر الماب بسعر 35 روبوكس (بحسب الصورة)", screenshotState = "شراء (وقت التصوير)", kind = "شراء"},
+    {name = "[✦ تعزيز كامل ✦]", requirement = "تعزيز خادم VOLL على ديسكورد", screenshotState = "مغلق (وقت التصوير)", kind = "مجموعة"},
+    {name = "الأصل", requirement = "لأعضاء المجتمع القدامى والمؤهلين؛ تمنحه الإدارة", screenshotState = "مغلق (وقت التصوير)", kind = "مجموعة"},
+    {name = "فنان محترف", requirement = "تقديم نماذج أعمال فنية للإدارة", screenshotState = "مغلق (وقت التصوير)", kind = "مجموعة"},
+    {name = "الموسيقي المحترف", requirement = "تقديم أعمال موسيقية إلى إدارة فريق VOLL", screenshotState = "مغلق (وقت التصوير)", kind = "مجموعة"},
+    {name = "صياد الثغرات", requirement = "الإبلاغ عن الأخطاء والثغرات ومساعدة المطورين", screenshotState = "مغلق (وقت التصوير)", kind = "مجموعة"},
+    {name = "صانع المحتوى", requirement = "إنشاء محتوى عن اللعبة ومراجعته من الإدارة", screenshotState = "مغلق (وقت التصوير)", kind = "مجموعة"},
+    {name = "[★★★★★★★]", requirement = "لقب خاص يمنحه مالك اللعبة للاعبين المتميزين", screenshotState = "مغلق (وقت التصوير)", kind = "هدية"},
+}
+local catalogSelectionNote
+
+newSection("🏷️ الألقاب الحقيقية")
+title("🏷️ ألقاب VOLL وفتح نظام الماب")
+local titleNote = note("أسماء الألقاب أدناه من صور VOLL التي أرسلتها؛ ليست ضمانًا للتوفر الآن. لا توجد معاينة وهمية ولا منح تلقائي. التفعيل الذي يراه الجميع يكون من نظام الماب الرسمي فقط.")
+titleNote.Size = UDim2.new(1, 0, 0, 68)
+titleSearch = make("TextBox", {
+    Size = UDim2.new(1, 0, 0, 42),
+    BackgroundColor3 = COLORS.panel2, TextColor3 = COLORS.white,
+    PlaceholderColor3 = COLORS.muted,
+    PlaceholderText = "ابحث في ألقاب VOLL والألقاب الظاهرة...", Text = "", ClearTextOnFocus = false,
+    Font = Enum.Font.Gotham, TextSize = 13,
+}, scroller)
+round(titleSearch, 9)
+titleStatus = note("قائمة VOLL المرجعية: 11 لقبًا من الصور. اضغط فحص الألقاب للحصول على بيانات ظاهرة حاليًا.")
+titleStatus.Size = UDim2.new(1, 0, 0, 61)
+titleMenuStatus = note("زر نظام الألقاب الأصلي: لم يُفحص بعد")
+catalogSelectionNote = note("اختر لقبًا من القائمة؛ يتم عرض شرطه، ثم افتح قائمة الماب الأصلية لتجهيزه إن كان متاحًا.")
+catalogSelectionNote.Size = UDim2.new(1, 0, 0, 56)
+action("🔍 فحص الألقاب الظاهرة الآن", function() task.spawn(scanVisibleTitles) end)
+action("🎮 ابحث عن زر الألقاب الأصلي", function()
+    local n = refreshNativeTitleButtons()
+    say(n > 0 and "وجدت زرًا أصليًا؛ اضغط فتح الواجهة للانتقال إليه" or
+        "لا يوجد زر ألقاب أصلي ظاهر حاليًا", n > 0)
+end)
+action("🏷️ فتح نظام الألقاب الأصلي للتجهيز الحقيقي", openNativeTitleMenu, 47)
+action("✅ قراءة لقبي المسجل في بيانات اللعبة", function()
+    local active, source = currentTitleFromReplicatedData()
+    if active then
+        say("لقب ظاهر ببياناتك: «" .. active .. "» (" .. source .. "). لا يثبت ذلك ظهوره للجميع", true)
+    else
+        say("ما فيه لقب معلن ضمن بياناتك المتاحة. التفعيل الحقيقي من واجهة اللعبة", false)
+    end
+end)
+titleList = make("ScrollingFrame", {
+    Size = UDim2.new(1, 0, 0, 220), BackgroundColor3 = COLORS.panel,
+    BorderSizePixel = 0, ScrollBarThickness = 5,
+    ScrollBarImageColor3 = COLORS.purple,
+    AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(),
+}, scroller)
+round(titleList, 9)
+make("UIListLayout", {Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder}, titleList)
+make("UIPadding", {PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5),
+    PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5)}, titleList)
+refreshTitleList = function()
+    if not alive or not titleList.Parent then return end
+    for _, child in ipairs(titleList:GetChildren()) do
+        if child:IsA("TextButton") or child:IsA("TextLabel") then child:Destroy() end
+    end
+    local results = {}
+    local query = titleSearch.Text:lower()
+    local knownNames = {}
+    -- Static reference titles remain visible even before client-side scanning.
+    for _, entry in ipairs(vollTitleCatalog) do
+        local lower = entry.name:lower()
+        knownNames[lower] = true
+        if query == "" or lower:find(query, 1, true) or entry.requirement:lower():find(query, 1, true) then
+            table.insert(results, {
+                name = entry.name, source = "VOLL | من صورك", description = entry.requirement,
+                screenshotState = entry.screenshotState, catalog = true,
+            })
+        end
+    end
+    local live = {}
+    for key, entry in pairs(titleEntries) do
+        if not knownNames[key] and (query == "" or key:find(query, 1, true)) then
+            table.insert(live, entry)
+        end
+    end
+    table.sort(live, function(a,b) return a.name:lower() < b.name:lower() end)
+    for _, entry in ipairs(live) do table.insert(results, entry) end
+    for i=1, math.min(#results, 90) do
+        local entry = results[i]
+        local isCatalog = entry.catalog
+        local desc = isCatalog and (entry.screenshotState .. " | " .. entry.requirement) or ("مرصود: " .. entry.source)
+        local b = make("TextButton", {
+            Size = UDim2.new(1, -5, 0, isCatalog and 68 or 50),
+            BackgroundColor3 = COLORS.panel2,
+            TextColor3 = COLORS.white, TextWrapped = true,
+            Text = (isCatalog and "🏷️ " or "🔎 ") .. entry.name .. "\n" .. desc,
+            TextSize = 12, Font = Enum.Font.GothamMedium,
+        }, titleList)
+        round(b, 8)
+        listen(b.MouseButton1Click, function()
+            selectedTitle = entry.name
+            if isCatalog then
+                catalogSelectionNote.Text = "اللقب: " .. entry.name .. " | الشرط: " .. entry.requirement
+                    .. " | الحالة بالصور: " .. entry.screenshotState
+                say("اخترت «" .. selectedTitle .. "». للتجهيز الحقيقي استخدم زر نظام الألقاب الرسمي في VOLL", true)
+            else
+                catalogSelectionNote.Text = "اللقب المرصود: " .. entry.name .. " | " .. entry.source
+                say("رُصد «" .. selectedTitle .. "» في بيانات ظاهرة، ولا يعني أنه متاح لحسابك", true)
+            end
+        end)
+    end
+    if #results == 0 then
+        make("TextLabel", {
+            Size = UDim2.new(1, 0, 0, 44), BackgroundTransparency = 1,
+            TextColor3 = COLORS.muted, Text = "لا توجد ألقاب مطابقة للبحث.",
+            TextWrapped = true, TextSize = 12,
+        }, titleList)
+    end
+end
+listen(titleSearch:GetPropertyChangedSignal("Text"), refreshTitleList)
+refreshTitleList()
+-- Update small set of client-only functions.
+local elapsed, adminElapsed, dragElapsed = 0, 0, 0
+listen(RunService.Stepped, function()
+    if alive and state.Noclip then applyNoclip() end
+end)
+listen(RunService.RenderStepped, function(dt)
+    if not alive then return end
+    updateFlight()
+    elapsed = elapsed + dt
+    adminElapsed = adminElapsed + dt
+    dragElapsed = dragElapsed + dt
+    if elapsed >= .6 then
+        elapsed = 0
+        if state.LocalInvisible then applyLocalInvisible() end
+        if state.Speed then applySpeed() end
+        if state.ESP then refreshHighlights() end
+    end
+    if adminElapsed >= 3 then
+        adminElapsed = 0
+        if state.AdminESP then refreshAdminVision() end
+    end
+    if dragElapsed >= .15 then
+        dragElapsed = 0
+        attemptLocalDrag()
+    end
+end)
+listen(LocalPlayer.CharacterAdded, function()
+    clearTitlePreview()
+    stopFlight()
+    restoreCollisions()
+    -- Keep imported tool names across respawns to prevent repeated local copies.
+    if state.AutoTools then task.delay(1.5, scheduleToolScan) end
+    original.WalkSpeed = nil
+    if state.Fly then
+        task.delay(.5, function() if alive and state.Fly then startFlight() end end)
+    end
+    task.delay(.7, function()
+        if alive then applySpeed(); applyLocalInvisible(); applyNoclip() end
+    end)
+end)
+
+local function cleanup()
+    if not alive then return end
+    alive = false
+    state.Fly = false
+    stopFlight()
+    state.LocalInvisible = false
+    applyLocalInvisible()
+    state.Speed = false
+    applySpeed()
+    state.Noclip = false
+    restoreCollisions()
+    clearHighlights()
+    clearTitlePreview()
+    stopDrag()
+    for player in pairs(adminVisuals) do clearAdminVisual(player) end
+    setToolWatching(false)
     for _, conn in ipairs(connections) do conn:Disconnect() end
-    ui:Destroy()
-end)
-miniButton.MouseButton1Click:Connect(function()
-    showing = not showing
-    hint.Visible = showing
-    toolsTab.Visible = showing
-    panelsTab.Visible = showing
-    scanButton.Visible = showing
-    search.Visible = showing
-    resultArea.Visible = showing
-    statusText.Visible = showing
-    container.Size = showing and UDim2.fromOffset(470, 510) or UDim2.fromOffset(470, 55)
-    miniButton.Text = showing and "−" or "+"
-end)
-toolsTab.MouseButton1Click:Connect(function() activeTab = "tools"; render() end)
-panelsTab.MouseButton1Click:Connect(function() activeTab = "panels"; render() end)
-scanButton.MouseButton1Click:Connect(scan)
-local searchVersion = 0
-search:GetPropertyChangedSignal("Text"):Connect(function()
-    searchVersion = searchVersion + 1
-    local current = searchVersion
-    task.delay(.2, function()
-        if not closed and searchVersion == current then render() end
-    end)
-end)
-
--- Hotkey to show/hide the interface without losing scan state.
-table.insert(connections, UserInputService.InputBegan:Connect(function(input, processed)
-    if processed or closed then return end
-    if input.KeyCode == Enum.KeyCode.RightShift then ui.Enabled = not ui.Enabled end
-end))
-
--- Simple drag on the panel's title area.
-do
-    local dragging, dragOrigin, panelOrigin
-    table.insert(connections, title.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragOrigin = input.Position
-            panelOrigin = container.Position
-        end
-    end))
-    table.insert(connections, UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragOrigin
-            container.Position = UDim2.new(panelOrigin.X.Scale, panelOrigin.X.Offset + delta.X, panelOrigin.Y.Scale, panelOrigin.Y.Offset + delta.Y)
-        end
-    end))
-    table.insert(connections, UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
-    end))
+    gui:Destroy()
+    if rawget(_G, "NOVA_SuiteV18Cleanup") == cleanup then
+        _G.NOVA_SuiteV18Cleanup = nil
+    end
 end
+_G.NOVA_SuiteV18Cleanup = cleanup
+-- Close hides the panel; rerun script to fully reset. The NOVA tab reopens it.
+-- Startup intentionally does NOT scan Workspace/ReplicatedStorage/StarterGui.
+-- Only small owned-inventory UI is drawn; deep scans run after the user's click.
+task.defer(refreshToolUI)
+say("NOVA v18 جاهز • الأقسام موجودة؛ الطيران والسرعة مفتوحان بالأسفل", true)
+updateCanvas()
+print("NOVA SUITE v18 LIGHT: full dashboard ready.")
 
--- No automatic full scan at startup. The user controls when discovery runs.
-render()
+end
+local success, errorMessage = xpcall(runNovaSuiteV18, function(err) return tostring(err) end)
+if not success then
+    warn("NOVA v18 startup error: " .. tostring(errorMessage))
+    -- Show an in-game error message instead of silently failing with an empty menu.
+    pcall(function()
+        local player = game:GetService("Players").LocalPlayer
+        local playerGui = player and player:FindFirstChildOfClass("PlayerGui")
+        if not playerGui then return end
+        local existing = playerGui:FindFirstChild("NOVA_v18_Error")
+        if existing then existing:Destroy() end
+        local errorGui = Instance.new("ScreenGui")
+        errorGui.Name = "NOVA_v18_Error"
+        errorGui.ResetOnSpawn = false
+        errorGui.DisplayOrder = 1000
+        errorGui.Parent = playerGui
+        local errorLabel = Instance.new("TextLabel")
+        errorLabel.Size = UDim2.new(0, 450, 0, 105)
+        errorLabel.Position = UDim2.new(0.5, -225, 0, 25)
+        errorLabel.BackgroundColor3 = Color3.fromRGB(65, 25, 36)
+        errorLabel.TextColor3 = Color3.fromRGB(255, 248, 242)
+        errorLabel.Font = Enum.Font.Gotham
+        errorLabel.TextSize = 12
+        errorLabel.TextWrapped = true
+        errorLabel.Text = "NOVA: توقف السكربت قبل اكتمال الواجهة. صوّر هذا الخطأ وأرسله لي: " .. tostring(errorMessage):sub(1, 230)
+        errorLabel.Parent = errorGui
+    end)
+end
