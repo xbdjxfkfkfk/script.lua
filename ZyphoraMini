@@ -1,4 +1,4 @@
--- NOVA SUITE v16 PRO PLUS SAFE | Camera + optional proximity voice follow
+-- NOVA SUITE v16 PRO PLUS SAFE | Voice Follow + fixed GUI compile locals limit
 -- Roblox Luau. No server admin/permissions bypass; server controls other players.
 -- Flight: left stick + camera direction, including ascent/descent when looking up/down.
 -- Keyboard: WASD + mouse look. Both movement speeds adjustable +/-.
@@ -1182,30 +1182,32 @@ local flyButton -- assigned when the flight section is created below
 local cameraStatusLabel = nil
 -- The default Roblox proximity voice is based on the actual character position,
 -- not the spectator camera. This optional mode moves only YOUR character.
-local proximityFollowTarget = nil
-local proximityInfoLabel = nil
-local proximityFollowElapsed = 0
-local proximityStatusElapsed = 0
-local proximityWasMoving = false
-local function proximityStatus(message)
-    if proximityInfoLabel and proximityInfoLabel.Parent then
-        proximityInfoLabel.Text = message
+local voiceFollow = {
+    target = nil,
+    infoLabel = nil,
+    elapsed = 0,
+    statusElapsed = 0,
+    wasMoving = false,
+}
+voiceFollow.setStatus = function(message)
+    if voiceFollow.infoLabel and voiceFollow.infoLabel.Parent then
+        voiceFollow.infoLabel.Text = message
     end
 end
-local function stopProximityFollow(silent)
-    local wasActive = proximityFollowTarget ~= nil
-    proximityFollowTarget = nil
-    proximityFollowElapsed = 0
-    proximityStatusElapsed = 0
-    if proximityWasMoving then
+voiceFollow.stop = function(silent)
+    local wasActive = voiceFollow.target ~= nil
+    voiceFollow.target = nil
+    voiceFollow.elapsed = 0
+    voiceFollow.statusElapsed = 0
+    if voiceFollow.wasMoving then
         local hum, root = localHumanoid(), localRoot()
         if hum and root and hum.Health > 0 then
             -- Cancel the automatic MoveTo destination without changing camera.
             pcall(function() hum:MoveTo(root.Position) end)
         end
     end
-    proximityWasMoving = false
-    proximityStatus("القرب الصوتي: متوقف | الكاميرا وحدها لا تنقل صوتك")
+    voiceFollow.wasMoving = false
+    voiceFollow.setStatus("القرب الصوتي: متوقف | الكاميرا وحدها لا تنقل صوتك")
     if wasActive and not silent then
         say("أوقفت الاقتراب التلقائي؛ المايك والدردشة لا يتغيران", true)
     end
@@ -1217,7 +1219,7 @@ local function cameraStatus(message)
 end
 local function stopCameraFollow(silent)
     -- Always release character movement when leaving any spectate mode.
-    stopProximityFollow(true)
+    voiceFollow.stop(true)
     local wasFollowing = followTarget ~= nil
     followTarget = nil
     followFixed = false
@@ -1327,7 +1329,7 @@ end
 
 -- Opt-in proximity follow. Camera-only spectate NEVER moves the local player.
 -- MoveTo uses normal character movement, and may be overridden by game rules.
-local function startVoiceProximityFollow(player)
+voiceFollow.start = function(player)
     if not player or player == LocalPlayer or player.Parent ~= Players then
         say("اختر لاعبًا من القائمة أولًا", false)
         return false
@@ -1349,26 +1351,27 @@ local function startVoiceProximityFollow(player)
             myRoot.CFrame = theirRoot.CFrame * CFrame.new(0, 0, 7)
         end)
     end
-    proximityFollowTarget = player
-    proximityFollowElapsed = .5
-    proximityStatusElapsed = 1.5
-    proximityWasMoving = false
-    proximityStatus("القرب الصوتي: محاولة الاقتراب من @" .. player.Name
+    voiceFollow.target = player
+    voiceFollow.elapsed = .5
+    voiceFollow.statusElapsed = 1.5
+    voiceFollow.wasMoving = false
+    voiceFollow.setStatus("القرب الصوتي: محاولة الاقتراب من @" .. player.Name
         .. " | يلزم تفعيل المايك وصوت الماب")
     say("بدأت متابعة قريبة: شخصيتك تحاول المشي خلف @" .. player.Name
         .. ". الصوت يعتمد على سماح Roblox والماب؛ هذا لا يفتح المايك تلقائيًا", true)
     return true
 end
 
-local function updateVoiceProximityFollow(dt)
-    local target = proximityFollowTarget
+voiceFollow.update = function(dt)
+    if not alive then return end
+    local target = voiceFollow.target
     if not target then return end
-    proximityFollowElapsed = proximityFollowElapsed + dt
-    proximityStatusElapsed = proximityStatusElapsed + dt
-    if proximityFollowElapsed < .45 then return end
-    proximityFollowElapsed = 0
+    voiceFollow.elapsed = voiceFollow.elapsed + dt
+    voiceFollow.statusElapsed = voiceFollow.statusElapsed + dt
+    if voiceFollow.elapsed < .45 then return end
+    voiceFollow.elapsed = 0
     if target.Parent ~= Players or followTarget ~= target then
-        stopProximityFollow(false)
+        voiceFollow.stop(false)
         return
     end
     local myHum, myRoot = localHumanoid(), localRoot()
@@ -1380,11 +1383,11 @@ local function updateVoiceProximityFollow(dt)
         return
     end
     if not theirHum or not theirRoot or theirHum.Health <= 0 then
-        if proximityWasMoving then
+        if voiceFollow.wasMoving then
             pcall(function() myHum:MoveTo(myRoot.Position) end)
-            proximityWasMoving = false
+            voiceFollow.wasMoving = false
         end
-        proximityStatus("القرب الصوتي: ننتظر ظهور اللاعب المحدد")
+        voiceFollow.setStatus("القرب الصوتي: ننتظر ظهور اللاعب المحدد")
         return
     end
     local desired = (theirRoot.CFrame * CFrame.new(0, 0, 7)).Position
@@ -1392,15 +1395,15 @@ local function updateVoiceProximityFollow(dt)
     -- Dead zone avoids jitter; one low-rate MoveTo request, no per-frame CFrame.
     if distanceToPoint > 5 then
         local ok = pcall(function() myHum:MoveTo(desired) end)
-        proximityWasMoving = ok
-    elseif proximityWasMoving then
+        voiceFollow.wasMoving = ok
+    elseif voiceFollow.wasMoving then
         pcall(function() myHum:MoveTo(myRoot.Position) end)
-        proximityWasMoving = false
+        voiceFollow.wasMoving = false
     end
-    if proximityStatusElapsed >= 1.5 then
-        proximityStatusElapsed = 0
+    if voiceFollow.statusElapsed >= 1.5 then
+        voiceFollow.statusElapsed = 0
         local distance = math.floor((myRoot.Position - theirRoot.Position).Magnitude + .5)
-        proximityStatus("القرب الصوتي: @" .. target.Name .. " | المسافة: "
+        voiceFollow.setStatus("القرب الصوتي: @" .. target.Name .. " | المسافة: "
             .. distance .. " studs | السماع يعتمد على الماب والمايك")
     end
 end
@@ -1891,10 +1894,10 @@ end)
 title("🎙️ متابعة قريبة للصوت (اختيارية)")
 local voiceHelp = note("متابعة الكاميرا وحدها لا تغيّر مكان صوتك. هذا الوضع يحرّك شخصيتك الحقيقية قرب اللاعب ويخليها تمشي خلفه؛ لكي يسمعك يحتاج الماب يدعم الصوت، وحسابك يملك صلاحية الصوت، والمايك شغال. قد يمنع السيرفر الانتقال أو الحركة.")
 voiceHelp.Size = UDim2.new(1, 0, 0, 70)
-proximityInfoLabel = note("القرب الصوتي: متوقف | اختر لاعبًا لتجربة الاقتراب")
-proximityInfoLabel.Size = UDim2.new(1, 0, 0, 52)
+voiceFollow.infoLabel = note("القرب الصوتي: متوقف | اختر لاعبًا لتجربة الاقتراب")
+voiceFollow.infoLabel.Size = UDim2.new(1, 0, 0, 52)
 action("🎙️ متابعة اللاعب خلفه مع الاقتراب للصوت", function()
-    startVoiceProximityFollow(chosenForCamera())
+    voiceFollow.start(chosenForCamera())
 end)
 action("⏹️ إيقاف الاقتراب والعودة لشخصيتي", function()
     stopCameraFollow(false)
@@ -2456,6 +2459,9 @@ action("↩️ استعادة قيم السرعات الافتراضية", funct
     say("تمت استعادة السرعات الافتراضية وتحديث الأرقام في القائمة", true)
 end)
 
+-- Keep temporary navigation UI variables inside a short scope;
+-- callbacks retain the buttons after the scope exits.
+do
 -- Fixed shortcuts: jump to the appropriate card without changing pages.
 local nav = make("Frame", {
     Name = "QuickNavigation", Position = UDim2.fromOffset(12, 63),
@@ -2492,9 +2498,11 @@ for i, info in ipairs(shortcuts) do
         end)
     end)
 end
+end -- navigation UI scope
 
 -- Freeze mitigation: keep the render thread strictly for flight.
 -- Optional radar/ESP/visual-carry updates use slower Heartbeat ticks.
+do -- Short-lived tick counters, captured by handlers rather than top-level locals.
 local elapsed, adminElapsed, dragElapsed, radarElapsed, noclipElapsed = 0, 0, 0, 0, 0
 listen(RunService.RenderStepped, function()
     if alive and state.Fly then updateFlight() end
@@ -2502,7 +2510,7 @@ end)
 listen(RunService.Heartbeat, function(dt)
     if not alive then return end
     dt = math.min(dt, .2)
-    if proximityFollowTarget then updateVoiceProximityFollow(dt) end
+    if voiceFollow.target then voiceFollow.update(dt) end
     noclipElapsed = noclipElapsed + dt
     if state.Noclip and noclipElapsed >= .25 then
         noclipElapsed = 0
@@ -2535,6 +2543,7 @@ listen(RunService.Heartbeat, function(dt)
         if state.AdminESP then refreshAdminVision() end
     end
 end)
+end -- heartbeat and render counter scope
 listen(LocalPlayer.CharacterAdded, function()
     stopCameraFollow(true)
     task.delay(.6, function()
@@ -2610,4 +2619,4 @@ if toolSection then
 end
 -- All UI widgets are constructed; no additional startup pacing needed.
 bootingDashboard = false
-print("NOVA v16 PRO PLUS SAFE: startup UI paced, lazy tool list, capped scans, slow optional updates. Press F8 to unload.")
+print("NOVA v16 PRO PLUS SAFE menu loaded. Press F8 to unload.")
