@@ -1,4 +1,4 @@
--- NOVA SUITE v16 PRO | Polished interface, incremental scans and stabilized controls
+-- NOVA SUITE v16 PRO PLUS | Camera follow, visual carry, radar, inventory, persistent preferences, low load
 -- Roblox Luau. No server admin/permissions bypass; server controls other players.
 -- Flight: left stick + camera direction, including ascent/descent when looking up/down.
 -- Keyboard: WASD + mouse look. Both movement speeds adjustable +/-.
@@ -81,7 +81,53 @@ local state = {
     AdminESP = false,
     Noclip = false,
     AutoTools = false,
+    Radar = false,
+    LowPerformance = true,
 }
+-- Preferences: disk persistence if supported, otherwise only this Lua session.
+-- No remotes or server properties are written by these settings.
+local HttpService = game:GetService("HttpService")
+local settingsPath = "NOVA_ProPlus_Settings_" .. tostring(LocalPlayer.UserId) .. ".json"
+local settingsFileSupported = type(readfile) == "function" and type(writefile) == "function"
+local savedSettings = {}
+if type(rawget(_G, "NOVA_ProPlusPrefs")) == "table" then
+    savedSettings = _G.NOVA_ProPlusPrefs
+end
+if settingsFileSupported then
+    pcall(function()
+        local saved = HttpService:JSONDecode(readfile(settingsPath))
+        if type(saved) == "table" then savedSettings = saved end
+    end)
+end
+local function loadNumber(value, min, max, default)
+    if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
+        return default
+    end
+    return math.clamp(math.floor(value + .5), min, max)
+end
+state.FlySpeed = loadNumber(savedSettings.flySpeed, 10, 500, state.FlySpeed)
+state.WalkSpeed = loadNumber(savedSettings.walkSpeed, 10, 200, state.WalkSpeed)
+state.LowPerformance = type(savedSettings.lowLoad) == "boolean" and savedSettings.lowLoad or true
+local radarRange = loadNumber(savedSettings.radarRange, 50, 1000, 250)
+local carryDistance = loadNumber(savedSettings.carryDistance, 2, 12, 4)
+local carryMode = (savedSettings.carryMode == "behind" or savedSettings.carryMode == "front")
+    and savedSettings.carryMode or "side"
+local function saveSettings()
+    local data = {
+        flySpeed = state.FlySpeed, walkSpeed = state.WalkSpeed,
+        lowLoad = state.LowPerformance, radarRange = radarRange,
+        carryDistance = carryDistance, carryMode = carryMode,
+    }
+    _G.NOVA_ProPlusPrefs = data
+    if settingsFileSupported then
+        local ok = pcall(function()
+            writefile(settingsPath, HttpService:JSONEncode(data))
+        end)
+        return ok
+    end
+    return false
+end
+
 local original = {WalkSpeed = nil}
 local refreshAdminVision -- assigned below; delayed group lookups can update it
 local collisionOriginal = {}
@@ -135,13 +181,13 @@ make("Frame", {
     BackgroundTransparency = .28,
 }, header)
 make("TextLabel", {
-    Text = "NOVA SUITE  |  V16 PRO · VISUAL DRAG", Font = Enum.Font.GothamBold,
+    Text = "NOVA SUITE  |  V16 PRO PLUS", Font = Enum.Font.GothamBold,
     TextColor3 = COLORS.white, TextSize = 20,
     Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -80, 0, 27),
     BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
 }, header)
 make("TextLabel", {
-    Text = "تحكم سلس • أقسام واضحة • فحص عند الطلب", Font = Enum.Font.Gotham,
+    Text = "تحكم • رادار • سحب شكلي • إعدادات محفوظة", Font = Enum.Font.Gotham,
     TextColor3 = COLORS.muted, TextSize = 11,
     Position = UDim2.fromOffset(16, 32), Size = UDim2.new(1, -80, 0, 16),
     BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
@@ -341,6 +387,9 @@ local function adjuster(labelText, key, min, max, increment, onChanged)
     end
     listen(minus.MouseButton1Click, function() if alive then update(-increment) end end)
     listen(plus.MouseButton1Click, function() if alive then update(increment) end end)
+    return function()
+        val.Text = labelText .. ": " .. tostring(state[key])
+    end
 end
 
 local function stopFlight()
@@ -526,7 +575,6 @@ local TOOL_CONTAINERS = {
 }
 -- Favorites persist in the executor filesystem when its file APIs are available.
 -- Otherwise _G saves the selection only for this Roblox client session.
-local HttpService = game:GetService("HttpService")
 local favoritesFile = "NOVA_Suite_Favorites_" .. tostring(LocalPlayer.UserId) .. ".json"
 local favorites = {}
 local filesystemSaving = (type(readfile) == "function" and type(writefile) == "function")
@@ -879,6 +927,17 @@ local nativeDragButton = nil
 local NATIVE_DRAG_BUTTON_TEXT = "🧰 تفعيل أداة سحب الماب (إن وجدت)"
 local VISUAL_DRAG_BUTTON_TEXT = "🧲 سحب شكلي: خذ سكن اللاعب معك"
 
+local function carryOffset()
+    if carryMode == "behind" then return CFrame.new(0, 0, carryDistance) end
+    if carryMode == "front" then return CFrame.new(0, 0, -carryDistance) end
+    return CFrame.new(carryDistance, 0, -1.2)
+end
+local function carryModeName()
+    if carryMode == "behind" then return "خلفك" end
+    if carryMode == "front" then return "قدامك" end
+    return "جنبك"
+end
+
 local function clearVisualDrag()
     if dragVisualTag then
         dragVisualTag:Destroy()
@@ -954,7 +1013,7 @@ local function buildVisualAvatar(player)
         copy:Destroy()
         return false, "شخصيتك لم تكتمل بعد"
     end
-    local position = myRoot.CFrame * CFrame.new(3.2, 0, -1.5)
+    local position = myRoot.CFrame * carryOffset()
     copy:PivotTo(position)
     copy.Parent = Workspace
 
@@ -1001,7 +1060,7 @@ local function startVisualDrag(player)
     return true
 end
 
-local function updateVisualDrag()
+local function updateVisualDrag(dt)
     if not dragClone or not dragTarget then return end
     if dragTarget.Parent ~= Players or not dragClone.Parent then
         stopDrag()
@@ -1009,9 +1068,14 @@ local function updateVisualDrag()
     end
     local root = localRoot()
     if not root then return end
-    local targetCFrame = root.CFrame * CFrame.new(3.2, 0, -1.5)
-    -- A single pivot operation per frame keeps the visual copy attached smoothly.
-    dragClone:PivotTo(targetCFrame)
+    local targetCFrame = root.CFrame * carryOffset()
+    local existing = dragClone:GetPivot()
+    local separation = (existing.Position - targetCFrame.Position).Magnitude
+    if separation > 40 then
+        dragClone:PivotTo(targetCFrame)
+    else
+        dragClone:PivotTo(existing:Lerp(targetCFrame, math.clamp((dt or .05) * 13, .12, 1)))
+    end
 end
 local dragWords = {"drag", "grab", "carry", "bring", "pull", "rope", "lasso", "سحب", "حمل", "شد", "حبل"}
 local function findNativeDragTool()
@@ -1090,6 +1154,54 @@ local function tryTeleport(player)
     say("انتقلت قرب " .. player.Name .. " محليًا؛ قد يعيدك السيرفر", true)
 end
 
+local followTarget = nil
+local previousCameraType, previousCameraSubject = nil, nil
+local function stopCameraFollow(silent)
+    if not followTarget then return end
+    local cam = Workspace.CurrentCamera
+    if cam then
+        cam.CameraType = previousCameraType or Enum.CameraType.Custom
+        local oldSubject = previousCameraSubject
+        cam.CameraSubject = (oldSubject and oldSubject.Parent and oldSubject)
+            or localHumanoid() or cam.CameraSubject
+    end
+    followTarget, previousCameraType, previousCameraSubject = nil, nil, nil
+    if not silent then say("رجعت الكاميرا لشخصيتك", true) end
+end
+local function startCameraFollow(player)
+    if not player or player.Parent ~= Players or player == LocalPlayer then
+        say("اختر لاعبًا من قائمة الأسماء أولًا", false)
+        return false
+    end
+    if state.Fly then
+        say("أوقف الطيران قبل متابعة كاميرا لاعب آخر", false)
+        return false
+    end
+    local cam = Workspace.CurrentCamera
+    local targetHumanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+    if not cam or not targetHumanoid then
+        say("شخصية اللاعب غير جاهزة للمتابعة الآن", false)
+        return false
+    end
+    stopCameraFollow(true)
+    previousCameraType, previousCameraSubject = cam.CameraType, cam.CameraSubject
+    followTarget = player
+    cam.CameraType = Enum.CameraType.Custom
+    cam.CameraSubject = targetHumanoid
+    say("الكاميرا تتابع @" .. player.Name .. " على شاشتك فقط", true)
+    return true
+end
+local function refreshCameraFollow()
+    if not followTarget then return end
+    if followTarget.Parent ~= Players then stopCameraFollow(false); return end
+    local cam = Workspace.CurrentCamera
+    local h = followTarget.Character and followTarget.Character:FindFirstChildOfClass("Humanoid")
+    if cam and h and cam.CameraSubject ~= h then
+        cam.CameraType = Enum.CameraType.Custom
+        cam.CameraSubject = h
+    end
+end
+
 newSection("👁️ رؤية اللاعبين والأدمنية")
 title("👁️ رؤية مواقع اللاعبين")
 toggle("إبراز مواقع اللاعبين (ESP محلي)", "ESP", function(on)
@@ -1109,11 +1221,120 @@ toggle("🛡️ كشف الأدمنية وإظهار أسمائهم على ال�
 end)
 note("الأخضر: مالك معروف. البرتقالي: رتبة قروب عامة. الأصفر: أداة باسم إداري ظاهرة (اشتباه فقط). الاسم يظهر فوق الرأس إذا توفر دليل. لا يوجد فحص مضمون لصلاحيات السيرفر المخفية.")
 
+newSection("📡 رادار اللاعبين والمسافات")
+title("📡 مواقع اللاعبين القريبين")
+local radarPoints = {}
+local radarPanel = make("Frame", {
+    Size = UDim2.fromOffset(220, 220),
+    BackgroundColor3 = Color3.fromRGB(11, 29, 44), BorderSizePixel = 0,
+}, scroller)
+round(radarPanel, 110)
+make("UIStroke", {Color = COLORS.purple, Transparency = .18, Thickness = 2}, radarPanel)
+for _, diameter in ipairs({75, 145}) do
+    local ring = make("Frame", {
+        AnchorPoint = Vector2.new(.5,.5), Position = UDim2.fromScale(.5,.5),
+        Size = UDim2.fromOffset(diameter, diameter),
+        BackgroundTransparency = 1,
+    }, radarPanel)
+    round(ring, diameter / 2)
+    make("UIStroke", {Color = COLORS.stroke, Transparency = .3, Thickness = 1}, ring)
+end
+make("Frame", {Position = UDim2.fromScale(.5,0), Size = UDim2.new(0,1,1,0),
+    BackgroundColor3 = COLORS.stroke, BackgroundTransparency = .35, BorderSizePixel = 0}, radarPanel)
+make("Frame", {Position = UDim2.fromScale(0,.5), Size = UDim2.new(1,0,0,1),
+    BackgroundColor3 = COLORS.stroke, BackgroundTransparency = .35, BorderSizePixel = 0}, radarPanel)
+make("TextLabel", {Text = "▲", BackgroundTransparency = 1,
+    AnchorPoint = Vector2.new(.5,.5), Position = UDim2.fromScale(.5,.5),
+    Size = UDim2.fromOffset(20,20), TextColor3 = COLORS.green,
+    Font = Enum.Font.GothamBold, TextSize = 18, ZIndex = 4}, radarPanel)
+for i = 1, 10 do
+    radarPoints[i] = make("TextLabel", {
+        Text = "●", Visible = false, BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(.5,.5), Size = UDim2.fromOffset(16,16),
+        TextColor3 = COLORS.orange, TextSize = 18, Font = Enum.Font.GothamBold,
+        ZIndex = 3,
+    }, radarPanel)
+end
+local radarReadout = note("الرادار متوقف. فعّله لعرض أقرب اللاعبين والمسافة بوحدة studs.")
+radarReadout.Size = UDim2.new(1,0,0,160)
+local function clearRadar()
+    for _, point in ipairs(radarPoints) do point.Visible = false end
+end
+local function updateRadar()
+    if not state.Radar then clearRadar(); return end
+    local own = localRoot()
+    if not own then radarReadout.Text = "انتظر تحميل شخصيتك"; clearRadar(); return end
+    local nearby = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local part = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+            if part then
+                local distance = (part.Position - own.Position).Magnitude
+                if distance <= radarRange then
+                    table.insert(nearby, {player = p, part = part, distance = distance})
+                end
+            end
+        end
+    end
+    table.sort(nearby, function(a,b) return a.distance < b.distance end)
+    local descriptions = {"داخل " .. radarRange .. " studs: " .. #nearby .. " لاعب"}
+    for i = 1, 10 do
+        local entry, dot = nearby[i], radarPoints[i]
+        if entry then
+            local pos = own.CFrame:PointToObjectSpace(entry.part.Position)
+            local px, py = pos.X / radarRange, pos.Z / radarRange
+            local magnitude = math.sqrt(px * px + py * py)
+            if magnitude > 1 then px, py = px / magnitude, py / magnitude end
+            dot.Position = UDim2.fromScale(.5 + px * .43, .5 + py * .43)
+            dot.Visible = true
+            if i <= 7 then
+                table.insert(descriptions, i .. ". @" .. entry.player.Name
+                    .. " — " .. math.floor(entry.distance + .5) .. " studs")
+            end
+        else
+            dot.Visible = false
+        end
+    end
+    radarReadout.Text = table.concat(descriptions, "\n")
+end
+toggle("📡 تشغيل الرادار", "Radar", function(on)
+    if on then updateRadar()
+    else clearRadar(); radarReadout.Text = "الرادار متوقف" end
+end)
+local radarAdjust = make("Frame", {
+    Size = UDim2.new(1,0,0,44), BackgroundColor3 = COLORS.panel2, BorderSizePixel = 0,
+}, scroller)
+round(radarAdjust, 8)
+local radarRangeLabel = make("TextLabel", {
+    Size = UDim2.new(1,-115,1,0), Position = UDim2.fromOffset(9,0),
+    BackgroundTransparency = 1, TextColor3 = COLORS.white,
+    Font = Enum.Font.GothamMedium, TextSize = 13,
+    Text = "مدى الرادار: " .. radarRange .. " studs",
+}, radarAdjust)
+local function radarRangeButton(text, offset, delta)
+    local btn = make("TextButton", {
+        Size = UDim2.fromOffset(46,34), Position = UDim2.new(1,offset,0,5),
+        Text = text, BackgroundColor3 = COLORS.panel, TextColor3 = COLORS.white,
+        Font = Enum.Font.GothamBold, TextSize = 20,
+    }, radarAdjust)
+    round(btn, 7)
+    listen(btn.MouseButton1Click, function()
+        radarRange = math.clamp(radarRange + delta,50,1000)
+        radarRangeLabel.Text = "مدى الرادار: " .. radarRange .. " studs"
+        saveSettings()
+        if state.Radar then updateRadar() end
+    end)
+end
+radarRangeButton("−", -102, -50)
+radarRangeButton("+", -52, 50)
+note("الرادار ومواقع الآخرين على شاشتك فقط؛ الاتجاه يتغير حسب اتجاه شخصيتك.")
+
 newSection("🚀 الطيران والسرعة", true)
 title("🚀 الطيران والتحكم")
 local flyButton
 flyButton = toggle("الطيران الحر — يد سوني وكيبورد", "Fly", function(on)
     if on then
+        if followTarget then stopCameraFollow(true) end
         if not startFlight() then
             flyButton.Text = "○  الطيران الحر — يد سوني وكيبورد"
             flyButton.BackgroundColor3 = COLORS.panel2
@@ -1124,11 +1345,11 @@ flyButton = toggle("الطيران الحر — يد سوني وكيبورد", "
     end
 end)
 note("يد السوني: وجّه الكاميرا بالعصا اليمنى، وادفع العصا اليسرى للأمام: ترتفع إذا تناظر فوق وتنزل إذا تناظر تحت. إذا وقفت الحركة تثبت. بدون R1 أو L1. على الكيبورد: WASD مع الماوس.")
-adjuster("سرعة الطيران", "FlySpeed", 10, 500, 10)
+local updateFlySpeedLabel = adjuster("سرعة الطيران", "FlySpeed", 10, 500, 10, saveSettings)
 
 title("⚡ السرعة والتحكم بالمشي")
 toggle("السرعة الإضافية", "Speed", function() applySpeed() end)
-adjuster("سرعة المشي", "WalkSpeed", 10, 200, 5, applySpeed)
+local updateWalkSpeedLabel = adjuster("سرعة المشي", "WalkSpeed", 10, 200, 5, function() applySpeed(); saveSettings() end)
 newSection("👻 الإخفاء والجدران")
 title("👻 الإخفاء المحلي")
 toggle("إخفاء الشخصية من شاشتك فقط", "LocalInvisible", function()
@@ -1176,7 +1397,43 @@ local toolSearch = make("TextBox", {
 round(toolSearch, 9)
 local favoritesOnly = false
 local toolPage = 1
-local toolPageSize = 32
+local toolPageSize = state.LowPerformance and 16 or 32
+local toolSortMode = "name"
+local toolOwnedOnly = false
+action("⇅ الترتيب: الاسم / الأدوات المملوكة أولًا", function()
+    toolSortMode = toolSortMode == "name" and "owned" or "name"
+    toolPage = 1
+    refreshToolUI()
+    say(toolSortMode == "owned" and "الأدوات المملوكة تظهر أولًا" or "الترتيب أبجدي", true)
+end)
+action("🎒 تصفية: كل الأدوات / الموجودة في حقيبتي", function()
+    toolOwnedOnly = not toolOwnedOnly
+    toolPage = 1
+    refreshToolUI()
+    say(toolOwnedOnly and "تظهر الآن أدوات حقيبتك فقط" or "تظهر كل الأدوات المرصودة", true)
+end)
+local function equipFirstFavorite()
+    local humanoid = localHumanoid()
+    if not humanoid or humanoid.Health <= 0 then
+        say("شخصيتك غير جاهزة لتجهيز الأداة", false)
+        return
+    end
+    local bag = LocalPlayer:FindFirstChildOfClass("Backpack")
+    for _, holder in ipairs({bag, LocalPlayer.Character}) do
+        if holder then
+            for _, obj in ipairs(holder:GetChildren()) do
+                if obj:IsA("Tool") and favorites[toolKey(obj.Name)] and obj.Enabled then
+                    local ok = pcall(function() humanoid:EquipTool(obj) end)
+                    say(ok and "طلبت تجهيز المفضلة: " .. obj.Name or "تعذّر تجهيز الأداة", ok)
+                    return
+                end
+            end
+        end
+    end
+    say("ما فيه أداة مفضلة متاحة في حقيبتك الآن", false)
+end
+action("★ تجهيز أول أداة مفضلة متاحة", equipFirstFavorite)
+
 local favoritesFilter = action("☆ عرض المفضلة فقط: إيقاف", function(button)
     favoritesOnly = not favoritesOnly
     toolPage = 1
@@ -1277,14 +1534,20 @@ refreshToolUI = function()
     end
     local keys, phrase = {}, toolKey(toolSearch.Text)
     for key, name in pairs(found) do
-        if (phrase == "" or key:find(phrase, 1, true)) and (not favoritesOnly or favorites[key]) then
+        if (phrase == "" or key:find(phrase, 1, true)) and (not favoritesOnly or favorites[key]) and (not toolOwnedOnly or owned[key]) then
             table.insert(keys, key)
         end
     end
-    table.sort(keys)
+    table.sort(keys, function(a,b)
+        if toolSortMode == "owned" then
+            local aOwned, bOwned = owned[a] == true, owned[b] == true
+            if aOwned ~= bOwned then return aOwned end
+        end
+        return a < b
+    end)
     local pageCount = math.max(1, math.ceil(#keys / toolPageSize))
     toolPage = math.clamp(toolPage, 1, pageCount)
-    toolPageStatus.Text = "نتائج الأدوات: " .. #keys .. " | صفحة " .. toolPage .. " من " .. pageCount
+    toolPageStatus.Text = "أدوات: " .. #keys .. " | " .. (toolOwnedOnly and "الحقيبة" or "الكل") .. " | صفحة " .. toolPage .. " / " .. pageCount
     toolPrevious.Active = toolPage > 1
     toolNext.Active = toolPage < pageCount
     toolPrevious.TextTransparency = toolPage > 1 and 0 or .55
@@ -1386,6 +1649,15 @@ note("اختر لاعبًا من القائمة أدناه أولًا، ثم ا�
 action("📍 الانتقال إلى اللاعب المحدد", function()
     tryTeleport(selectedPlayer)
 end)
+title("🎥 متابعة كاميرا اللاعب")
+note("تختار لاعبًا من القائمة، وتتابعه بالكاميرا من دون نقل شخصيتك. الرجوع يعيد الكاميرا إليك.")
+action("🎥 متابعة اللاعب المحدد", function()
+    startCameraFollow(selectedPlayer)
+end)
+action("↩️ إعادة الكاميرا لشخصيتي", function()
+    stopCameraFollow(false)
+end)
+
 title("🧲 سحب السكن الشكلي معك")
 note("اختر لاعبًا من القائمة. نسخة من سكنه تظهر بجانب شخصيتك وتتحرك معك في المشي والطيران. اللاعب الحقيقي يبقى بمكانه، ولا يراها غيرك.")
 dragButton = action(VISUAL_DRAG_BUTTON_TEXT, function()
@@ -1402,6 +1674,38 @@ action("🧹 إزالة نسخة السكن", function()
     stopDrag()
     say("تمت إزالة النسخة الشكلية", true)
 end)
+
+local carryControlsLabel = note("وضع النسخة: " .. carryModeName() .. " | المسافة: " .. carryDistance)
+carryControlsLabel.Size = UDim2.new(1,0,0,35)
+local function updateCarryControls()
+    carryControlsLabel.Text = "وضع النسخة: " .. carryModeName() .. " | المسافة: " .. carryDistance
+    saveSettings()
+end
+action("↔️ موضع السكن: جنبك / خلفك / قدامك", function()
+    if carryMode == "side" then carryMode = "behind"
+    elseif carryMode == "behind" then carryMode = "front"
+    else carryMode = "side" end
+    updateCarryControls()
+    say("السحب الشكلي: السكن الآن " .. carryModeName(), true)
+end)
+local carryGapRow = make("Frame", {
+    Size = UDim2.new(1,0,0,42), BackgroundTransparency = 1,
+}, scroller)
+local function carryGapButton(text, left, delta)
+    local b = make("TextButton", {
+        Text = text, TextColor3 = COLORS.white, Font = Enum.Font.GothamBold,
+        TextSize = 13, BackgroundColor3 = COLORS.panel2,
+        Position = UDim2.new(left, 0, 0, 0), Size = UDim2.new(.49,0,1,0),
+    }, carryGapRow)
+    round(b,8)
+    listen(b.MouseButton1Click, function()
+        carryDistance = math.clamp(carryDistance + delta, 2, 12)
+        updateCarryControls()
+        say("المسافة الجديدة: " .. carryDistance .. " studs", true)
+    end)
+end
+carryGapButton("− تقريب السكن", 0, -1)
+carryGapButton("+ إبعاد السكن", .51, 1)
 
 title("🧰 سحب الماب الأصلي (اختياري)")
 note("هذا زر منفصل لاستخدام أداة أصلية موجودة عندك فقط. لا يؤثر على النسخة الشكلية عند إيقافها؛ السحب الحقيقي يعتمد على سيرفر الماب.")
@@ -1505,6 +1809,7 @@ listen(Players.PlayerRemoving, function(player)
         selectedPlayer = nil
         chosen.Text = "لم يتم تحديد لاعب"
     end
+    if followTarget == player then stopCameraFollow(false) end
     if dragTarget == player then
         stopDrag()
         dragButton.Text = VISUAL_DRAG_BUTTON_TEXT
@@ -1873,6 +2178,35 @@ listen(titleSearch:GetPropertyChangedSignal("Text"), function()
     end)
 end)
 refreshTitleList()
+newSection("⚙️ الأداء وحفظ الإعدادات")
+title("🪶 وضع الأداء الخفيف")
+note("يقلل تحديث الرادار والسحب الشكلي وعلامات اللاعبين، ويعرض عددًا أقل من الأدوات بكل صفحة. الطيران يبقى سلسًا لأنه يحتاج تحديث كل إطار.")
+toggle("🪶 تفعيل الأداء الخفيف", "LowPerformance", function(on)
+    toolPageSize = on and 16 or 32
+    toolPage = 1
+    saveSettings()
+    refreshToolUI()
+    say(on and "وضع الأداء الخفيف يعمل" or "التحديث العادي يعمل", true)
+end)
+title("💾 حفظ إعدادات السرعات والخيارات")
+local saveInfo = note(settingsFileSupported
+    and "الحفظ في ملف مدعوم مبدئيًا في بيئة التشغيل، ويمكن استعادة السرعات تلقائيًا بعد تشغيل السكربت مرة ثانية."
+    or "بيئة التشغيل لا تعرض ملف حفظ؛ الإعدادات تبقى عند إعادة تشغيل السكربت داخل نفس الجلسة فقط.")
+saveInfo.Size = UDim2.new(1, 0, 0, 59)
+action("💾 حفظ سرعات الطيران والمشي وإعدادات الرادار والسحب", function()
+    local persisted = saveSettings()
+    say(persisted and "حفظت إعداداتك في ملف" or "حفظت إعداداتك داخل الجلسة الحالية فقط", persisted)
+end)
+action("↩️ استعادة قيم السرعات الافتراضية", function()
+    state.FlySpeed = 55
+    state.WalkSpeed = 50
+    applySpeed()
+    updateFlySpeedLabel()
+    updateWalkSpeedLabel()
+    saveSettings()
+    say("تمت استعادة السرعات الافتراضية وتحديث الأرقام في القائمة", true)
+end)
+
 -- Fixed shortcuts: jump to the appropriate card without changing pages.
 local nav = make("Frame", {
     Name = "QuickNavigation", Position = UDim2.fromOffset(12, 63),
@@ -1882,12 +2216,13 @@ local shortcuts = {
     {"الطيران", "🚀 الطيران والسرعة"},
     {"اللاعبون", "📍 اللاعبون والانتقال والسحب"},
     {"الرؤية", "👁️ رؤية اللاعبين والأدمنية"},
+    {"الرادار", "📡 رادار اللاعبين والمسافات"},
     {"الأدوات", "🎒 مدير الأدوات"},
     {"الألقاب", "🏷️ الألقاب الحقيقية"},
 }
 for i, info in ipairs(shortcuts) do
     local button = make("TextButton", {
-        Size = UDim2.new(.2, -5, 1, 0), Position = UDim2.new((i-1)*.2, 3, 0, 0),
+        Size = UDim2.new(1 / #shortcuts, -5, 1, 0), Position = UDim2.new((i-1) / #shortcuts, 3, 0, 0),
         Text = info[1], TextColor3 = COLORS.white,
         BackgroundColor3 = COLORS.panel2,
         Font = Enum.Font.GothamBold, TextSize = 11,
@@ -1909,29 +2244,51 @@ for i, info in ipairs(shortcuts) do
     end)
 end
 
--- Update small set of client-only functions.
-local elapsed, adminElapsed = 0, 0
+-- Reduced background work: only active features get updates.
+local elapsed, adminElapsed, dragElapsed, radarElapsed, cameraElapsed = 0, 0, 0, 0, 0
 listen(RunService.Stepped, function()
     if alive and state.Noclip then applyNoclip() end
 end)
 listen(RunService.RenderStepped, function(dt)
     if not alive then return end
-    updateFlight()
-    updateVisualDrag()
+    if state.Fly then updateFlight() end
+    if dragClone then
+        dragElapsed = dragElapsed + dt
+        local dragPeriod = state.LowPerformance and .085 or .033
+        if dragElapsed >= dragPeriod then
+            updateVisualDrag(dragElapsed)
+            dragElapsed = 0
+        end
+    end
+    if state.Radar then
+        radarElapsed = radarElapsed + dt
+        if radarElapsed >= (state.LowPerformance and 1.25 or .45) then
+            radarElapsed = 0
+            updateRadar()
+        end
+    end
+    if followTarget then
+        cameraElapsed = cameraElapsed + dt
+        if cameraElapsed >= .5 then
+            cameraElapsed = 0
+            refreshCameraFollow()
+        end
+    end
     elapsed = elapsed + dt
     adminElapsed = adminElapsed + dt
-    if elapsed >= .5 then
+    if elapsed >= (state.LowPerformance and 1.15 or .5) then
         elapsed = 0
         if state.LocalInvisible then applyLocalInvisible() end
         if state.Speed then applySpeed() end
         if state.ESP then refreshHighlights() end
     end
-    if adminElapsed >= 3 then
+    if adminElapsed >= (state.LowPerformance and 6 or 3) then
         adminElapsed = 0
         if state.AdminESP then refreshAdminVision() end
     end
 end)
 listen(LocalPlayer.CharacterAdded, function()
+    stopCameraFollow(true)
     clearTitlePreview()
     stopDrag()
     stopFlight()
@@ -1961,6 +2318,9 @@ local function cleanup()
     clearHighlights()
     clearTitlePreview()
     stopDrag()
+    stopCameraFollow(true)
+    clearRadar()
+    saveSettings()
     for player in pairs(adminVisuals) do clearAdminVisual(player) end
     for _, conn in ipairs(connections) do conn:Disconnect() end
     gui:Destroy()
@@ -1977,4 +2337,4 @@ task.defer(function()
         if not ok then warn("NOVA initial tool list: " .. safeText(err)) end
     end
 end)
-print("NOVA SUITE V16 PRO Visual Drag: client-side avatar copy follows player; real players unchanged.")
+print("NOVA v16 PRO PLUS: optional camera follow, local avatar carry, radar, inventory manager, settings and low-load mode.")
