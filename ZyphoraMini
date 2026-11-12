@@ -3,7 +3,7 @@
 -- Flight: left stick + camera direction, including ascent/descent when looking up/down.
 -- Keyboard: WASD + mouse look. Both movement speeds adjustable +/-.
 -- Admin Vision: owner/group-rank public signals ONLY, never private admin certainty.
--- Drag: optional local-only experiment; it will usually be overridden by the server.
+-- Drag: only activates a server-granted native tool; never locally teleports other players.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -135,7 +135,7 @@ make("Frame", {
     BackgroundTransparency = .28,
 }, header)
 make("TextLabel", {
-    Text = "NOVA SUITE  |  V16 PRO", Font = Enum.Font.GothamBold,
+    Text = "NOVA SUITE  |  V16 PRO · DRAG FIX", Font = Enum.Font.GothamBold,
     TextColor3 = COLORS.white, TextSize = 20,
     Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -80, 0, 27),
     BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
@@ -867,42 +867,77 @@ refreshAdminVision = function()
     end
 end
 
+-- Native Tool controls: use only Tools genuinely granted to this character.
+-- No local writes to another player's CFrame: those don't replicate reliably.
+local activeDragTool = nil
 local function stopDrag()
     dragTarget = nil
-end
-local dragWords = {"drag", "grab", "carry", "bring", "سحب", "حمل"}
-local function attemptLocalDrag()
-    if not dragTarget or dragTarget.Parent ~= Players then stopDrag(); return end
-    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-    local char = localCharacter()
-    local humanoid = localHumanoid()
-    if not humanoid or not backpack then
-        say("شخصيتك أو حقيبتك غير جاهزة", false)
-        return
+    if activeDragTool then
+        pcall(function() activeDragTool:Deactivate() end)
+        activeDragTool = nil
     end
-    local tool = nil
-    for _, holder in ipairs({backpack, char}) do
+end
+local dragWords = {"drag", "grab", "carry", "bring", "pull", "rope", "lasso", "سحب", "حمل", "شد", "حبل"}
+local function findNativeDragTool()
+    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+    local character = localCharacter()
+    local equipped, stored = nil, nil
+    for _, holder in ipairs({character, backpack}) do
         if holder then
-            for _, object in ipairs(holder:GetChildren()) do
-                if object:IsA("Tool") and object:GetAttribute("NOVA_LocalCopy") ~= true then
-                    local lower = object.Name:lower()
-                    for _, word in ipairs(dragWords) do
-                        if lower:find(word, 1, true) then tool = object; break end
+            for _, candidate in ipairs(holder:GetChildren()) do
+                if candidate:IsA("Tool") and candidate:GetAttribute("NOVA_LocalCopy") ~= true then
+                    local name = (safeText(candidate.Name) .. " " .. safeText(candidate.ToolTip)):lower()
+                    for _, token in ipairs(dragWords) do
+                        if name:find(token, 1, true) then
+                            if holder == character then equipped = candidate else stored = candidate end
+                            break
+                        end
                     end
                 end
-                if tool then break end
+                if equipped then break end
             end
         end
-        if tool then break end
+        if equipped then break end
     end
-    if tool then
-        local ok = pcall(function() humanoid:EquipTool(tool) end)
-        say(ok and ("تم تجهيز أداة «" .. tool.Name .. "». استخدمها بالطريقة المسموحة داخل الماب")
-            or "تعذّر تجهيز أداة السحب", ok)
-    else
-        say("ما فيه أداة سحب أصلية متاحة بحقيبتك؛ السحب الفعلي يحتاج دعم الماب", false)
+    return equipped or stored
+end
+local function useNativeDragTool(player)
+    if not player or player.Parent ~= Players or player == LocalPlayer then
+        say("اختر لاعبًا موجودًا في قائمة اللاعبين", false)
+        return false
     end
-    stopDrag()
+    local hum = localHumanoid()
+    local character = localCharacter()
+    if not hum or hum.Health <= 0 or not character then
+        say("انتظر تحميل شخصيتك قبل استخدام الأداة", false)
+        return false
+    end
+    local tool = findNativeDragTool()
+    if not tool then
+        say("ما عندك أداة سحب أصلية في الحقيبة. تحتاج أداة يمنحها سيرفر الماب", false)
+        return false
+    end
+    if not tool.Enabled then
+        say("أداة السحب «" .. safeText(tool.Name) .. "» معطّلة داخل الماب", false)
+        return false
+    end
+    if tool.Parent ~= character then
+        local ok = pcall(function() hum:EquipTool(tool) end)
+        if not ok or tool.Parent ~= character then
+            say("تعذّر تجهيز أداة السحب؛ الماب قد يمنع استعمالها", false)
+            return false
+        end
+    end
+    local ok = pcall(function() tool:Activate() end)
+    if not ok then
+        say("تعذّر تشغيل أداة السحب الأصلية", false)
+        return false
+    end
+    dragTarget = player
+    activeDragTool = tool
+    say("طلبت تشغيل «" .. safeText(tool.Name) .. "» للاعب @" .. safeText(player.Name)
+        .. ". وجّه الأداة إلى اللاعب؛ نجاح السحب يتحدد من نظام الماب", true)
+    return true
 end
 
 local function tryTeleport(player)
@@ -1216,20 +1251,30 @@ note("اختر لاعبًا من القائمة أدناه أولًا، ثم ا�
 action("📍 الانتقال إلى اللاعب المحدد", function()
     tryTeleport(selectedPlayer)
 end)
-title("🧲 أداة السحب الأصلية")
-note("يجهّز أداة سحب تملكها إن كانت موجودة؛ لا ينقل اللاعبين محليًا ولا يجعلهم يختفون.")
+title("🧲 السحب عبر أداة الماب الأصلية")
+note("اختر اللاعب من القائمة، ثم جهّز أداة السحب الأصلية وشغّلها. الأداة قد تحتاج توجيه المؤشر للاعب. لا يمكن فرض سحب لاعب بدون سماح السيرفر.")
 local dragButton
-dragButton = action("🧲 استخدام أداة السحب المتاحة", function()
-    if dragTarget then
+dragButton = action("🧲 تجهيز وتفعيل أداة السحب", function()
+    if activeDragTool then
         stopDrag()
-        dragButton.Text = "🧲 استخدام أداة السحب المتاحة"
-        say("أوقفت محاولة السحب المحلية", true)
-    elseif not selectedPlayer or selectedPlayer.Parent ~= Players then
-        say("اختر لاعبًا من القائمة أولًا", false)
+        dragButton.Text = "🧲 تجهيز وتفعيل أداة السحب"
+        say("أوقفت تفعيل أداة السحب", true)
+        return
+    end
+    if useNativeDragTool(selectedPlayer) then
+        dragButton.Text = "⏹ إيقاف استخدام أداة السحب"
+    end
+end)
+local dragToolStatus = note("حالة السحب: يتحقق من أداة أصلية في حقيبتك، وليس من نسخة محلية")
+action("🔎 فحص أداة السحب المتاحة", function()
+    local tool = findNativeDragTool()
+    if tool then
+        dragToolStatus.Text = "أداة سحب أصلية مرصودة: " .. safeText(tool.Name)
+            .. " | " .. (tool.Enabled and "مفعلة" or "معطلة")
+        say("الأداة موجودة، لكن تحريك اللاعب يعتمد على خادم اللعبة", true)
     else
-        dragTarget = selectedPlayer
-        dragButton.Text = "🧲 استخدام أداة السحب المتاحة"
-        attemptLocalDrag()
+        dragToolStatus.Text = "لم تُعثر على أداة سحب أصلية في حقيبتك"
+        say("لا يوجد سحب حقيقي متاح من هذه النسخة في الماب الحالي", false)
     end
 end)
 local listBox = make("ScrollingFrame", {
@@ -1312,14 +1357,14 @@ listen(Players.PlayerRemoving, function(player)
     end
     if dragTarget == player then
         stopDrag()
-        dragButton.Text = "🧲 استخدام أداة السحب المتاحة"
+        dragButton.Text = "🧲 تجهيز وتفعيل أداة السحب"
     end
     clearAdminVisual(player)
     rankCache[player.UserId] = nil
     refreshList()
 end)
 refreshList()
-note("نوفا لا يغيّر إحداثيات اللاعبين الآخرين محليًا. إذا ما عندك أداة سحب أصلية، ما يقدر يفرض السحب على السيرفر.")
+note("السحب الحقيقي يتم عبر أداة أو صلاحية يمنحها سيرفر الماب. محاولات تغيير موقع اللاعبين محليًا ليست سحبًا فعليًا.")
 
 -- Titles in Roblox are experience-specific. This is a client-side discovery and
 -- navigation panel, NOT a title-granting API. Server-granted titles must be
@@ -1737,6 +1782,7 @@ listen(RunService.RenderStepped, function(dt)
 end)
 listen(LocalPlayer.CharacterAdded, function()
     clearTitlePreview()
+    stopDrag()
     stopFlight()
     restoreCollisions()
     -- Keep imported tool names across respawns to prevent repeated local copies.
@@ -1780,4 +1826,4 @@ task.defer(function()
         if not ok then warn("NOVA initial tool list: " .. safeText(err)) end
     end
 end)
-print("NOVA SUITE V16 PRO ready: light startup, camera flight, manual scans, clean interface.")
+print("NOVA SUITE V16 PRO Drag Fix loaded: native drag Tool activation, no fake player movement.")
