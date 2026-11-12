@@ -1,12 +1,12 @@
--- NOVA SUITE v18 VISIBLE / compatibility build
--- Flight, speed, admin discovery and titles are kept; no permissions bypass.
-local function runNovaSuiteV18()
+-- NOVA SUITE v19 | focus fixes: explicit flight altitude, native drag, title crash.
+-- All other original sections and tools retained; no server-permission bypass.
+local function runNovaSuiteV19()
 -- NOVA SUITE v17 LIGHT | On-demand scans, responsive UI, evidence-based admin discovery
 -- Roblox Luau. No server admin/permissions bypass; server controls other players.
--- Flight: left stick + camera direction, including ascent/descent when looking up/down.
--- Keyboard: WASD + mouse look. Both movement speeds adjustable +/-.
+-- Flight: horizontal movement by stick/WASD, independent vertical rise and fall.
+-- Keyboard: WASD + E/Space (rise), Q/Ctrl (fall); gamepad: R1/L1; GUI hold buttons.
 -- Admin Vision: owner/group-rank public signals ONLY, never private admin certainty.
--- Drag: optional local-only experiment; it will usually be overridden by the server.
+-- Drag: use only game-provided tools/prompts; never locally move a remote player's character.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -18,13 +18,15 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
 if not PlayerGui then return end
 
 -- Re-running cleans up prior UI and loops.
-for _, oldKey in ipairs({"NOVA_SuiteV18Cleanup", "NOVA_SuiteV18Cleanup", "NOVA_SuiteV16Cleanup", "NOVA_SuiteV15Cleanup", "NOVA_SuiteV14Cleanup", "NOVA_SuiteV13Cleanup", "NOVA_SuiteV12Cleanup", "NOVA_SuiteV11Cleanup", "NOVA_SuiteV10Cleanup", "NOVA_SuiteV9Cleanup", "NOVA_SuiteV8Cleanup"}) do
+for _, oldKey in ipairs({"NOVA_SuiteV19Cleanup", "NOVA_SuiteV18Cleanup", "NOVA_SuiteV17Cleanup", "NOVA_SuiteV16Cleanup", "NOVA_SuiteV15Cleanup", "NOVA_SuiteV14Cleanup", "NOVA_SuiteV13Cleanup", "NOVA_SuiteV12Cleanup", "NOVA_SuiteV11Cleanup", "NOVA_SuiteV10Cleanup", "NOVA_SuiteV9Cleanup", "NOVA_SuiteV8Cleanup"}) do
     local previous = rawget(_G, oldKey)
     if type(previous) == "function" then pcall(previous) end
 end
-local OLD_GUI = "NOVA_Suite_v18_Visible"
-local old = PlayerGui:FindFirstChild(OLD_GUI)
-if old then old:Destroy() end
+local OLD_GUI = "NOVA_Suite_v19_Fixed"
+for _, oldName in ipairs({OLD_GUI, "NOVA_Suite_v18_Visible", "NOVA_v18_Error"}) do
+    local old = PlayerGui:FindFirstChild(oldName)
+    if old then old:Destroy() end
+end
 
 local alive = true
 local connections = {}
@@ -82,7 +84,7 @@ local fly = {attach = nil, velocity = nil, orient = nil, humanoid = nil, autoRot
 local highlighted = {}
 local adminVisuals = {}
 local selectedPlayer = nil
-local dragTarget = nil
+local flyUpHeld, flyDownHeld = false, false
 local selectedTitle = nil
 
 local gui = make("ScreenGui", {
@@ -111,7 +113,7 @@ make("UIGradient", {
 
 local header = make("Frame", {Size = UDim2.new(1, 0, 0, 55), BackgroundTransparency = 1}, main)
 make("TextLabel", {
-    Text = "NOVA SUITE  v18 • LIGHT", Font = Enum.Font.GothamBold,
+    Text = "NOVA SUITE  v19 • FIXED", Font = Enum.Font.GothamBold,
     TextColor3 = COLORS.white, TextSize = 20,
     Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -80, 0, 27),
     BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
@@ -319,6 +321,7 @@ local function adjuster(labelText, key, min, max, increment, onChanged)
 end
 
 local function stopFlight()
+    flyUpHeld, flyDownHeld = false, false
     if fly.velocity then fly.velocity:Destroy() end
     if fly.orient then fly.orient:Destroy() end
     if fly.attach then fly.attach:Destroy() end
@@ -354,7 +357,7 @@ local function startFlight()
     }, hrp)
     hum.AutoRotate = false
     hum.PlatformStand = true
-    say("الطيران: وجّه الكاميرا للأعلى أو للأسفل وتحرك للأمام بالقير", true)
+    say("الطيران: للأعلى E أو Space أو R1، وللأسفل Q أو Ctrl أو L1. الكاميرا للتحرك الأفقي فقط.", true)
     return true
 end
 
@@ -382,6 +385,11 @@ end
 local function keyDown(key)
     return UserInputService:IsKeyDown(key)
 end
+local function heldGamepadButton(button)
+    local ok, pressed = pcall(UserInputService.IsGamepadButtonDown, UserInputService,
+        Enum.UserInputType.Gamepad1, button)
+    return ok and pressed == true
+end
 local function updateFlight()
     if not state.Fly then return end
     local root = localRoot()
@@ -392,32 +400,40 @@ local function updateFlight()
     local cam = Workspace.CurrentCamera
     if not cam then return end
 
-    -- FULL camera LookVector, including pitch: up/down naturally follows your aim.
+    -- Camera heading is flattened, so moving forward does not rise/fall by accident.
     local look = cam.CFrame.LookVector
     local right = cam.CFrame.RightVector
-    local stick = currentThumb()
-    local forwardInput = stick.Y
-    local sidewaysInput = stick.X
+    local forward = Vector3.new(look.X, 0, look.Z)
+    if forward.Magnitude < 0.02 then
+        local rootLook = root.CFrame.LookVector
+        forward = Vector3.new(rootLook.X, 0, rootLook.Z)
+    end
+    forward = forward.Magnitude > 0.02 and forward.Unit or Vector3.new(0, 0, -1)
+    local strafe = Vector3.new(right.X, 0, right.Z)
+    strafe = strafe.Magnitude > 0.02 and strafe.Unit or Vector3.new(1, 0, 0)
 
+    local stick = currentThumb()
+    local forwardInput, sidewaysInput = stick.Y, stick.X
     if keyDown(Enum.KeyCode.W) then forwardInput = forwardInput + 1 end
     if keyDown(Enum.KeyCode.S) then forwardInput = forwardInput - 1 end
     if keyDown(Enum.KeyCode.D) then sidewaysInput = sidewaysInput + 1 end
     if keyDown(Enum.KeyCode.A) then sidewaysInput = sidewaysInput - 1 end
 
-    -- Strafe remains horizontal to avoid accidental climbing while turning.
-    local horizontalRight = Vector3.new(right.X, 0, right.Z)
-    if horizontalRight.Magnitude > 0.01 then
-        horizontalRight = horizontalRight.Unit
-    else
-        horizontalRight = Vector3.xAxis
-    end
-    local movement = (look * forwardInput) + (horizontalRight * sidewaysInput)
+    local up = flyUpHeld or heldGamepadButton(Enum.KeyCode.ButtonR1)
+        or keyDown(Enum.KeyCode.E) or keyDown(Enum.KeyCode.Space)
+    local down = flyDownHeld or heldGamepadButton(Enum.KeyCode.ButtonL1)
+        or keyDown(Enum.KeyCode.Q) or keyDown(Enum.KeyCode.LeftControl)
+    -- If both are held, hover rather than jumping unpredictably.
+    local verticalInput = (up and 1 or 0) - (down and 1 or 0)
+    local horizontal = forward * forwardInput + strafe * sidewaysInput
+    if horizontal.Magnitude > 1 then horizontal = horizontal.Unit end
+    local movement = horizontal + Vector3.new(0, verticalInput, 0)
     if movement.Magnitude > 1 then movement = movement.Unit end
     if movement.Magnitude < 0.03 then movement = Vector3.zero end
     fly.velocity.VectorVelocity = movement * state.FlySpeed
 
-    -- The character faces where you aim, including looking up/down.
-    fly.orient.CFrame = cam.CFrame.Rotation
+    -- Keep the character upright even while the camera looks vertically.
+    fly.orient.CFrame = CFrame.lookAt(Vector3.zero, forward).Rotation
 end
 
 local function applySpeed()
@@ -819,23 +835,65 @@ refreshAdminVision = function()
     end
 end
 
-local function stopDrag()
-    dragTarget = nil
+-- Never write another player's HumanoidRootPart.CFrame: it creates a local
+-- illusion/vanishing character and cannot grant reliable server-side dragging.
+local function hasNativeDragKeyword(value)
+    local name = tostring(value or ""):lower()
+    for _, word in ipairs({"drag", "grab", "carry", "سحب", "مسك", "حمل", "جرّ", "جر "}) do
+        if name:find(word, 1, true) then return true end
+    end
+    return false
 end
-local function attemptLocalDrag()
-    if not dragTarget then return end
-    if dragTarget.Parent ~= Players or dragTarget == LocalPlayer then
-        stopDrag()
+local function ownedNativeDragTool()
+    for _, holder in ipairs({LocalPlayer:FindFirstChildOfClass("Backpack"), localCharacter()}) do
+        if holder then
+            for _, tool in ipairs(holder:GetChildren()) do
+                if tool:IsA("Tool") and tool:GetAttribute("NOVA_LocalCopy") ~= true
+                    and hasNativeDragKeyword(tool.Name) then
+                    return tool
+                end
+            end
+        end
+    end
+    return nil
+end
+local function nearbyNativeDragPrompt(player)
+    local char = player and player.Character
+    if not char then return nil end
+    local inspected = 0
+    for _, obj in ipairs(char:GetDescendants()) do
+        inspected = inspected + 1
+        if inspected > 160 then break end
+        if obj:IsA("ProximityPrompt") and obj.Enabled
+            and (hasNativeDragKeyword(obj.ActionText) or hasNativeDragKeyword(obj.Name)) then
+            return obj
+        end
+    end
+    return nil
+end
+local function prepareNativeDrag(player)
+    if not player or player == LocalPlayer or player.Parent ~= Players then
+        say("اختر لاعبًا من القائمة أولًا", false)
         return
     end
-    local myRoot = localRoot()
-    local theirRoot = dragTarget.Character and dragTarget.Character:FindFirstChild("HumanoidRootPart")
-    if not myRoot or not theirRoot then return end
-    -- This is deliberately local-only and is NOT an authorized server Bring command.
-    -- Most experiences instantly correct remote players' positions.
-    pcall(function()
-        theirRoot.CFrame = myRoot.CFrame * CFrame.new(0, 0, -5)
-    end)
+    local prompt = nearbyNativeDragPrompt(player)
+    if prompt then
+        say("السحب الرسمي متاح عبر تفاعل «" .. tostring(prompt.ActionText) .. "». اقترب من اللاعب واستخدم زر التفاعل المعتاد.", true)
+        return
+    end
+    local tool = ownedNativeDragTool()
+    if tool then
+        local hum = localHumanoid()
+        if not hum then say("شخصيتك غير جاهزة لتجهيز الأداة", false); return end
+        local ok = pcall(function() hum:EquipTool(tool) end)
+        if ok then
+            say("جُهّزت أداة «" .. tool.Name .. "». استخدمها على اللاعب بالطريقة الأصلية للماب؛ السيرفر يحدد نجاح السحب.", true)
+        else
+            say("ما قدرت أجهز أداة السحب الموجودة بحقيبتك", false)
+        end
+    else
+        say("ما فيه أداة أو تفاعل سحب رسمي متاح لك الآن. لن أحرّك اللاعب محليًا حتى لا يختفي عندك.", false)
+    end
 end
 
 local function tryTeleport(player)
@@ -965,7 +1023,46 @@ flyButton = toggle("الطيران الحر — يد سوني وكيبورد", "
         say("تم إيقاف الطيران ويمكنك المشي والنزول طبيعي", true)
     end
 end)
-note("يد السوني: وجّه الكاميرا بالعصا اليمنى، وادفع العصا اليسرى للأمام: ترتفع إذا تناظر فوق وتنزل إذا تناظر تحت. إذا وقفت الحركة تثبت. بدون R1 أو L1. على الكيبورد: WASD مع الماوس.")
+note("تحكم مستقل بالارتفاع: يد سوني R1 للصعود وL1 للنزول، كيبورد E أو Space للصعود وQ أو Ctrl للنزول. تقدر تمسك الأزرار أدناه. العصا/WASD للتحرك الأفقي؛ بدون ضغط تثبت في الهواء.")
+local altitudeRow = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 45), BackgroundTransparency = 1,
+}, scroller)
+local upButton = make("TextButton", {
+    Text = "⬆️ صعود (اضغط باستمرار)", Size = UDim2.new(.49, 0, 1, 0),
+    BackgroundColor3 = COLORS.panel2, TextColor3 = COLORS.white,
+    Font = Enum.Font.GothamMedium, TextSize = 12,
+}, altitudeRow)
+local downButton = make("TextButton", {
+    Text = "⬇️ نزول (اضغط باستمرار)", Size = UDim2.new(.49, 0, 1, 0),
+    Position = UDim2.new(.51, 0, 0, 0), BackgroundColor3 = COLORS.panel2,
+    TextColor3 = COLORS.white, Font = Enum.Font.GothamMedium, TextSize = 12,
+}, altitudeRow)
+round(upButton, 8)
+round(downButton, 8)
+local function bindAltitudeHold(button, direction)
+    listen(button.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            if state.Fly then
+                if direction == "up" then flyUpHeld = true else flyDownHeld = true end
+                button.BackgroundColor3 = Color3.fromRGB(34, 97, 127)
+            else
+                say("فعّل الطيران أولًا، ثم اضغط زر الصعود أو النزول", false)
+            end
+        end
+    end)
+    listen(button.InputEnded, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            if direction == "up" then flyUpHeld = false else flyDownHeld = false end
+            button.BackgroundColor3 = COLORS.panel2
+        end
+    end)
+    listen(button.MouseLeave, function()
+        if direction == "up" then flyUpHeld = false else flyDownHeld = false end
+        button.BackgroundColor3 = COLORS.panel2
+    end)
+end
+bindAltitudeHold(upButton, "up")
+bindAltitudeHold(downButton, "down")
 adjuster("سرعة الطيران", "FlySpeed", 10, 500, 10)
 
 title("⚡ السرعة والتحكم بالمشي")
@@ -1180,22 +1277,10 @@ note("اختر لاعبًا من القائمة أدناه أولًا، ثم ا�
 action("📍 الانتقال إلى اللاعب المحدد", function()
     tryTeleport(selectedPlayer)
 end)
-title("🧲 محاولة السحب المحلية")
-note("السحب زر مستقل، وهو تجريبي محلي وليس تحكمًا مؤكدًا بلاعب آخر.")
-local dragButton
-dragButton = action("🧲 سحب تجريبي محلي للاعب المحدد", function()
-    if dragTarget then
-        stopDrag()
-        dragButton.Text = "🧲 سحب تجريبي محلي للاعب المحدد"
-        say("أوقفت محاولة السحب المحلية", true)
-    elseif not selectedPlayer or selectedPlayer.Parent ~= Players then
-        say("اختر لاعبًا من القائمة أولًا", false)
-    else
-        dragTarget = selectedPlayer
-        dragButton.Text = "⏹ إيقاف محاولة السحب المحلية"
-        say("محاولة سحب محلية لـ @" .. selectedPlayer.Name .. "؛ أغلب السيرفرات لن تسمح بتغيير موقعه", false)
-        attemptLocalDrag()
-    end
+title("🧲 السحب الحقيقي (إن كان الماب يدعمه)")
+note("يستخدم أداة سحب أصلية في حقيبتك أو تفاعلًا رسميًا عند اللاعب. لا يحرك الآخرين محليًا، ولا يمنح صلاحيات السيرفر.")
+action("🧲 تجهيز أداة السحب الأصلية للاعب المحدد", function()
+    prepareNativeDrag(selectedPlayer)
 end)
 local listBox = make("ScrollingFrame", {
     Size = UDim2.new(1, 0, 0, 235),
@@ -1267,15 +1352,11 @@ listen(Players.PlayerRemoving, function(player)
         selectedPlayer = nil
         chosen.Text = "لم يتم تحديد لاعب"
     end
-    if dragTarget == player then
-        stopDrag()
-        dragButton.Text = "🧲 سحب تجريبي محلي للاعب المحدد"
-    end
     clearAdminVisual(player)
     refreshList()
 end)
 refreshList()
-note("زر السحب محاولة محلية تجريبية وقد لا يظهر أثرها للآخرين؛ السحب الحقيقي يحتاج سماح السيرفر. لا تعد هذه الأداة بتحكم أو صلاحيات على لاعبين آخرين.")
+note("لن تختفي الشخصيات بسبب سحب محلي؛ إذا لم يوفر الماب أداة أو تفاعلًا للسحب، فلا يمكن ضمان سحب يظهر لجميع اللاعبين.")
 
 -- Titles in Roblox are experience-specific. This is a client-side discovery and
 -- navigation panel, NOT a title-granting API. Server-granted titles must be
@@ -1597,7 +1678,8 @@ refreshTitleList = function()
     for i=1, math.min(#results, 90) do
         local entry = results[i]
         local isCatalog = entry.catalog
-        local desc = isCatalog and (entry.screenshotState .. " | " .. entry.requirement) or ("مرصود: " .. entry.source)
+        local desc = isCatalog and (tostring(entry.screenshotState or "حالة غير معروفة") .. " | " .. tostring(entry.description or "الشرط غير معروف"))
+            or ("مرصود: " .. tostring(entry.source or "بيانات ظاهرة"))
         local b = make("TextButton", {
             Size = UDim2.new(1, -5, 0, isCatalog and 68 or 50),
             BackgroundColor3 = COLORS.panel2,
@@ -1609,8 +1691,8 @@ refreshTitleList = function()
         listen(b.MouseButton1Click, function()
             selectedTitle = entry.name
             if isCatalog then
-                catalogSelectionNote.Text = "اللقب: " .. entry.name .. " | الشرط: " .. entry.requirement
-                    .. " | الحالة بالصور: " .. entry.screenshotState
+                catalogSelectionNote.Text = "اللقب: " .. tostring(entry.name) .. " | الشرط: " .. tostring(entry.description or "غير معروف")
+                    .. " | الحالة بالصور: " .. tostring(entry.screenshotState or "غير معروفة")
                 say("اخترت «" .. selectedTitle .. "». للتجهيز الحقيقي استخدم زر نظام الألقاب الرسمي في VOLL", true)
             else
                 catalogSelectionNote.Text = "اللقب المرصود: " .. entry.name .. " | " .. entry.source
@@ -1629,7 +1711,7 @@ end
 listen(titleSearch:GetPropertyChangedSignal("Text"), refreshTitleList)
 refreshTitleList()
 -- Update small set of client-only functions.
-local elapsed, adminElapsed, dragElapsed = 0, 0, 0
+local elapsed, adminElapsed = 0, 0
 listen(RunService.Stepped, function()
     if alive and state.Noclip then applyNoclip() end
 end)
@@ -1638,7 +1720,6 @@ listen(RunService.RenderStepped, function(dt)
     updateFlight()
     elapsed = elapsed + dt
     adminElapsed = adminElapsed + dt
-    dragElapsed = dragElapsed + dt
     if elapsed >= .6 then
         elapsed = 0
         if state.LocalInvisible then applyLocalInvisible() end
@@ -1648,10 +1729,6 @@ listen(RunService.RenderStepped, function(dt)
     if adminElapsed >= 3 then
         adminElapsed = 0
         if state.AdminESP then refreshAdminVision() end
-    end
-    if dragElapsed >= .15 then
-        dragElapsed = 0
-        attemptLocalDrag()
     end
 end)
 listen(LocalPlayer.CharacterAdded, function()
@@ -1682,49 +1759,27 @@ local function cleanup()
     restoreCollisions()
     clearHighlights()
     clearTitlePreview()
-    stopDrag()
     for player in pairs(adminVisuals) do clearAdminVisual(player) end
     setToolWatching(false)
     for _, conn in ipairs(connections) do conn:Disconnect() end
     gui:Destroy()
-    if rawget(_G, "NOVA_SuiteV18Cleanup") == cleanup then
-        _G.NOVA_SuiteV18Cleanup = nil
+    if rawget(_G, "NOVA_SuiteV19Cleanup") == cleanup then
+        _G.NOVA_SuiteV19Cleanup = nil
     end
 end
-_G.NOVA_SuiteV18Cleanup = cleanup
+_G.NOVA_SuiteV19Cleanup = cleanup
 -- Close hides the panel; rerun script to fully reset. The NOVA tab reopens it.
 -- Startup intentionally does NOT scan Workspace/ReplicatedStorage/StarterGui.
 -- Only small owned-inventory UI is drawn; deep scans run after the user's click.
 task.defer(refreshToolUI)
-say("NOVA v18 جاهز • الأقسام موجودة؛ الطيران والسرعة مفتوحان بالأسفل", true)
+say("NOVA v19: أُصلح عرض الألقاب؛ الطيران يتحكم بالارتفاع، والسحب عبر أدوات الماب فقط", true)
 updateCanvas()
-print("NOVA SUITE v18 LIGHT: full dashboard ready.")
+print("NOVA SUITE v19: full dashboard ready.")
 
 end
-local success, errorMessage = xpcall(runNovaSuiteV18, function(err) return tostring(err) end)
+local success, errorMessage = xpcall(runNovaSuiteV19, function(err) return tostring(err) end)
 if not success then
-    warn("NOVA v18 startup error: " .. tostring(errorMessage))
-    -- Show an in-game error message instead of silently failing with an empty menu.
-    pcall(function()
-        local player = game:GetService("Players").LocalPlayer
-        local playerGui = player and player:FindFirstChildOfClass("PlayerGui")
-        if not playerGui then return end
-        local existing = playerGui:FindFirstChild("NOVA_v18_Error")
-        if existing then existing:Destroy() end
-        local errorGui = Instance.new("ScreenGui")
-        errorGui.Name = "NOVA_v18_Error"
-        errorGui.ResetOnSpawn = false
-        errorGui.DisplayOrder = 1000
-        errorGui.Parent = playerGui
-        local errorLabel = Instance.new("TextLabel")
-        errorLabel.Size = UDim2.new(0, 450, 0, 105)
-        errorLabel.Position = UDim2.new(0.5, -225, 0, 25)
-        errorLabel.BackgroundColor3 = Color3.fromRGB(65, 25, 36)
-        errorLabel.TextColor3 = Color3.fromRGB(255, 248, 242)
-        errorLabel.Font = Enum.Font.Gotham
-        errorLabel.TextSize = 12
-        errorLabel.TextWrapped = true
-        errorLabel.Text = "NOVA: توقف السكربت قبل اكتمال الواجهة. صوّر هذا الخطأ وأرسله لي: " .. tostring(errorMessage):sub(1, 230)
-        errorLabel.Parent = errorGui
-    end)
+    -- A missing field should never crash the startup UI again. If another issue
+    -- appears, log it without putting a giant blocking red banner on the screen.
+    warn("NOVA v19 startup error (check Output): " .. tostring(errorMessage))
 end
