@@ -1,4 +1,4 @@
--- NOVA Admin Discovery Add-on v1.0
+-- NOVA Admin Discovery Add-on v2 LIGHT: on-demand scan and bounded display
 -- Client-side inspector for genuinely accessible Tools and possible admin UI.
 -- Does NOT unlock administrative privileges, access server-only Tools, or bypass ranks.
 -- Run as a LocalScript in StarterPlayerScripts in an experience you manage,
@@ -122,7 +122,7 @@ local layout = make("UIListLayout", {
     SortOrder = Enum.SortOrder.LayoutOrder,
 }, resultArea)
 
-local statusText = textLabel(container, "جارٍ التحميل...", UDim2.new(1, -32, 0, 50), UDim2.new(0, 16, 1, -59), Color3.fromRGB(180, 202, 221), 12)
+local statusText = textLabel(container, "جاهز. اضغط تحديث الفحص لقراءة الأدوات ولوحات الإدارة دون مسح الماب.", UDim2.new(1, -32, 0, 50), UDim2.new(0, 16, 1, -59), Color3.fromRGB(180, 202, 221), 12)
 
 local adminKeywords = {"admin", "adonis", "kohls", "command", "moderator", "staff", "moderation", "ادمن", "أدمن", "ادارة", "إدارة", "اوامر", "أوامر", "مشرف"}
 local function looksAdministrative(str)
@@ -184,6 +184,7 @@ render = function()
         for _, tool in ipairs(tools) do
             if tool.Parent and string.find(string.lower(tool.Name .. " " .. tool.ToolTip), query, 1, true) then
                 shown = shown + 1
+                if shown > 30 then break end
                 local equipped = player.Character and tool.Parent == player.Character
                 local adminFlag = looksAdministrative(tool.Name .. " " .. tool.ToolTip) and " | اسم مرتبط بالأدمن" or ""
                 local location = equipped and "مجهزة حاليًا" or "في حقيبتك"
@@ -217,6 +218,7 @@ render = function()
             local panel = panelInfo.gui
             if panel.Parent and string.find(string.lower(panel.Name), query, 1, true) then
                 shown = shown + 1
+                if shown > 30 then break end
                 local state = panel.Enabled and "محمّلة ومفعلة" or "موجودة لكنها غير مفعلة"
                 listRow(panel.Name, state .. "\nتحديد اللوحة لا يمنح إذنًا لاستعمال أوامر الإدارة.", "تفاصيل", function()
                     setStatus("اللوحة: " .. panel.Name .. " | " .. state .. ". افتحها من زر الماب الأصلي إذا كان متاحًا لك.")
@@ -225,12 +227,18 @@ render = function()
         end
     end
     if shown == 0 then
-        listRow("لا توجد نتائج", "ما ظهر شيء مطابق للفحص أو لكلمة البحث.", nil, nil, false)
+        listRow("لا توجد نتائج", "اضغط تحديث الفحص أو جرّب اسمًا آخر.", nil, nil, false)
+    elseif shown > 30 then
+        listRow("قائمة محدودة للأداء", "يُعرض أول 30 نتيجة. استخدم البحث لتصفية البقية.", nil, nil, false)
     end
 end
 
+local scanBusy = false
 local function scan()
-    if closed then return end
+    if closed or scanBusy then return end
+    scanBusy = true
+    task.spawn(function()
+    if closed then scanBusy = false; return end
     local seen = {}
     tools, panels = {}, {}
     local character = player.Character
@@ -253,7 +261,8 @@ local function scan()
                 local inspected = 0
                 for _, desc in ipairs(gui:GetDescendants()) do
                     inspected = inspected + 1
-                    if inspected > 120 then break end
+                    if inspected > 60 then break end
+                    if inspected % 30 == 0 then task.wait() end
                     if (desc:IsA("Frame") or desc:IsA("TextButton") or desc:IsA("ImageButton")) and looksAdministrative(desc.Name) then
                         match = true
                         break
@@ -264,8 +273,12 @@ local function scan()
         end
     end
     table.sort(panels, function(a, b) return string.lower(a.gui.Name) < string.lower(b.gui.Name) end)
-    setStatus(string.format("الفحص: %d أداة تملكها + %d واجهة إدارة محتملة. صلاحيات السيرفر لا يمكن إثباتها من العميل.", #tools, #panels))
-    render()
+    if not closed then
+        setStatus(string.format("الفحص: %d أداة تملكها + %d واجهة إدارة محتملة. صلاحيات السيرفر لا يمكن إثباتها من العميل.", #tools, #panels))
+        render()
+    end
+    scanBusy = false
+    end)
 end
 
 local showing = true
@@ -289,7 +302,14 @@ end)
 toolsTab.MouseButton1Click:Connect(function() activeTab = "tools"; render() end)
 panelsTab.MouseButton1Click:Connect(function() activeTab = "panels"; render() end)
 scanButton.MouseButton1Click:Connect(scan)
-search:GetPropertyChangedSignal("Text"):Connect(render)
+local searchVersion = 0
+search:GetPropertyChangedSignal("Text"):Connect(function()
+    searchVersion = searchVersion + 1
+    local current = searchVersion
+    task.delay(.2, function()
+        if not closed and searchVersion == current then render() end
+    end)
+end)
 
 -- Hotkey to show/hide the interface without losing scan state.
 table.insert(connections, UserInputService.InputBegan:Connect(function(input, processed)
@@ -318,4 +338,5 @@ do
     end))
 end
 
-scan()
+-- No automatic full scan at startup. The user controls when discovery runs.
+render()
