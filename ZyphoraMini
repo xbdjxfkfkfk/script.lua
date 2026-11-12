@@ -1,4 +1,4 @@
--- NOVA SUITE v16 PRO PLUS | Camera follow, visual carry, radar, inventory, persistent preferences, low load
+-- NOVA SUITE v16 PRO PLUS SAFE | Camera follow and return fix
 -- Roblox Luau. No server admin/permissions bypass; server controls other players.
 -- Flight: left stick + camera direction, including ascent/descent when looking up/down.
 -- Keyboard: WASD + mouse look. Both movement speeds adjustable +/-.
@@ -26,7 +26,7 @@ for _, oldKey in ipairs({"NOVA_SuiteV16ProCleanup", "NOVA_SuiteV16Cleanup", "NOV
     local previous = rawget(_G, oldKey)
     if type(previous) == "function" then pcall(previous) end
 end
-local OLD_GUI = "NOVA_Suite_v16_PRO"
+local OLD_GUI = "NOVA_Suite_v16_PRO" -- reuse identity so older versions are cleaned up
 local old = PlayerGui:FindFirstChild(OLD_GUI)
 if old then old:Destroy() end
 
@@ -50,7 +50,15 @@ local COLORS = {
     stroke = Color3.fromRGB(65, 92, 111),
     deep = Color3.fromRGB(13, 23, 38),
 }
+-- Initial dashboard construction is large; spread its GUI allocations across frames.
+-- This is disabled after initialization and therefore never yields inside live feature updates.
+local bootingDashboard = true
+local bootInstanceCount = 0
 local function make(class, props, parent)
+    if bootingDashboard then
+        bootInstanceCount = bootInstanceCount + 1
+        if bootInstanceCount % 36 == 0 then task.wait() end
+    end
     local v = Instance.new(class)
     for k, value in pairs(props or {}) do v[k] = value end
     v.Parent = parent
@@ -107,7 +115,9 @@ local function loadNumber(value, min, max, default)
 end
 state.FlySpeed = loadNumber(savedSettings.flySpeed, 10, 500, state.FlySpeed)
 state.WalkSpeed = loadNumber(savedSettings.walkSpeed, 10, 200, state.WalkSpeed)
-state.LowPerformance = type(savedSettings.lowLoad) == "boolean" and savedSettings.lowLoad or true
+-- Always start this safety build in low-load mode, even if an older saved preference disabled it.
+-- The user can explicitly disable it later from the performance section.
+state.LowPerformance = true
 local radarRange = loadNumber(savedSettings.radarRange, 50, 1000, 250)
 local carryDistance = loadNumber(savedSettings.carryDistance, 2, 12, 4)
 local carryMode = (savedSettings.carryMode == "behind" or savedSettings.carryMode == "front")
@@ -187,7 +197,7 @@ make("TextLabel", {
     BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
 }, header)
 make("TextLabel", {
-    Text = "تحكم • رادار • سحب شكلي • إعدادات محفوظة", Font = Enum.Font.Gotham,
+    Text = "نسخة خفيفة • افتح الأقسام حسب حاجتك • F8 للإيقاف", Font = Enum.Font.Gotham,
     TextColor3 = COLORS.muted, TextSize = 11,
     Position = UDim2.fromOffset(16, 32), Size = UDim2.new(1, -80, 0, 16),
     BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
@@ -284,7 +294,7 @@ local function newSection(name, initiallyOpen)
 end
 local status = make("TextLabel", {
     Position = UDim2.new(0, 12, 1, -49), Size = UDim2.new(1, -24, 0, 41),
-    Text = "NOVA جاهز • افتح القسم المطلوب ثم استخدم الزر",
+    Text = "NOVA SAFE • الفحوصات الكبيرة يدوية • F8 لإيقاف السكربت",
     BackgroundColor3 = COLORS.panel, TextColor3 = COLORS.muted,
     Font = Enum.Font.Gotham, TextSize = 11, TextWrapped = true,
 }, main)
@@ -559,7 +569,8 @@ local function visitVisible(roots, limit, onObject)
                 end
             end
         end
-        if scanned % 180 == 0 then task.wait() end
+        -- Yield more frequently, so a large map does not hog a whole frame.
+        if scanned % 55 == 0 then task.wait() end
     end
     return scanned, front <= last
 end
@@ -688,7 +699,7 @@ local function copyVisibleTools(silent)
     if toolsInfo then toolsInfo.Text = "جارٍ الفحص على دفعات بدون إيقاف اللعب..." end
     local copied, duplicates, failed = 0, 0, 0
     local ok, scanned, truncated = pcall(function()
-        return visitVisible(TOOL_CONTAINERS, 22000, function(candidate)
+        return visitVisible(TOOL_CONTAINERS, 5000, function(candidate)
             if candidate:IsA("Tool") and not toolInSomeoneCharacter(candidate) then
                 local key = toolKey(candidate.Name)
                 if key ~= "" then visibleToolIndex[key] = candidate.Name end
@@ -738,8 +749,12 @@ local function newVisibleTool(obj)
         end)
     end
 end
+-- Listening to DescendantAdded for *every* object in Workspace was a source
+-- of unnecessary callback traffic on large, frequently changing maps.
+-- Watch only direct new children; deep tools remain discoverable through
+-- the manual incremental scan button.
 for _, container in ipairs(TOOL_CONTAINERS) do
-    listen(container.DescendantAdded, function(obj)
+    listen(container.ChildAdded, function(obj)
         if obj:IsA("Tool") then newVisibleTool(obj) end
     end)
 end
@@ -973,7 +988,7 @@ local function buildVisualAvatar(player)
         return false, "شخصية اللاعب لم تكتمل بعد. انتظر ظهوره وجرب مرة ثانية"
     end
     local descendants = source:GetDescendants()
-    if #descendants > 450 then
+    if #descendants > 160 then
         return false, "سكن اللاعب يحتوي عناصر كثيرة؛ تم إلغاء النسخ لتجنب التعليق"
     end
 
@@ -1074,7 +1089,8 @@ local function updateVisualDrag(dt)
     if separation > 40 then
         dragClone:PivotTo(targetCFrame)
     else
-        dragClone:PivotTo(existing:Lerp(targetCFrame, math.clamp((dt or .05) * 13, .12, 1)))
+        if separation < .06 then return end
+        dragClone:PivotTo(existing:Lerp(targetCFrame, math.clamp((dt or .10) * 8, .14, .8)))
     end
 end
 local dragWords = {"drag", "grab", "carry", "bring", "pull", "rope", "lasso", "سحب", "حمل", "شد", "حبل"}
@@ -1154,52 +1170,127 @@ local function tryTeleport(player)
     say("انتقلت قرب " .. player.Name .. " محليًا؛ قد يعيدك السيرفر", true)
 end
 
+-- Spectator mode: default Roblox camera for free orbit/zoom, plus a fixed
+-- fallback for experiences that continuously override CameraSubject.
+-- No player positions are modified. Only the local viewer camera is changed.
 local followTarget = nil
-local previousCameraType, previousCameraSubject = nil, nil
+local followFixed = false
+local previousCameraType = nil
+local followRenderBound = false
+local CAMERA_BIND_KEY = "NOVA_v16Pro_SAFE_Spectate_" .. tostring(LocalPlayer.UserId)
+local flyButton -- assigned when the flight section is created below
+local cameraStatusLabel = nil
+local function cameraStatus(message)
+    if cameraStatusLabel and cameraStatusLabel.Parent then
+        cameraStatusLabel.Text = message
+    end
+end
 local function stopCameraFollow(silent)
-    if not followTarget then return end
+    local wasFollowing = followTarget ~= nil
+    followTarget = nil
+    followFixed = false
+    if followRenderBound then
+        pcall(function() RunService:UnbindFromRenderStep(CAMERA_BIND_KEY) end)
+        followRenderBound = false
+    end
     local cam = Workspace.CurrentCamera
     if cam then
-        cam.CameraType = previousCameraType or Enum.CameraType.Custom
-        local oldSubject = previousCameraSubject
-        cam.CameraSubject = (oldSubject and oldSubject.Parent and oldSubject)
-            or localHumanoid() or cam.CameraSubject
+        -- Always return to the LOCAL character, not the prior spectator target.
+        local hum = localHumanoid()
+        if hum then cam.CameraSubject = hum end
+        local oldType = previousCameraType
+        if oldType == nil or oldType == Enum.CameraType.Scriptable then
+            oldType = Enum.CameraType.Custom
+        end
+        cam.CameraType = oldType
     end
-    followTarget, previousCameraType, previousCameraSubject = nil, nil, nil
-    if not silent then say("رجعت الكاميرا لشخصيتك", true) end
+    previousCameraType = nil
+    cameraStatus("الكاميرا: شخصيتي | اختر لاعبًا واضغط متابعة")
+    if not silent then
+        say(wasFollowing and "رجعت الكاميرا لشخصيتك" or "أعدت ضبط الكاميرا لشخصيتك", true)
+    end
 end
-local function startCameraFollow(player)
+local function refreshCameraFollow(dt)
+    if not followTarget then return end
+    if followTarget.Parent ~= Players then
+        stopCameraFollow(false)
+        return
+    end
+    local cam = Workspace.CurrentCamera
+    local character = followTarget.Character
+    local h = character and character:FindFirstChildOfClass("Humanoid")
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    if not cam or not h or not root then
+        cameraStatus("ننتظر تحميل شخصية @" .. followTarget.Name .. " ...")
+        return
+    end
+    if followFixed then
+        if cam.CameraType ~= Enum.CameraType.Scriptable then
+            cam.CameraType = Enum.CameraType.Scriptable
+        end
+        local aimPoint = root.Position + Vector3.new(0, 2, 0)
+        local cameraPosition = (root.CFrame * CFrame.new(0, 4, 12)).Position
+        local desired = CFrame.lookAt(cameraPosition, aimPoint)
+        local alpha = math.clamp((dt or .016) * 12, 0.06, 1)
+        cam.CFrame = cam.CFrame:Lerp(desired, alpha)
+        cam.Focus = CFrame.new(aimPoint)
+    else
+        -- Reaffirm after the default CameraModule update. A single change every
+        -- 0.75s was insufficient in experiences that reset camera properties.
+        if cam.CameraType ~= Enum.CameraType.Custom then
+            cam.CameraType = Enum.CameraType.Custom
+        end
+        if cam.CameraSubject ~= h then
+            cam.CameraSubject = h
+        end
+    end
+end
+local function startCameraFollow(player, fixed)
     if not player or player.Parent ~= Players or player == LocalPlayer then
         say("اختر لاعبًا من قائمة الأسماء أولًا", false)
         return false
     end
+    local cam = Workspace.CurrentCamera
+    local character = player.Character
+    local targetHumanoid = character and character:FindFirstChildOfClass("Humanoid")
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    if not cam or not targetHumanoid or not root then
+        say("شخصية اللاعب غير جاهزة، انتظر لحظة وجرب", false)
+        return false
+    end
     if state.Fly then
-        say("أوقف الطيران قبل متابعة كاميرا لاعب آخر", false)
-        return false
+        -- Spectating while flying made the old button appear to do nothing.
+        state.Fly = false
+        stopFlight()
+        if flyButton and flyButton.Parent then
+            flyButton.Text = "○  الطيران الحر — يد سوني وكيبورد"
+            flyButton.BackgroundColor3 = COLORS.panel2
+        end
     end
-    local cam = Workspace.CurrentCamera
-    local targetHumanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-    if not cam or not targetHumanoid then
-        say("شخصية اللاعب غير جاهزة للمتابعة الآن", false)
-        return false
+    if followTarget then stopCameraFollow(true) end
+    previousCameraType = cam.CameraType
+    followTarget, followFixed = player, fixed == true
+    if not followRenderBound then
+        local ok, err = pcall(function()
+            RunService:BindToRenderStep(CAMERA_BIND_KEY, Enum.RenderPriority.Camera.Value + 1, refreshCameraFollow)
+        end)
+        if not ok then
+            warn("NOVA camera binding: " .. safeText(err))
+            stopCameraFollow(true)
+            say("تعذر تفعيل متابعة الكاميرا؛ راجع سجل الأخطاء", false)
+            return false
+        end
+        followRenderBound = true
     end
-    stopCameraFollow(true)
-    previousCameraType, previousCameraSubject = cam.CameraType, cam.CameraSubject
-    followTarget = player
-    cam.CameraType = Enum.CameraType.Custom
-    cam.CameraSubject = targetHumanoid
-    say("الكاميرا تتابع @" .. player.Name .. " على شاشتك فقط", true)
-    return true
-end
-local function refreshCameraFollow()
-    if not followTarget then return end
-    if followTarget.Parent ~= Players then stopCameraFollow(false); return end
-    local cam = Workspace.CurrentCamera
-    local h = followTarget.Character and followTarget.Character:FindFirstChildOfClass("Humanoid")
-    if cam and h and cam.CameraSubject ~= h then
+    if followFixed then
+        cam.CameraType = Enum.CameraType.Scriptable
+    else
         cam.CameraType = Enum.CameraType.Custom
-        cam.CameraSubject = h
+        cam.CameraSubject = targetHumanoid
     end
+    cameraStatus("المتابعة: @" .. player.Name .. (followFixed and " | ثابتة خلف اللاعب" or " | كاميرا حرّة"))
+    say("بدأت متابعة @" .. player.Name .. (followFixed and " بكاميرا ثابتة" or " بالكاميرا الحرّة"), true)
+    return true
 end
 
 newSection("👁️ رؤية اللاعبين والأدمنية")
@@ -1331,7 +1422,6 @@ note("الرادار ومواقع الآخرين على شاشتك فقط؛ ال
 
 newSection("🚀 الطيران والسرعة", true)
 title("🚀 الطيران والتحكم")
-local flyButton
 flyButton = toggle("الطيران الحر — يد سوني وكيبورد", "Fly", function(on)
     if on then
         if followTarget then stopCameraFollow(true) end
@@ -1650,9 +1740,37 @@ action("📍 الانتقال إلى اللاعب المحدد", function()
     tryTeleport(selectedPlayer)
 end)
 title("🎥 متابعة كاميرا اللاعب")
-note("تختار لاعبًا من القائمة، وتتابعه بالكاميرا من دون نقل شخصيتك. الرجوع يعيد الكاميرا إليك.")
+note("اختر لاعبًا من القائمة أو اكتب اسمه بالبحث، ثم اضغط متابعة. الكاميرا الحرة تدعم الدوران والتقريب؛ إذا كانت اللعبة تعيد الكاميرا تلقائيًا جرّب المتابعة الثابتة.")
+cameraStatusLabel = note("الكاميرا: شخصيتي | اختر لاعبًا واضغط متابعة")
+local function chosenForCamera()
+    local current = selectedPlayer and selectedPlayer.Parent == Players
+        and selectedPlayer ~= LocalPlayer and selectedPlayer or nil
+    local query = string.lower((search and search.Text or "")):match("^%s*(.-)%s*$")
+    if query == "" then return current end
+    local exact, match, count = nil, nil, 0
+    for _, candidate in ipairs(Players:GetPlayers()) do
+        if candidate ~= LocalPlayer then
+            local username = string.lower(candidate.Name)
+            local displayname = string.lower(candidate.DisplayName)
+            if username == query or displayname == query then exact = candidate end
+            if username:find(query, 1, true) or displayname:find(query, 1, true) then
+                match, count = candidate, count + 1
+            end
+        end
+    end
+    local result = exact or (count == 1 and match or nil) or current
+    if result then
+        selectedPlayer = result
+        chosen.Text = "المحدد: @" .. result.Name
+        chosen.TextColor3 = COLORS.green
+    end
+    return result
+end
 action("🎥 متابعة اللاعب المحدد", function()
-    startCameraFollow(selectedPlayer)
+    startCameraFollow(chosenForCamera(), false)
+end)
+action("📷 متابعة ثابتة خلف اللاعب (بديل للمابات المقيدة)", function()
+    startCameraFollow(chosenForCamera(), true)
 end)
 action("↩️ إعادة الكاميرا لشخصيتي", function()
     stopCameraFollow(false)
@@ -1748,8 +1866,14 @@ local function refreshList()
     local phrase = string.lower(search.Text)
     local all = Players:GetPlayers()
     table.sort(all, function(a, b) return a.Name:lower() < b.Name:lower() end)
+    -- Cap the number of simultaneously rendered player buttons. Filtering
+    -- still searches *every* player, even if not shown on the first view.
+    local displayed = 0
+    local displayLimit = state.LowPerformance and 28 or 65
     for _, player in ipairs(all) do
         if player ~= LocalPlayer and (phrase == "" or safeText(player.Name):lower():find(phrase, 1, true) or safeText(player.DisplayName):lower():find(phrase, 1, true)) then
+            if displayed >= displayLimit then break end
+            displayed = displayed + 1
             local role, roleType = getRole(player, false)
             local b = make("TextButton", {
                 Size = UDim2.new(1, -4, 0, 55),
@@ -1986,7 +2110,7 @@ local function scanVisibleTitles()
     titleEntries = {}
     local ok, scanned, truncated = pcall(function()
         return visitVisible({ReplicatedStorage, Workspace, game:GetService("StarterGui"), PlayerGui},
-            16000, function(obj)
+            2500, function(obj)
                 if obj == gui or obj:IsDescendantOf(gui) then return false end
                 if obj:IsA("StringValue") then
                     if titleField(obj.Name) then
@@ -2244,51 +2368,59 @@ for i, info in ipairs(shortcuts) do
     end)
 end
 
--- Reduced background work: only active features get updates.
-local elapsed, adminElapsed, dragElapsed, radarElapsed, cameraElapsed = 0, 0, 0, 0, 0
-listen(RunService.Stepped, function()
-    if alive and state.Noclip then applyNoclip() end
+-- Freeze mitigation: keep the render thread strictly for flight.
+-- Optional radar/ESP/visual-carry updates use slower Heartbeat ticks.
+local elapsed, adminElapsed, dragElapsed, radarElapsed, noclipElapsed = 0, 0, 0, 0, 0
+listen(RunService.RenderStepped, function()
+    if alive and state.Fly then updateFlight() end
 end)
-listen(RunService.RenderStepped, function(dt)
+listen(RunService.Heartbeat, function(dt)
     if not alive then return end
-    if state.Fly then updateFlight() end
+    dt = math.min(dt, .2)
+    noclipElapsed = noclipElapsed + dt
+    if state.Noclip and noclipElapsed >= .25 then
+        noclipElapsed = 0
+        applyNoclip()
+    end
     if dragClone then
         dragElapsed = dragElapsed + dt
-        local dragPeriod = state.LowPerformance and .085 or .033
-        if dragElapsed >= dragPeriod then
+        if dragElapsed >= (state.LowPerformance and .17 or .12) then
             updateVisualDrag(dragElapsed)
             dragElapsed = 0
         end
     end
     if state.Radar then
         radarElapsed = radarElapsed + dt
-        if radarElapsed >= (state.LowPerformance and 1.25 or .45) then
+        if radarElapsed >= (state.LowPerformance and 2 or .85) then
             radarElapsed = 0
             updateRadar()
         end
     end
-    if followTarget then
-        cameraElapsed = cameraElapsed + dt
-        if cameraElapsed >= .5 then
-            cameraElapsed = 0
-            refreshCameraFollow()
-        end
-    end
     elapsed = elapsed + dt
     adminElapsed = adminElapsed + dt
-    if elapsed >= (state.LowPerformance and 1.15 or .5) then
+    if elapsed >= (state.LowPerformance and 2 or .85) then
         elapsed = 0
         if state.LocalInvisible then applyLocalInvisible() end
         if state.Speed then applySpeed() end
         if state.ESP then refreshHighlights() end
     end
-    if adminElapsed >= (state.LowPerformance and 6 or 3) then
+    if adminElapsed >= (state.LowPerformance and 8 or 4.5) then
         adminElapsed = 0
         if state.AdminESP then refreshAdminVision() end
     end
 end)
 listen(LocalPlayer.CharacterAdded, function()
     stopCameraFollow(true)
+    task.delay(.6, function()
+        if alive and not followTarget then
+            local camera = Workspace.CurrentCamera
+            local hum = localHumanoid()
+            if camera and hum then
+                camera.CameraType = Enum.CameraType.Custom
+                camera.CameraSubject = hum
+            end
+        end
+    end)
     clearTitlePreview()
     stopDrag()
     stopFlight()
@@ -2330,11 +2462,26 @@ local function cleanup()
 end
 _G.NOVA_SuiteV16ProCleanup = cleanup
 listen(close.MouseButton1Click, cleanup)
--- Initial scan covers tools already present when joining a supported experience.
-task.defer(function()
-    if alive then
-        local ok, err = pcall(refreshToolUI)
-        if not ok then warn("NOVA initial tool list: " .. safeText(err)) end
-    end
+-- Emergency unload: if an optional feature misbehaves, press F8 instead of
+-- waiting for the UI to respond. The function also restores flight state.
+listen(UserInputService.InputBegan, function(input)
+    if input.KeyCode == Enum.KeyCode.F8 then cleanup() end
 end)
-print("NOVA v16 PRO PLUS: optional camera follow, local avatar carry, radar, inventory manager, settings and low-load mode.")
+-- Lazy tool list: defer all inventory-row allocations until the user opens
+-- that section; this reduces load when the GUI is first activated.
+local toolSection = sectionPanels["🎒 مدير الأدوات"]
+if toolSection then
+    listen(toolSection.contents:GetPropertyChangedSignal("Visible"), function()
+        if alive and toolSection.contents.Visible then
+            task.defer(function()
+                if alive then
+                    local ok, err = pcall(refreshToolUI)
+                    if not ok then warn("NOVA tool list: " .. safeText(err)) end
+                end
+            end)
+        end
+    end)
+end
+-- All UI widgets are constructed; no additional startup pacing needed.
+bootingDashboard = false
+print("NOVA v16 PRO PLUS SAFE: startup UI paced, lazy tool list, capped scans, slow optional updates. Press F8 to unload.")
