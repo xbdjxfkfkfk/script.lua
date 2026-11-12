@@ -14,6 +14,13 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
 if not PlayerGui then return end
 
+-- V16 stability fix: data from a game or saved favorites may be missing.
+-- Keep the original controls and behaviors; never concatenate nil into UI text.
+local function safeText(value, fallback)
+    if value == nil then return fallback or "" end
+    return tostring(value)
+end
+
 -- Re-running cleans up prior UI and loops.
 for _, oldKey in ipairs({"NOVA_SuiteV16Cleanup", "NOVA_SuiteV15Cleanup", "NOVA_SuiteV14Cleanup", "NOVA_SuiteV13Cleanup", "NOVA_SuiteV12Cleanup", "NOVA_SuiteV11Cleanup", "NOVA_SuiteV10Cleanup", "NOVA_SuiteV9Cleanup", "NOVA_SuiteV8Cleanup"}) do
     local previous = rawget(_G, oldKey)
@@ -200,7 +207,8 @@ local status = make("TextLabel", {
 }, main)
 round(status, 8)
 local function say(txt, good)
-    status.Text = txt
+    if not alive or not status.Parent then return end
+    status.Text = safeText(txt, "")
     status.TextColor3 = good and COLORS.green or COLORS.orange
 end
 
@@ -222,7 +230,12 @@ local function action(text, callback, heightArg)
     }, scroller)
     round(b, 9)
     listen(b.MouseButton1Click, function()
-        if alive then callback(b) end
+        if not alive then return end
+        local ok, err = pcall(callback, b)
+        if not ok then
+            warn("NOVA v16 button error: " .. safeText(err, "unknown"))
+            say("تعذّر تنفيذ الزر؛ راجع تفاصيل الخطأ في وحدة التحكم", false)
+        end
     end)
     return b
 end
@@ -446,6 +459,11 @@ if filesystemSaving then
         if type(loaded) == "table" then favorites = loaded end
     end)
 end
+for key, name in pairs(favorites) do
+    if type(key) ~= "string" or type(name) ~= "string" or name == "" then
+        favorites[key] = nil
+    end
+end
 local function saveFavorites()
     _G.NOVA_SuiteFavorites = favorites
     if filesystemSaving then
@@ -461,7 +479,7 @@ local toolsInfo = nil
 local toolScanRunning = false
 local function toolKey(name)
     -- One instance per normalized name, regardless of how many templates exist.
-    return name:gsub("^%s+", ""):gsub("%s+$", ""):lower()
+    return safeText(name):gsub("^%s+", ""):gsub("%s+$", ""):lower()
 end
 local function toolInSomeoneCharacter(obj)
     if not obj:IsDescendantOf(Workspace) then return false end
@@ -642,7 +660,7 @@ local function getRole(player)
     end
     local candidate = visibleAdminTool(player)
     if candidate then
-        return "أداة ظاهرة: " .. candidate .. " (اشتباه فقط)", "tool"
+        return "أداة ظاهرة: " .. safeText(candidate, "غير معروفة") .. " (اشتباه فقط)", "tool"
     end
     return "صلاحيات الأدمن غير معروفة", "unknown"
 end
@@ -723,7 +741,7 @@ local function refreshAdminVision()
                     }, gui)
                     local label = make("TextLabel", {
                         Name = "RoleText", Size = UDim2.fromScale(1, 1),
-                        Text = tag .. "\n@" .. player.Name,
+                        Text = safeText(tag) .. "\n@" .. safeText(player.Name),
                         TextColor3 = color, TextStrokeColor3 = Color3.new(0, 0, 0),
                         TextStrokeTransparency = .15, BackgroundTransparency = 1,
                         Font = Enum.Font.GothamBold, TextSize = 13,
@@ -880,7 +898,7 @@ action("📍 عرض الأدوات القريبة من شخصيتي", function()
     table.sort(found, function(a, b) return a.distance < b.distance end)
     local names = {}
     for i = 1, math.min(5, #found) do
-        table.insert(names, found[i].name .. " (" .. math.floor(found[i].distance) .. "m)")
+        table.insert(names, safeText(found[i].name, "أداة") .. " (" .. math.floor(found[i].distance) .. "m)")
     end
     nearbyToolsInfo.Text = (#found == 0) and "لا توجد أدوات مرئية ضمن 100 وحدة من موقعك"
         or ("أقرب الأدوات (" .. #found .. "): " .. table.concat(names, "، "))
@@ -982,7 +1000,7 @@ refreshToolUI = function()
             end
             if item and hum then
                 local ok = pcall(function() hum:EquipTool(item) end)
-                say(ok and "حاولت تجهيز " .. name or "تعذّر تجهيز هذه الأداة", ok)
+                say(ok and ("حاولت تجهيز " .. safeText(name, "الأداة")) or "تعذّر تجهيز هذه الأداة", ok)
             else
                 say("الأداة ظاهرة بالاسم لكنها غير موجودة بحقيبتك، ولا يمكن فرض منحها من السيرفر", false)
             end
@@ -1028,7 +1046,7 @@ dragButton = action("🧲 سحب تجريبي محلي للاعب المحدد",
     else
         dragTarget = selectedPlayer
         dragButton.Text = "⏹ إيقاف محاولة السحب المحلية"
-        say("محاولة سحب محلية لـ @" .. selectedPlayer.Name .. "؛ أغلب السيرفرات لن تسمح بتغيير موقعه", false)
+        say("محاولة سحب محلية لـ @" .. safeText(selectedPlayer.Name) .. "؛ أغلب السيرفرات لن تسمح بتغيير موقعه", false)
         attemptLocalDrag()
     end
 end)
@@ -1050,11 +1068,11 @@ local function refreshList()
     local all = Players:GetPlayers()
     table.sort(all, function(a, b) return a.Name:lower() < b.Name:lower() end)
     for _, player in ipairs(all) do
-        if player ~= LocalPlayer and (phrase == "" or player.Name:lower():find(phrase, 1, true) or player.DisplayName:lower():find(phrase, 1, true)) then
+        if player ~= LocalPlayer and (phrase == "" or safeText(player.Name):lower():find(phrase, 1, true) or safeText(player.DisplayName):lower():find(phrase, 1, true)) then
             local role, roleType = getRole(player)
             local b = make("TextButton", {
                 Size = UDim2.new(1, -4, 0, 55),
-                Text = player.DisplayName .. " (@" .. player.Name .. ")\n" .. role,
+                Text = safeText(player.DisplayName, "لاعب") .. " (@" .. safeText(player.Name) .. ")\n" .. safeText(role, "غير معروف"),
                 TextColor3 = roleType == "owner" and COLORS.green or (roleType == "possible" and COLORS.orange or COLORS.white),
                 BackgroundColor3 = COLORS.panel2,
                 TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true,
@@ -1063,7 +1081,7 @@ local function refreshList()
             round(b, 8)
             listen(b.MouseButton1Click, function()
                 selectedPlayer = player
-                chosen.Text = "المحدد: @" .. player.Name .. "  |  " .. role
+                chosen.Text = "المحدد: @" .. safeText(player.Name) .. "  |  " .. safeText(role, "غير معروف")
                 chosen.TextColor3 = COLORS.green
                 say("تم اختيار اللاعب؛ استخدم زر الانتقال أو زر السحب", true)
             end)
@@ -1173,7 +1191,7 @@ local function addTitleCandidate(label, source)
     if not label then return end
     local key = label:lower()
     if not titleEntries[key] then
-        titleEntries[key] = {name = label, source = source}
+        titleEntries[key] = {name = label, source = safeText(source, "مصدر غير محدد")}
     end
 end
 local function currentTitleFromReplicatedData()
@@ -1386,7 +1404,7 @@ action("🏷️ فتح نظام الألقاب الأصلي للتجهيز ال�
 action("✅ قراءة لقبي المسجل في بيانات اللعبة", function()
     local active, source = currentTitleFromReplicatedData()
     if active then
-        say("لقب ظاهر ببياناتك: «" .. active .. "» (" .. source .. "). لا يثبت ذلك ظهوره للجميع", true)
+        say("لقب ظاهر ببياناتك: «" .. safeText(active) .. "» (" .. safeText(source, "غير محدد") .. "). لا يثبت ذلك ظهوره للجميع", true)
     else
         say("ما فيه لقب معلن ضمن بياناتك المتاحة. التفعيل الحقيقي من واجهة اللعبة", false)
     end
@@ -1426,29 +1444,31 @@ refreshTitleList = function()
             table.insert(live, entry)
         end
     end
-    table.sort(live, function(a,b) return a.name:lower() < b.name:lower() end)
+    table.sort(live, function(a,b) return safeText(a.name):lower() < safeText(b.name):lower() end)
     for _, entry in ipairs(live) do table.insert(results, entry) end
     for i=1, math.min(#results, 90) do
         local entry = results[i]
         local isCatalog = entry.catalog
-        local desc = isCatalog and (entry.screenshotState .. " | " .. entry.requirement) or ("مرصود: " .. entry.source)
+        local desc = isCatalog
+            and (safeText(entry.screenshotState, "غير محدد") .. " | " .. safeText(entry.description, "غير محدد"))
+            or ("مرصود: " .. safeText(entry.source, "مصدر غير محدد"))
         local b = make("TextButton", {
             Size = UDim2.new(1, -5, 0, isCatalog and 68 or 50),
             BackgroundColor3 = COLORS.panel2,
             TextColor3 = COLORS.white, TextWrapped = true,
-            Text = (isCatalog and "🏷️ " or "🔎 ") .. entry.name .. "\n" .. desc,
+            Text = (isCatalog and "🏷️ " or "🔎 ") .. safeText(entry.name, "لقب") .. "\n" .. desc,
             TextSize = 12, Font = Enum.Font.GothamMedium,
         }, titleList)
         round(b, 8)
         listen(b.MouseButton1Click, function()
             selectedTitle = entry.name
             if isCatalog then
-                catalogSelectionNote.Text = "اللقب: " .. entry.name .. " | الشرط: " .. entry.requirement
-                    .. " | الحالة بالصور: " .. entry.screenshotState
-                say("اخترت «" .. selectedTitle .. "». للتجهيز الحقيقي استخدم زر نظام الألقاب الرسمي في VOLL", true)
+                catalogSelectionNote.Text = "اللقب: " .. safeText(entry.name, "لقب") .. " | الشرط: " .. safeText(entry.description, "غير محدد")
+                    .. " | الحالة بالصور: " .. safeText(entry.screenshotState, "غير محدد")
+                say("اخترت «" .. safeText(selectedTitle) .. "». للتجهيز الحقيقي استخدم زر نظام الألقاب الرسمي في VOLL", true)
             else
-                catalogSelectionNote.Text = "اللقب المرصود: " .. entry.name .. " | " .. entry.source
-                say("رُصد «" .. selectedTitle .. "» في بيانات ظاهرة، ولا يعني أنه متاح لحسابك", true)
+                catalogSelectionNote.Text = "اللقب المرصود: " .. safeText(entry.name, "لقب") .. " | " .. safeText(entry.source, "مصدر غير محدد")
+                say("رُصد «" .. safeText(selectedTitle) .. "» في بيانات ظاهرة، ولا يعني أنه متاح لحسابك", true)
             end
         end)
     end
@@ -1528,6 +1548,18 @@ _G.NOVA_SuiteV16Cleanup = cleanup
 listen(close.MouseButton1Click, cleanup)
 -- Initial scan covers tools already present when joining a supported experience.
 task.defer(scheduleToolScan)
-task.defer(scanVisibleTitles)
-task.defer(refreshToolUI)
+task.defer(function()
+    local ok, err = pcall(scanVisibleTitles)
+    if not ok then
+        warn("NOVA v16 title scan: " .. safeText(err))
+        say("تعذّر فحص الألقاب التلقائي؛ تقدر تعيد الفحص من القائمة", false)
+    end
+end)
+task.defer(function()
+    local ok, err = pcall(refreshToolUI)
+    if not ok then
+        warn("NOVA v16 tool list: " .. safeText(err))
+        say("تعذّر تحديث قائمة الأدوات تلقائيًا؛ جرّب زر التحديث", false)
+    end
+end)
 print("NOVA SUITE v16 loaded: VOLL screenshot titles catalog + official UI navigation. No client-only titles created.")
