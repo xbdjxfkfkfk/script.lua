@@ -1,4 +1,4 @@
--- NOVA SUITE v16 PRO | Cuff diagnostic, local activation test, collapsible interface
+-- NOVA SUITE v16 PRO | Admin-cuff exact-match diagnostic, collapsible interface
 -- Roblox Luau. No server admin/permissions bypass; server controls other players.
 -- Flight: left stick + camera direction, including ascent/descent when looking up/down.
 -- Keyboard: WASD + mouse look. Both movement speeds adjustable +/-.
@@ -999,36 +999,55 @@ toolsInfo = note("لم يبدأ فحص الأدوات بعد. الزر يضيف 
 note("زر الفحص يقرأ الأدوات المتاحة لجهازك على دفعات، حتى لا يعلّق الماب. النسخ المحلية ليست منحًا من السيرفر.")
 
 do
-    -- Inspect handcuffs available to this client; favor genuine inventory items.
-    -- A copied Tool does not acquire the server-side permission to arrest anyone.
-    local function findCuff()
-        local found = nil
+    -- Tool selection must be explicit: do not silently equip ordinary Handcuffs
+    -- when the player asked for Admin Handcuffs. Never bypass server permissions.
+    local function isCuffName(name)
+        name = name:lower()
+        return name:find("cuff", 1, true)
+            or name:find("arrest", 1, true)
+            or name:find("restraint", 1, true)
+            or name:find("كلبش", 1, true)
+            or name:find("تقييد", 1, true)
+    end
+    local function isAdminName(name)
+        name = name:lower()
+        return name:find("admin", 1, true)
+            or name:find("mod cuff", 1, true)
+            or name:find("أدمن", 1, true)
+            or name:find("ادمن", 1, true)
+            or name:find("ادمين", 1, true)
+    end
+    local function allCuffs()
+        local found = {}
         local holders = {}
         if LocalPlayer.Character then table.insert(holders, LocalPlayer.Character) end
         local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
         if backpack then table.insert(holders, backpack) end
         for _, holder in ipairs(holders) do
-            if holder then
-                for _, obj in ipairs(holder:GetChildren()) do
-                    if obj:IsA("Tool") then
-                        local name = obj.Name:lower()
-                        if name:find("cuff", 1, true)
-                            or name:find("arrest", 1, true)
-                            or name:find("restraint", 1, true)
-                            or name:find("كلبش", 1, true)
-                            or name:find("تقييد", 1, true) then
-                            if not found or (found:GetAttribute("NOVA_LocalCopy") == true and obj:GetAttribute("NOVA_LocalCopy") ~= true) then
-                                found = obj
-                            end
-                        end
-                    end
+            for _, obj in ipairs(holder:GetChildren()) do
+                if obj:IsA("Tool") and isCuffName(obj.Name) then
+                    table.insert(found, obj)
                 end
             end
         end
+        table.sort(found, function(a,b)
+            local function priority(t)
+                return (isAdminName(t.Name) and 100 or 0)
+                    + (t:GetAttribute("NOVA_LocalCopy") ~= true and 10 or 0)
+                    + (t.Parent == LocalPlayer.Character and 1 or 0)
+            end
+            return priority(a) > priority(b)
+        end)
         return found
     end
+    local function findAdminCuff()
+        for _, tool in ipairs(allCuffs()) do
+            if isAdminName(tool.Name) then return tool end
+        end
+        return nil
+    end
     local function cuffDetails(tool)
-        if not tool then return "لم أجد كلبشة في الحقيبة أو الشخصية" end
+        if not tool then return "لم أجد كلبشة أدمن في الحقيبة أو الشخصية" end
         local isCopy = tool:GetAttribute("NOVA_LocalCopy") == true
         local handleOk = not tool.RequiresHandle or tool:FindFirstChild("Handle") ~= nil
         local kind = isCopy and "نسخة محلية أنشأها NOVA" or "أداة ليست نسخة NOVA (الصلاحية غير مؤكدة)"
@@ -1036,46 +1055,58 @@ do
             .. (handleOk and "المقبض سليم" or "المقبض المطلوب مفقود")
             .. ", " .. (tool.Enabled and "مفعلة محليًا" or "معطّلة")
     end
-    action("🔎 فحص كلبشة الأدمن ومصدرها", function()
-        local tool = findCuff()
-        if not tool then say("لم أجد كلبشة؛ افتح حقيبتك أو أعد فحص الأدوات", false); return end
-        local details = cuffDetails(tool)
+    action("🔎 فحص كلبشات الأدمن والعادية", function()
+        local found = allCuffs()
+        local names = {}
+        for i, tool in ipairs(found) do
+            if i > 9 then break end
+            table.insert(names, (isAdminName(tool.Name) and "[أدمن] " or "[عادية] ")
+                .. tool.Name .. (tool:GetAttribute("NOVA_LocalCopy") == true and " (نسخة NOVA)" or ""))
+        end
+        local admin = findAdminCuff()
+        local details = (#names == 0 and "لا توجد كلبشات في الحقيبة" or table.concat(names, " | "))
+            .. (admin and ("\nالمحددة للتجربة: " .. cuffDetails(admin))
+                or "\nما لقيت كلبشة باسم يشير للأدمن؛ لن أستخدم العادية بدلًا منها")
         if toolsInfo then
             toolsInfo.Text = details
-            toolsInfo.Size = UDim2.new(1, 0, 0, 75)
+            toolsInfo.Size = UDim2.new(1, 0, 0, math.min(150, 70 + #names * 10))
         end
-        say(details, tool:GetAttribute("NOVA_LocalCopy") ~= true)
+        say(admin and ("كلبشة الأدمن المختارة: " .. admin.Name) or "ما لقيت كلبشة أدمن؛ شوف نتائج الفحص فوق", admin ~= nil)
     end, 46)
-    action("🧷 تجهيز الكلبشة وتجربة تفعيلها", function()
-        local tool = findCuff()
-        if not tool then say("ما فيه كلبشة في الحقيبة حاليًا", false); return end
+    action("🧷 تجهيز كلبشة الأدمن فقط وتجربة تفعيلها", function()
+        local tool = findAdminCuff()
+        if not tool then
+            say("ما لقيت كلبشة أدمن في الحقيبة؛ لن أجهّز الكلبشة العادية بالخطأ", false)
+            return
+        end
         local humanoid = localHumanoid()
         local character = LocalPlayer.Character
         if not humanoid or humanoid.Health <= 0 or not character then
             say("شخصيتك غير جاهزة للتجهيز", false); return
         end
         if not tool.Enabled then
-            say("الكلبشة معطلة محليًا، ما يمكن تشغيلها بهذا الزر", false); return
+            say("كلبشة الأدمن معطّلة محليًا: " .. tool.Name, false); return
         end
         if tool.RequiresHandle and not tool:FindFirstChild("Handle") then
-            say("الكلبشة تحتاج Handle غير موجود؛ التجهيز وحده لن يشغّلها", false); return
+            say("كلبشة الأدمن تحتاج Handle غير موجود: " .. tool.Name, false); return
         end
         local equipped, equipErr = pcall(function() humanoid:EquipTool(tool) end)
         if not equipped then
-            say("فشل تجهيز الكلبشة: " .. safeText(equipErr), false); return
+            say("فشل تجهيز كلبشة الأدمن: " .. safeText(equipErr), false); return
         end
         task.delay(.2, function()
-            if not alive or tool.Parent ~= character then
-                if alive then say("لم يثبت تجهيز الكلبشة؛ قد تكون اللعبة رفضتها", false) end
+            if not alive then return end
+            if tool.Parent ~= character then
+                say("لم يثبت تجهيز كلبشة الأدمن «" .. tool.Name .. "»", false)
                 return
             end
             local activated, activateErr = pcall(function() tool:Activate() end)
             if not activated then
-                say("تعذّر تشغيل حدث الكلبشة: " .. safeText(activateErr), false)
+                say("تعذّر تنشيط «" .. tool.Name .. "»: " .. safeText(activateErr), false)
             elseif tool:GetAttribute("NOVA_LocalCopy") == true then
-                say("جرّبت تنشيط نسخة NOVA المحلية فقط؛ هذا لا يقيّد اللاعبين من السيرفر", false)
+                say("تنشيط محلي لنسخة NOVA «" .. tool.Name .. "»؛ صلاحيات السيرفر غير متاحة", false)
             else
-                say("أرسلت تفعيل الأداة على جهازك. جرّب توجيهها للاعب والنقر داخل الماب؛ نجاح التقييد يحدده السيرفر", false)
+                say("جهزت «" .. tool.Name .. "» ونشّطتها محليًا. التقييد الفعلي يعتمد على سماح سيرفر الماب", false)
             end
         end)
     end, 46)
